@@ -109,7 +109,7 @@ app.use(errorMiddleware);
 // Server
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`\n🛡️  AapdaNetra AI Platform — Server started on port ${PORT}`);
     console.log(`   Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`   AI Service: ${process.env.AI_SERVICE_URL || "http://localhost:8000"}`);

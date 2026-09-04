@@ -1,11 +1,13 @@
 const mongoose = require("mongoose");
 const dns = require("dns");
 
-// Ensure MongoDB Atlas SRV lookups work reliably across Windows & ISP DNS
-try {
-    dns.setServers(["8.8.8.8", "1.1.1.1", ...dns.getServers()]);
-} catch (e) {
-    // Ignore if system restricts dns setServers
+// Ensure MongoDB Atlas SRV lookups work reliably on Windows
+if (process.platform === "win32") {
+    try {
+        dns.setServers(["8.8.8.8", "1.1.1.1", ...dns.getServers()]);
+    } catch (e) {
+        // Ignore if system restricts dns setServers
+    }
 }
 
 const connectDB = async () => {
