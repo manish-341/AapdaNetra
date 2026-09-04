@@ -384,10 +384,10 @@ export default function Login() {
           py: { xs: 4, md: 6, lg: 8 },
           px: { xs: 2.5, md: 6, lg: 8 },
           backgroundImage: isDark
-            ? `linear-gradient(180deg, rgba(8, 12, 20, 0.72) 0%, rgba(8, 12, 20, 0.88) 55%, #080c14 100%), url(${aapdaHeroBg})`
-            : `linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.45) 50%, rgba(255, 255, 255, 0.95) 85%, #ffffff 100%), url(${aapdaHeroBg})`,
+            ? `linear-gradient(180deg, rgba(8, 12, 20, 0.25) 0%, rgba(8, 12, 20, 0.3) 55%, rgba(8, 12, 20, 0.75) 85%, #080c14 100%), url(${aapdaHeroBg})`
+            : `linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, 0.45) 80%, rgba(255, 255, 255, 0.9) 95%, #ffffff 100%), url(${aapdaHeroBg})`,
           backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'top center',
+          backgroundPosition: 'center 22%',
           backgroundSize: 'cover',
         }}
       >
@@ -470,7 +470,7 @@ export default function Login() {
                     alignItems: 'center',
                     flexWrap: 'wrap',
                     gap: { xs: 2, sm: 2.5 },
-                    mb: 4,
+                    mb: 3.5,
                   }}
                 >
                   {/* Pillar 1 */}
@@ -508,35 +508,71 @@ export default function Login() {
                   </Box>
                 </Box>
 
-                {/* Floating Cursive Brush Sticker: "Together for a Safer Tomorrow" */}
+                {/* Floating Cursive Brush Sticker: "Together for a Safer Tomorrow" (Mockup-identical 3-line layout) */}
                 <Box
                   sx={{
                     display: 'inline-flex',
                     flexDirection: 'column',
-                    transform: 'rotate(-4deg)',
-                    mt: 1,
+                    alignItems: 'flex-start',
+                    transform: 'rotate(-15deg)',
+                    transformOrigin: 'left bottom',
+                    mt: { xs: 2, md: 3 },
+                    mb: 1,
+                    filter: isDark
+                      ? 'drop-shadow(0 6px 18px rgba(0, 0, 0, 0.8))'
+                      : 'drop-shadow(0 3px 10px rgba(255, 255, 255, 0.95))',
+                    userSelect: 'none',
                   }}
                 >
-                  <Typography
+                  <Box
                     sx={{
                       fontFamily: '"Caveat", cursive',
-                      fontSize: { xs: '1.65rem', sm: '2rem' },
+                      fontSize: { xs: '2rem', sm: '2.5rem', lg: '2.85rem' },
                       fontWeight: 700,
-                      color: primaryBrandBlue,
-                      lineHeight: 1.1,
-                      textShadow: '0 2px 10px rgba(255, 255, 255, 0.8)',
+                      lineHeight: 0.92,
+                      letterSpacing: '-0.02em',
+                      color: isDark ? '#ffffff' : '#0c2340',
+                      textShadow: isDark
+                        ? '0 2px 8px rgba(0, 0, 0, 0.95), 0 0 25px rgba(0, 101, 255, 0.45)'
+                        : '0 2px 4px rgba(255, 255, 255, 0.95), 0 0 12px rgba(255, 255, 255, 0.9)',
                     }}
                   >
-                    Together for a Safer Tomorrow
-                  </Typography>
-                  <svg width="150" height="12" viewBox="0 0 150 12" fill="none">
-                    <path
-                      d="M 5,6 Q 75,12 145,5"
-                      stroke={primaryBrandBlue}
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                    <Box component="span" sx={{ display: 'block' }}>
+                      Together
+                    </Box>
+                    <Box component="span" sx={{ display: 'block', pl: 1 }}>
+                      for a Safer
+                    </Box>
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'block',
+                        pl: 2,
+                        color: isDark ? '#60a5fa' : '#0065ff',
+                      }}
+                    >
+                      Tomorrow
+                    </Box>
+                  </Box>
+
+                  {/* Hand-drawn double energetic brush swoosh underline */}
+                  <Box sx={{ width: '100%', mt: 0.4, pl: 1.5 }}>
+                    <svg width="165" height="18" viewBox="0 0 165 18" fill="none">
+                      <path
+                        d="M 6,7 C 48,15 110,14 160,4"
+                        stroke={primaryBrandBlue}
+                        strokeWidth="3.4"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M 22,14 C 60,18 105,17 148,10"
+                        stroke={isDark ? '#38bdf8' : '#0052cc'}
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        opacity="0.85"
+                      />
+                    </svg>
+                  </Box>
                 </Box>
               </Box>
             </Grid>
