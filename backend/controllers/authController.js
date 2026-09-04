@@ -235,12 +235,115 @@ const deleteUser = async (req, res) => {
     }
 };
 
+// ==========================================
+// GOOGLE OAUTH 2.0 HELPERS & HANDLERS
+// ==========================================
+
+// Helper to determine exact callback URL safely distinguishing local dev vs Render production
+const resolveGoogleCallbackUrl = (req) => {
+    const host = req.get("host") || "";
+    const isProduction = process.env.NODE_ENV === "production" || host.includes("onrender.com");
+    const envCallback = process.env.GOOGLE_CALLBACK_URL;
+
+    // If explicit env var is set, verify it is not accidentally using localhost in production
+    if (envCallback) {
+        if (isProduction && (envCallback.includes("localhost") || envCallback.includes("127.0.0.1"))) {
+            console.warn(`[Google OAuth] Detected localhost in GOOGLE_CALLBACK_URL while on production host (${host}). Dynamically overriding to HTTPS production callback.`);
+            return `https://${host}/api/auth/google/callback`;
+        }
+        return envCallback;
+    }
+
+    // Auto-detect protocol and host (respects reverse proxy headers)
+    const protoHeader = req.get("x-forwarded-proto");
+    const protocol = isProduction || protoHeader === "https" || req.protocol === "https" ? "https" : "http";
+    return `${protocol}://${host}/api/auth/google/callback`;
+};
+
+// Helper to determine frontend destination URL
+const resolveFrontendUrl = (req) => {
+    const host = req.get("host") || "";
+    const isProduction = process.env.NODE_ENV === "production" || host.includes("onrender.com");
+    const envFrontend = process.env.FRONTEND_URL;
+
+    if (isProduction) {
+        if (!envFrontend || envFrontend.includes("localhost") || envFrontend.includes("127.0.0.1")) {
+            return "https://aapdanetra-frontend.onrender.com";
+        }
+        return envFrontend;
+    }
+
+    return envFrontend || "http://localhost:5173";
+};
+
+// Helper to verify Google Token / UserInfo and enforce email_verified check
+const verifyGoogleCredential = async ({ access_token, id_token, clientId }) => {
+    let verifiedEmail = null;
+    let verifiedSub = null;
+    let verifiedName = null;
+    let verifiedPicture = null;
+    let isEmailVerified = false;
+
+    // 1. If id_token is provided, verify against Google's tokeninfo endpoint
+    if (id_token) {
+        try {
+            const tokenInfoRes = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${id_token}`);
+            if (tokenInfoRes.data) {
+                const { aud, sub, email, email_verified, name, picture } = tokenInfoRes.data;
+                if (clientId && aud !== clientId) {
+                    throw new Error(`Google ID token audience mismatch: expected ${clientId}, received ${aud}`);
+                }
+                verifiedSub = sub;
+                verifiedEmail = email;
+                verifiedName = name;
+                verifiedPicture = picture;
+                isEmailVerified = email_verified === true || email_verified === "true";
+                console.log(`[Google OAuth] Tokeninfo validated successfully for: ${verifiedEmail}`);
+            }
+        } catch (e) {
+            console.warn("[Google OAuth] ID token tokeninfo check error:", e.response?.data || e.message);
+        }
+    }
+
+    // 2. Verified Google UserInfo endpoint using Bearer access_token
+    if (!verifiedSub || !verifiedEmail) {
+        const userInfoResponse = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
+            headers: { Authorization: `Bearer ${access_token}` }
+        });
+        const data = userInfoResponse.data;
+        verifiedSub = data.sub;
+        verifiedEmail = data.email;
+        verifiedName = data.name;
+        verifiedPicture = data.picture;
+        isEmailVerified = data.email_verified === true || data.email_verified === "true";
+        console.log(`[Google OAuth] UserInfo endpoint validated successfully for: ${verifiedEmail}`);
+    }
+
+    if (!verifiedEmail || !verifiedSub) {
+        throw new Error("Missing verified email or sub identifier from Google authentication response.");
+    }
+
+    // Strict Security Requirement: Reject accounts where email is not verified by Google
+    if (!isEmailVerified) {
+        throw new Error("Your Google email is not verified. Google requires an active, verified email to proceed.");
+    }
+
+    return {
+        sub: verifiedSub,
+        email: verifiedEmail.toLowerCase().trim(),
+        name: verifiedName,
+        picture: verifiedPicture
+    };
+};
+
 // Initiate Google OAuth 2.0 Full-Page Redirect
 const googleAuth = async (req, res) => {
     try {
         const clientId = process.env.GOOGLE_CLIENT_ID;
-        const callbackUrl = process.env.GOOGLE_CALLBACK_URL || `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
-        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+        const callbackUrl = resolveGoogleCallbackUrl(req);
+        const frontendUrl = resolveFrontendUrl(req);
+
+        console.log(`[Google OAuth] Initiating login | Host: ${req.get("host")} | Client ID: ${clientId} | Redirect URI: ${callbackUrl}`);
 
         // Map role if passed in query (e.g., citizen, responder, administrator, volunteer)
         let requestedRole = "CITIZEN";
@@ -253,7 +356,7 @@ const googleAuth = async (req, res) => {
             else requestedRole = "CITIZEN";
         }
 
-        // 1. If real Google Client ID is configured in .env, redirect to official Google Accounts consent screen
+        // 1. If real Google Client ID is configured, redirect to official Google Accounts consent screen
         if (clientId && clientId !== "your_google_client_id_here") {
             const statePayload = Buffer.from(
                 JSON.stringify({ role: requestedRole, timestamp: Date.now() })
@@ -318,7 +421,7 @@ const googleAuth = async (req, res) => {
         );
     } catch (error) {
         console.error("googleAuth error:", error);
-        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+        const frontendUrl = resolveFrontendUrl(req);
         return res.redirect(
             `${frontendUrl}/login?error=${encodeURIComponent("Failed to complete Google authentication: " + error.message)}`
         );
@@ -327,14 +430,14 @@ const googleAuth = async (req, res) => {
 
 // Handle Google OAuth 2.0 Callback
 const googleCallback = async (req, res) => {
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const frontendUrl = resolveFrontendUrl(req);
     try {
         const { code, state, error: googleError } = req.query;
 
         if (googleError) {
-            console.warn("Google OAuth error from Google:", googleError);
+            console.warn("[Google OAuth] Error received from Google consent screen:", googleError);
             return res.redirect(
-                `${frontendUrl}/auth/callback?error=${encodeURIComponent("Google authentication was cancelled or denied")}`
+                `${frontendUrl}/auth/callback?error=${encodeURIComponent("Google authentication was cancelled or denied: " + googleError)}`
             );
         }
 
@@ -346,7 +449,9 @@ const googleCallback = async (req, res) => {
 
         const clientId = process.env.GOOGLE_CLIENT_ID;
         const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-        const callbackUrl = process.env.GOOGLE_CALLBACK_URL || `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+        const callbackUrl = resolveGoogleCallbackUrl(req);
+
+        console.log(`[Google OAuth Callback] Code received | Exchanging with Google using Redirect URI: ${callbackUrl}`);
 
         // Decode requested role from state
         let requestedRole = "CITIZEN";
@@ -355,7 +460,7 @@ const googleCallback = async (req, res) => {
                 const parsedState = JSON.parse(Buffer.from(state, "base64").toString("utf8"));
                 if (parsedState?.role) requestedRole = parsedState.role;
             } catch (err) {
-                console.warn("Could not parse OAuth state:", err.message);
+                console.warn("[Google OAuth] Could not parse OAuth state:", err.message);
             }
         }
 
@@ -374,23 +479,17 @@ const googleCallback = async (req, res) => {
             }
         );
 
-        const { access_token } = tokenResponse.data;
+        const { access_token, id_token } = tokenResponse.data;
         if (!access_token) {
-            throw new Error("No access token returned by Google");
+            throw new Error("No access token returned by Google OAuth server");
         }
 
-        // Retrieve verified user profile from Google UserInfo endpoint
-        const userInfoResponse = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
-            headers: { Authorization: `Bearer ${access_token}` }
+        // Cryptographically verify identity and enforce email_verified check
+        const { sub, email: normalizedEmail, name, picture } = await verifyGoogleCredential({
+            access_token,
+            id_token,
+            clientId
         });
-
-        const { sub, email, name, picture } = userInfoResponse.data;
-
-        if (!email || !sub) {
-            throw new Error("Google user profile missing email or sub identifier");
-        }
-
-        const normalizedEmail = email.toLowerCase().trim();
 
         // Find or create user in MongoDB (using sub as stable Google user ID)
         let user = await User.findOne({
@@ -450,6 +549,8 @@ const googleCallback = async (req, res) => {
             avatar: user.avatar,
             authProvider: "google"
         };
+
+        console.log(`[Google OAuth Callback] Successfully authenticated citizen: ${user.email} (Role: ${user.role})`);
 
         const encodedUser = encodeURIComponent(JSON.stringify(userData));
         return res.redirect(
@@ -569,7 +670,9 @@ const googleExchangeCode = async (req, res) => {
         }
         const clientId = process.env.GOOGLE_CLIENT_ID;
         const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-        const callbackUrl = redirectUri || process.env.GOOGLE_CALLBACK_URL || "http://localhost:5173/auth/callback";
+        const callbackUrl = redirectUri || resolveGoogleCallbackUrl(req);
+
+        console.log(`[Google OAuth Exchange] Direct API code exchange with Redirect URI: ${callbackUrl}`);
 
         const tokenResponse = await axios.post(
             "https://oauth2.googleapis.com/token",
@@ -585,17 +688,16 @@ const googleExchangeCode = async (req, res) => {
             }
         );
 
-        const { access_token } = tokenResponse.data;
-        if (!access_token) throw new Error("No access token returned by Google");
+        const { access_token, id_token } = tokenResponse.data;
+        if (!access_token) throw new Error("No access token returned by Google OAuth server");
 
-        const userInfoResponse = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
-            headers: { Authorization: `Bearer ${access_token}` }
+        // Cryptographically verify identity and enforce email_verified check
+        const { sub, email: normalizedEmail, name, picture } = await verifyGoogleCredential({
+            access_token,
+            id_token,
+            clientId
         });
 
-        const { sub, email, name, picture } = userInfoResponse.data;
-        if (!email || !sub) throw new Error("Missing profile info from Google");
-
-        const normalizedEmail = email.toLowerCase().trim();
         let user = await User.findOne({
             $or: [{ googleId: sub }, { email: normalizedEmail }]
         });
