@@ -171,6 +171,9 @@ export default function Login() {
     }
   };
 
+  // Info Modal State for Navbar Links
+  const [infoModal, setInfoModal] = useState(null); // 'about' | 'how-it-works' | 'contact' | null
+
   return (
     <Box
       sx={{
@@ -182,11 +185,11 @@ export default function Login() {
         transition: 'background-color 0.25s ease, color 0.25s ease',
       }}
     >
-      {/* Clean Top Navigation Bar */}
+      {/* Clean, Compact Top Navigation Bar */}
       <Box
         component="header"
         sx={{
-          py: 1.75,
+          py: 1.35,
           px: { xs: 2.5, md: 6 },
           borderBottom: `1px solid ${borderColor}`,
           backgroundColor: surfaceBg,
@@ -196,39 +199,96 @@ export default function Login() {
           transition: 'background-color 0.25s ease, border-color 0.25s ease',
         }}
       >
-        <Box display="flex" alignItems="center" gap={1.5}>
+        {/* LEFT: Polished Logo + Name Lockup */}
+        <Box display="flex" alignItems="center" gap={1.35}>
           <AapdaNetraLogo size={34} />
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box display="flex" flexDirection="column" justifyContent="center">
             <Typography
               variant="h6"
-              fontWeight={800}
-              letterSpacing="-0.02em"
+              component="span"
               sx={{
-                color: accentBlue,
-                lineHeight: 1,
-                fontSize: '1.2rem',
+                fontWeight: 750,
+                letterSpacing: '-0.02em',
+                color: textPrimary,
+                lineHeight: 1.15,
+                fontSize: '1.18rem',
               }}
             >
               AapdaNetra
             </Typography>
-            <Chip
-              label="DISASTER INTELLIGENCE"
-              size="small"
+            <Typography
+              variant="caption"
+              component="span"
               sx={{
                 fontWeight: 700,
                 fontSize: '0.62rem',
-                letterSpacing: '0.04em',
-                height: 20,
-                backgroundColor: isDark ? 'rgba(56, 189, 248, 0.15)' : '#e0f2fe',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
                 color: accentBlue,
-                border: 'none',
+                lineHeight: 1,
+                mt: 0.25,
               }}
-            />
+            >
+              DISASTER INTELLIGENCE
+            </Typography>
           </Box>
         </Box>
 
-        {/* Top-Right Theme Toggle (☀ / 🌙) */}
-        <Box display="flex" alignItems="center" gap={1.5}>
+        {/* RIGHT: About | How It Works | Contact | Theme Toggle */}
+        <Box display="flex" alignItems="center" gap={{ xs: 1.5, sm: 2.5 }}>
+          <Stack
+            direction="row"
+            spacing={{ xs: 1.5, sm: 2.5 }}
+            sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}
+          >
+            <Typography
+              onClick={() => setInfoModal('about')}
+              sx={{
+                fontSize: '0.84rem',
+                fontWeight: 550,
+                color: textSecondary,
+                cursor: 'pointer',
+                transition: 'color 0.15s ease',
+                '&:hover': { color: accentBlue },
+              }}
+            >
+              About
+            </Typography>
+            <Typography
+              onClick={() => setInfoModal('how-it-works')}
+              sx={{
+                fontSize: '0.84rem',
+                fontWeight: 550,
+                color: textSecondary,
+                cursor: 'pointer',
+                transition: 'color 0.15s ease',
+                '&:hover': { color: accentBlue },
+              }}
+            >
+              How It Works
+            </Typography>
+            <Typography
+              onClick={() => setInfoModal('contact')}
+              sx={{
+                fontSize: '0.84rem',
+                fontWeight: 550,
+                color: textSecondary,
+                cursor: 'pointer',
+                transition: 'color 0.15s ease',
+                '&:hover': { color: accentBlue },
+              }}
+            >
+              Contact
+            </Typography>
+          </Stack>
+
+          <Divider
+            orientation="vertical"
+            flexItem
+            sx={{ display: { xs: 'none', md: 'block' }, height: 18, my: 'auto', borderColor }}
+          />
+
+          {/* Top-Right Theme Toggle (☀ / 🌙) */}
           <IconButton
             onClick={toggleTheme}
             size="small"
@@ -237,7 +297,7 @@ export default function Login() {
             sx={{
               border: `1px solid ${borderColor}`,
               borderRadius: 2,
-              p: 0.9,
+              p: 0.85,
               color: isDark ? '#fbbf24' : '#0284c7',
               backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
               transition: 'all 0.2s ease',
@@ -246,7 +306,7 @@ export default function Login() {
               },
             }}
           >
-            {isDark ? <Sun size={18} /> : <Moon size={18} />}
+            {isDark ? <Sun size={17} /> : <Moon size={17} />}
           </IconButton>
         </Box>
       </Box>
@@ -269,53 +329,56 @@ export default function Login() {
             alignItems="center"
             justifyContent="center"
           >
-            {/* LEFT COLUMN: Clean Minimalist Branding & Mission */}
+            {/* LEFT COLUMN: Clean Minimalist Typography & Mission (No Logo Repeated in Body) */}
             <Grid size={{ xs: 12, md: 6 }}>
               <Box sx={{ pr: { md: 4, lg: 6 } }}>
-                <Box mb={2.5}>
-                  <AapdaNetraLogo size={56} />
-                </Box>
+                {/* Secondary Uppercase Label */}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: 'inline-block',
+                    fontWeight: 700,
+                    fontSize: '0.72rem',
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase',
+                    color: accentBlue,
+                    mb: 1.25,
+                  }}
+                >
+                  DISASTER INTELLIGENCE
+                </Typography>
 
-                <Box display="flex" alignItems="center" gap={1.2} mb={1.5}>
-                  <Typography
-                    variant="h4"
-                    fontWeight={850}
-                    letterSpacing="-0.03em"
-                    sx={{
-                      color: textPrimary,
-                      fontSize: { xs: '2rem', sm: '2.4rem', lg: '2.6rem' },
-                      lineHeight: 1.15,
-                    }}
-                  >
-                    AapdaNetra
-                  </Typography>
-                  <Chip
-                    label="DISASTER INTELLIGENCE"
-                    size="small"
-                    sx={{
-                      fontWeight: 750,
-                      fontSize: '0.65rem',
-                      letterSpacing: '0.04em',
-                      height: 22,
-                      backgroundColor: isDark ? 'rgba(56, 189, 248, 0.15)' : '#e0f2fe',
-                      color: accentBlue,
-                      border: 'none',
-                    }}
-                  />
-                </Box>
+                {/* Primary Brand Heading (Strongest element) */}
+                <Typography
+                  variant="h2"
+                  sx={{
+                    fontWeight: 750,
+                    letterSpacing: '-0.025em',
+                    color: textPrimary,
+                    fontSize: { xs: '2.2rem', sm: '2.6rem', lg: '3rem' },
+                    lineHeight: 1.15,
+                    mb: 1.5,
+                  }}
+                >
+                  AapdaNetra
+                </Typography>
 
+                {/* Supporting Platform Subtitle */}
                 <Typography
                   variant="subtitle1"
-                  fontWeight={650}
                   sx={{
-                    color: accentBlue,
-                    fontSize: { xs: '1rem', md: '1.05rem' },
-                    mb: 2.5,
+                    fontWeight: 600,
+                    color: textSecondary,
+                    fontSize: { xs: '1rem', md: '1.08rem' },
+                    lineHeight: 1.5,
+                    mb: 3,
+                    maxWidth: 480,
                   }}
                 >
                   Public Safety & Emergency Decision Support Platform
                 </Typography>
 
+                {/* Simple Memorable Mission Statement */}
                 <Typography
                   variant="body1"
                   sx={{
@@ -324,22 +387,25 @@ export default function Login() {
                     lineHeight: 1.65,
                     mb: 4,
                     maxWidth: 480,
+                    fontStyle: 'italic',
+                    borderLeft: `3px solid ${accentBlue}`,
+                    pl: 2,
                   }}
                 >
                   "Intelligent disaster risk management for safer communities."
                 </Typography>
 
                 {/* Subtle Trust Indicators */}
-                <Stack spacing={1.5}>
+                <Stack spacing={1.75}>
                   <Box display="flex" alignItems="center" gap={1.2}>
                     <CheckCircle2 size={16} color={accentBlue} />
-                    <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.86rem' }}>
+                    <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.88rem' }}>
                       Real-time alert dissemination and emergency response
                     </Typography>
                   </Box>
                   <Box display="flex" alignItems="center" gap={1.2}>
                     <CheckCircle2 size={16} color={accentBlue} />
-                    <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.86rem' }}>
+                    <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.88rem' }}>
                       Unified coordination for citizens and government administration
                     </Typography>
                   </Box>
@@ -1100,6 +1166,160 @@ export default function Login() {
               </Box>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Information Dialog for Navbar Links (About, How It Works, Contact) */}
+      <Dialog
+        open={Boolean(infoModal)}
+        onClose={() => setInfoModal(null)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            p: 1,
+            backgroundColor: surfaceBg,
+            color: textPrimary,
+            border: `1px solid ${borderColor}`,
+          },
+        }}
+      >
+        <DialogContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
+          {infoModal === 'about' && (
+            <Box>
+              <Typography variant="h5" fontWeight={750} sx={{ color: textPrimary, mb: 0.5 }}>
+                About AapdaNetra
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: accentBlue,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  display: 'block',
+                  mb: 2,
+                }}
+              >
+                Public Safety & Emergency Decision Support Platform
+              </Typography>
+              <Typography variant="body2" sx={{ color: textSecondary, lineHeight: 1.7, mb: 2 }}>
+                AapdaNetra is a high-availability disaster intelligence and crisis coordination platform built to protect communities during critical environmental emergencies.
+              </Typography>
+              <Typography variant="body2" sx={{ color: textSecondary, lineHeight: 1.7, mb: 3 }}>
+                By integrating early warning sensor telemetry, localized hazard analytics, and district-level automated triage, AapdaNetra empowers both citizens and government administrations to act swiftly when every second counts.
+              </Typography>
+            </Box>
+          )}
+
+          {infoModal === 'how-it-works' && (
+            <Box>
+              <Typography variant="h5" fontWeight={750} sx={{ color: textPrimary, mb: 0.5 }}>
+                How It Works
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: accentBlue,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  display: 'block',
+                  mb: 2.5,
+                }}
+              >
+                Three Pillars of Disaster Intelligence
+              </Typography>
+              <Stack spacing={2} sx={{ mb: 3 }}>
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: textPrimary }}>
+                    1. Real-Time Telemetry & Hazard Tracking
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.85rem' }}>
+                    Continuous tracking of river basin levels, precipitation thresholds, and seismic sensors provides crucial predictive lead time.
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: textPrimary }}>
+                    2. Citizen Incident Reporting & Rapid Alerts
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.85rem' }}>
+                    Registered citizens receive district-tailored notifications and can submit field-level hazard reports with precise coordinates.
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: textPrimary }}>
+                    3. Unified Emergency Operations Center (EOC)
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.85rem' }}>
+                    District and state officers prioritize safe shelter intakes, coordinate evacuation corridors, and manage relief deployment.
+                  </Typography>
+                </Box>
+              </Stack>
+            </Box>
+          )}
+
+          {infoModal === 'contact' && (
+            <Box>
+              <Typography variant="h5" fontWeight={750} sx={{ color: textPrimary, mb: 0.5 }}>
+                Emergency Operations Desk
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: accentBlue,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  display: 'block',
+                  mb: 2,
+                }}
+              >
+                24x7 State Disaster Control Room
+              </Typography>
+              <Typography variant="body2" sx={{ color: textSecondary, lineHeight: 1.7, mb: 2 }}>
+                For emergency assistance and incident escalation, please contact the respective helpline desks:
+              </Typography>
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc',
+                  border: `1px solid ${borderColor}`,
+                  mb: 3,
+                }}
+              >
+                <Typography variant="body2" sx={{ color: textPrimary, fontWeight: 650, mb: 0.5 }}>
+                  National Emergency: <span style={{ color: '#ef4444' }}>112</span>
+                </Typography>
+                <Typography variant="body2" sx={{ color: textPrimary, fontWeight: 650, mb: 0.5 }}>
+                  NDRF Control Room: <span style={{ color: accentBlue }}>1078</span>
+                </Typography>
+                <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.85rem' }}>
+                  Operations Support: support@aapdanetra.in
+                </Typography>
+              </Box>
+            </Box>
+          )}
+
+          <Box display="flex" justifyContent="flex-end">
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setInfoModal(null)}
+              sx={{
+                backgroundColor: accentBlue,
+                textTransform: 'none',
+                fontWeight: 650,
+                borderRadius: 1.5,
+                px: 2.5,
+                '&:hover': { backgroundColor: accentHover },
+              }}
+            >
+              Close
+            </Button>
+          </Box>
         </DialogContent>
       </Dialog>
     </Box>
