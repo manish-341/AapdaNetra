@@ -15,13 +15,11 @@ import {
   Container,
   Stack,
   Autocomplete,
-  Chip,
   Dialog,
   DialogContent,
   LinearProgress,
   Grid
 } from '@mui/material';
-import citizenHeroImg from '../assets/citizen_safety_hero.jpg';
 import {
   User,
   Mail,
@@ -31,18 +29,15 @@ import {
   Phone,
   MapPin,
   CheckCircle2,
-  ShieldCheck,
+  ArrowRight,
   Sun,
   Moon,
-  ArrowRight,
-  Sparkles,
-  AlertCircle,
   X
 } from 'lucide-react';
 import { registerUser, googleDirectLogin } from '../services/api';
 import { setAuthToken } from '../lib/auth';
 import { useThemeMode } from '../context/ThemeContext';
-import AapdaNetraLogo from '../components/AapdaNetraLogo';
+import aapdaHeroBg from '../assets/aapda_hero_bg.jpg';
 
 // Curated Comprehensive Indian Districts Registry
 const DISTRICT_DATA = [
@@ -98,6 +93,15 @@ export default function Signup() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useThemeMode();
 
+  // Color Tokens matching exact design mockup & Login.jsx
+  const primaryBrandBlue = '#0065ff';
+  const brandDarkNavy = isDark ? '#f8fafc' : '#091e42';
+  const brandSecondaryNavy = isDark ? '#cbd5e1' : '#42526e';
+  const brandMutedText = isDark ? '#94a3b8' : '#5e6c84';
+  const cardBg = isDark ? '#0f172a' : '#ffffff';
+  const inputBorder = isDark ? 'rgba(255, 255, 255, 0.12)' : '#dfe1e6';
+  const inputBg = isDark ? 'rgba(255, 255, 255, 0.03)' : '#ffffff';
+
   // Form State
   const [formData, setFormData] = useState({
     name: '',
@@ -118,14 +122,8 @@ export default function Signup() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [touched, setTouched] = useState({});
 
-  // Theme design tokens matching Login.jsx
-  const pageBg = isDark ? '#080c14' : '#f8fafc';
-  const surfaceBg = isDark ? '#0f172a' : '#ffffff';
-  const borderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0';
-  const textPrimary = isDark ? '#f8fafc' : '#0f172a';
-  const textSecondary = isDark ? '#94a3b8' : '#475569';
-  const textMuted = isDark ? '#64748b' : '#94a3b8';
-  const inputBg = isDark ? 'rgba(255, 255, 255, 0.03)' : '#ffffff';
+  // Info Modal State for Navbar Links
+  const [infoModal, setInfoModal] = useState(null);
 
   // Password Strength Calculator
   const passwordStrength = useMemo(() => {
@@ -169,7 +167,6 @@ export default function Signup() {
   // Handle District Selection (Auto-populates State)
   const handleDistrictChange = (event, newValue) => {
     if (typeof newValue === 'string') {
-      // User entered custom district name
       setFormData(prev => ({
         ...prev,
         district: newValue,
@@ -186,7 +183,7 @@ export default function Signup() {
     }
   };
 
-  // Validate entire form prior to submission
+  // Validate form prior to submission
   const validateForm = () => {
     const errors = {};
     if (!formData.name.trim()) {
@@ -235,7 +232,6 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      // Security: Strictly registers normal User / Citizen without sending privileged roles
       const payload = {
         name: formData.name.trim(),
         email: formData.email.trim().toLowerCase(),
@@ -249,10 +245,8 @@ export default function Signup() {
       const response = await registerUser(payload);
       const { token, ...user } = response.data.data;
 
-      // Store authentic session token & user info
       setAuthToken(token, user, true);
 
-      // Save initial district coordinates for live maps & disaster dashboard
       const activeLoc = {
         name: `${user.district} (${user.state || 'India'})`,
         district: user.district,
@@ -263,7 +257,6 @@ export default function Signup() {
       };
       localStorage.setItem('an_active_location', JSON.stringify(activeLoc));
 
-      // Direct to normal User / Citizen dashboard
       navigate('/dashboard', { replace: true });
     } catch (err) {
       console.error('Registration error:', err);
@@ -324,7 +317,6 @@ export default function Signup() {
     setGoogleError('');
 
     try {
-      // Security: Google OAuth signup is strictly constrained to standard citizen role
       const res = await googleDirectLogin({
         email: googleEmail,
         password: googlePassword,
@@ -343,48 +335,49 @@ export default function Signup() {
     }
   };
 
-  // Info Modal State for Navbar Links
-  const [infoModal, setInfoModal] = useState(null); // 'about' | 'how-it-works' | 'contact' | null
-
   return (
     <Box
       sx={{
         minHeight: '100vh',
-        backgroundColor: pageBg,
-        color: textPrimary,
+        fontFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif',
+        backgroundColor: isDark ? '#080c14' : '#ffffff',
+        color: brandDarkNavy,
         display: 'flex',
         flexDirection: 'column',
-        transition: 'background-color 0.25s ease, color 0.25s ease',
+        position: 'relative',
       }}
     >
-      {/* Clean, Compact Top Navigation Bar */}
+      {/* 1. TOP NAVBAR MATCHING MOCKUP & LOGIN.JSX */}
       <Box
         component="header"
         sx={{
-          py: 1.4,
-          px: { xs: 2.5, md: 6 },
-          borderBottom: `1px solid ${borderColor}`,
-          backgroundColor: surfaceBg,
+          py: 1.6,
+          px: { xs: 2.5, md: 6, lg: 8 },
+          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #ebecf0',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          transition: 'background-color 0.25s ease, border-color 0.25s ease',
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
         }}
       >
-        {/* LEFT: Polished Logo + Brand Name Lockup */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <AapdaNetraLogo size={36} />
+        {/* Left: AapdaNetra Brand Lockup + Separator + Description */}
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
             <Typography
+              component="div"
               sx={{
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: textPrimary,
-                lineHeight: 1.1,
-                fontSize: '1.22rem',
+                fontWeight: 850,
+                letterSpacing: '-0.03em',
+                fontSize: { xs: '1.35rem', sm: '1.5rem' },
+                lineHeight: 1,
+                color: brandDarkNavy,
               }}
             >
-              AapdaNetra
+              Aapda<Box component="span" sx={{ color: primaryBrandBlue }}>Netra</Box>
             </Typography>
             <Typography
               sx={{
@@ -392,958 +385,1007 @@ export default function Signup() {
                 fontSize: '0.62rem',
                 letterSpacing: '0.14em',
                 textTransform: 'uppercase',
-                color: isDark ? '#38bdf8' : '#0284c7',
+                color: brandMutedText,
                 lineHeight: 1,
-                mt: 0.35,
+                mt: 0.4,
               }}
             >
               DISASTER INTELLIGENCE
             </Typography>
           </Box>
+
+          {/* Thin Vertical Separator */}
+          <Box
+            sx={{
+              display: { xs: 'none', md: 'block' },
+              width: '1px',
+              height: 28,
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#dfe1e6',
+              mx: 2.5,
+            }}
+          />
+
+          {/* 2-line Subtitle in Navbar */}
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, flexDirection: 'column' }}>
+            <Typography
+              sx={{
+                fontSize: '0.76rem',
+                fontWeight: 600,
+                color: brandSecondaryNavy,
+                lineHeight: 1.25,
+              }}
+            >
+              Public Safety & Emergency
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: '0.76rem',
+                fontWeight: 600,
+                color: brandSecondaryNavy,
+                lineHeight: 1.25,
+              }}
+            >
+              Decision Support Platform
+            </Typography>
+          </Box>
         </Box>
 
-        {/* RIGHT: Navigation Links + Theme Toggle (Strict Single Row) */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, sm: 2.5 } }}>
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 2.5 }}>
+        {/* Right: Nav Links + Theme Toggle Pill */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 2, md: 4 } }}>
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 3.5 }}>
+            <Typography
+              component={Link}
+              to="/"
+              sx={{
+                fontSize: '0.86rem',
+                fontWeight: 650,
+                color: primaryBrandBlue,
+                textDecoration: 'none',
+                position: 'relative',
+                pb: 0.6,
+                borderBottom: `2.5px solid ${primaryBrandBlue}`,
+              }}
+            >
+              Home
+            </Typography>
+
             <Typography
               onClick={() => setInfoModal('about')}
               sx={{
-                fontSize: '0.85rem',
+                fontSize: '0.86rem',
                 fontWeight: 550,
-                color: textSecondary,
+                color: brandSecondaryNavy,
                 cursor: 'pointer',
                 transition: 'color 0.15s ease',
-                '&:hover': { color: isDark ? '#38bdf8' : '#0284c7' },
+                '&:hover': { color: primaryBrandBlue },
               }}
             >
               About
             </Typography>
+
             <Typography
               onClick={() => setInfoModal('how-it-works')}
               sx={{
-                fontSize: '0.85rem',
+                fontSize: '0.86rem',
                 fontWeight: 550,
-                color: textSecondary,
+                color: brandSecondaryNavy,
                 cursor: 'pointer',
                 transition: 'color 0.15s ease',
-                '&:hover': { color: isDark ? '#38bdf8' : '#0284c7' },
+                '&:hover': { color: primaryBrandBlue },
               }}
             >
               How It Works
             </Typography>
+
             <Typography
               onClick={() => setInfoModal('contact')}
               sx={{
-                fontSize: '0.85rem',
+                fontSize: '0.86rem',
                 fontWeight: 550,
-                color: textSecondary,
+                color: brandSecondaryNavy,
                 cursor: 'pointer',
                 transition: 'color 0.15s ease',
-                '&:hover': { color: isDark ? '#38bdf8' : '#0284c7' },
+                '&:hover': { color: primaryBrandBlue },
               }}
             >
               Contact
             </Typography>
           </Box>
 
-          <Divider
-            orientation="vertical"
-            flexItem
-            sx={{ display: { xs: 'none', md: 'block' }, height: 20, my: 'auto', borderColor }}
-          />
-
-          {/* Theme Toggle Button */}
-          <IconButton
+          {/* Clean Rounded Pill Theme Toggle */}
+          <Box
             onClick={toggleTheme}
-            size="small"
-            id="theme-toggle-button"
-            title={isDark ? 'Switch to clean white mode' : 'Switch to dark mode'}
             sx={{
-              border: `1px solid ${borderColor}`,
-              borderRadius: 2,
-              p: 0.85,
-              color: isDark ? '#fbbf24' : '#0284c7',
-              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#f4f5f7',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #dfe1e6',
+              borderRadius: 20,
+              p: '3px',
+              cursor: 'pointer',
+              gap: '2px',
               transition: 'all 0.2s ease',
-              '&:hover': {
-                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0',
-              },
             }}
           >
-            {isDark ? <Sun size={17} /> : <Moon size={17} />}
-          </IconButton>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 26,
+                height: 26,
+                borderRadius: '50%',
+                backgroundColor: !isDark ? '#ffffff' : 'transparent',
+                boxShadow: !isDark ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+                color: !isDark ? '#f59e0b' : '#94a3b8',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <Sun size={15} />
+            </Box>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 26,
+                height: 26,
+                borderRadius: '50%',
+                backgroundColor: isDark ? '#1e293b' : 'transparent',
+                boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
+                color: isDark ? '#38bdf8' : '#94a3b8',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <Moon size={15} />
+            </Box>
+          </Box>
         </Box>
       </Box>
 
-      {/* Main Content Area: 2-Column Responsive Layout */}
+      {/* 2. FULL-BLEED HERO BACKGROUND & MAIN CONTENT */}
       <Box
         sx={{
           flex: 1,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          px: { xs: 2, sm: 3, md: 5 },
-          py: { xs: 4, sm: 6 },
+          position: 'relative',
+          py: { xs: 4, md: 6, lg: 8 },
+          px: { xs: 2.5, md: 6, lg: 8 },
+          backgroundImage: isDark
+            ? `linear-gradient(180deg, rgba(8, 12, 20, 0.72) 0%, rgba(8, 12, 20, 0.88) 55%, #080c14 100%), url(${aapdaHeroBg})`
+            : `linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.45) 50%, rgba(255, 255, 255, 0.95) 85%, #ffffff 100%), url(${aapdaHeroBg})`,
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'top center',
+          backgroundSize: 'cover',
         }}
       >
-        <Container maxWidth="lg" disableGutters>
-          <Grid container spacing={{ xs: 4, md: 6 }} alignItems="flex-start" justifyContent="center">
-            {/* LEFT COLUMN: Hero Image & Citizen Resilience Benefits */}
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Box sx={{ pr: { md: 2, lg: 3 }, position: { md: 'sticky' }, top: { md: 90 } }}>
+        <Container maxWidth="xl" disableGutters sx={{ position: 'relative', zIndex: 1 }}>
+          <Grid container spacing={{ xs: 4, md: 6, lg: 8 }} alignItems="center">
+            {/* LEFT COLUMN: Clean Typography, Brand Identity, Pillars & Floating Sticker */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box sx={{ pr: { md: 2, lg: 5 } }}>
+                {/* Eyebrow */}
                 <Typography
-                  variant="caption"
                   sx={{
-                    display: 'inline-block',
                     fontWeight: 700,
-                    fontSize: '0.72rem',
+                    fontSize: '0.74rem',
                     letterSpacing: '0.14em',
                     textTransform: 'uppercase',
-                    color: isDark ? '#38bdf8' : '#0284c7',
-                    mb: 1,
+                    color: primaryBrandBlue,
+                    mb: 1.5,
                   }}
                 >
-                  CITIZEN RESILIENCE NETWORK
+                  SAFER PEOPLE &nbsp;|&nbsp; STRONGER COMMUNITIES
                 </Typography>
 
+                {/* Primary Brand Headline */}
                 <Typography
-                  variant="h3"
+                  variant="h1"
                   sx={{
-                    fontWeight: 800,
-                    letterSpacing: '-0.025em',
-                    color: textPrimary,
-                    fontSize: { xs: '2rem', sm: '2.4rem' },
-                    lineHeight: 1.15,
-                    mb: 1,
+                    fontWeight: 850,
+                    letterSpacing: '-0.035em',
+                    color: brandDarkNavy,
+                    fontSize: { xs: '2.5rem', sm: '3.4rem', lg: '4rem' },
+                    lineHeight: 1.05,
+                    mb: 1.5,
                   }}
                 >
-                  Join AapdaNetra
+                  Aapda<Box component="span" sx={{ color: primaryBrandBlue }}>Netra</Box>
                 </Typography>
 
+                {/* Platform Subtitle */}
                 <Typography
-                  variant="subtitle1"
+                  variant="h5"
                   sx={{
-                    fontWeight: 600,
-                    color: textSecondary,
-                    fontSize: { xs: '0.94rem', md: '1rem' },
+                    fontWeight: 750,
+                    color: brandDarkNavy,
+                    fontSize: { xs: '1.15rem', sm: '1.35rem', lg: '1.5rem' },
+                    lineHeight: 1.25,
+                    mb: 1.5,
+                  }}
+                >
+                  Public Safety & Emergency Decision Support Platform
+                </Typography>
+
+                {/* Mission Statement */}
+                <Typography
+                  sx={{
+                    color: brandSecondaryNavy,
+                    fontSize: { xs: '0.98rem', md: '1.1rem' },
                     lineHeight: 1.5,
-                    mb: 2.5,
+                    maxWidth: 520,
+                    mb: 2,
                   }}
                 >
-                  Direct Early Warnings & Localized Crisis Support for Every Resident
+                  Intelligent disaster risk management for a safer, more resilient India.
                 </Typography>
 
-                {/* Hero Image Card */}
+                {/* Blue Accent Bar */}
                 <Box
                   sx={{
-                    position: 'relative',
-                    borderRadius: 3,
-                    overflow: 'hidden',
-                    border: `1px solid ${borderColor}`,
-                    boxShadow: isDark
-                      ? '0 16px 36px rgba(0, 0, 0, 0.5)'
-                      : '0 8px 24px rgba(15, 23, 42, 0.06)',
-                    mb: 3,
-                    maxHeight: 260,
-                  }}
-                >
-                  <Box
-                    component="img"
-                    src={citizenHeroImg}
-                    alt="Citizen Safety & Emergency Rescue Fleet"
-                    sx={{
-                      width: '100%',
-                      height: '100%',
-                      maxHeight: 260,
-                      objectFit: 'cover',
-                      display: 'block',
-                    }}
-                  />
-                  {/* Status Pill Badge over image */}
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 12,
-                      left: 12,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.8,
-                      px: 1.25,
-                      py: 0.5,
-                      borderRadius: 20,
-                      backgroundColor: 'rgba(15, 23, 42, 0.85)',
-                      backdropFilter: 'blur(8px)',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
-                      color: '#10b981',
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        backgroundColor: '#10b981',
-                        boxShadow: '0 0 8px #10b981',
-                      }}
-                    />
-                    <Typography variant="caption" sx={{ fontWeight: 750, fontSize: '0.68rem', letterSpacing: '0.04em' }}>
-                      DISTRICT CRISIS RESPONSE FLEET
-                    </Typography>
-                  </Box>
-
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      p: 1.25,
-                      background: 'linear-gradient(to top, rgba(15, 23, 42, 0.92) 0%, rgba(15, 23, 42, 0) 100%)',
-                      color: '#ffffff',
-                    }}
-                  >
-                    <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.76rem', color: '#e2e8f0' }}>
-                      Early Warning Alerts • Shelter Priority Triage • Verified Incident Reporting
-                    </Typography>
-                  </Box>
-                </Box>
-
-                {/* Features List */}
-                <Stack spacing={1.5}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.2 }}>
-                    <CheckCircle2 size={17} color={isDark ? '#38bdf8' : '#0284c7'} style={{ marginTop: 2, flexShrink: 0 }} />
-                    <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.86rem' }}>
-                      Instant localized disaster notifications broadcast before hazard escalation
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.2 }}>
-                    <CheckCircle2 size={17} color={isDark ? '#38bdf8' : '#0284c7'} style={{ marginTop: 2, flexShrink: 0 }} />
-                    <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.86rem' }}>
-                      Direct geotagged field reports submitted to your nearest Emergency Operations Center
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.2 }}>
-                    <CheckCircle2 size={17} color={isDark ? '#38bdf8' : '#0284c7'} style={{ marginTop: 2, flexShrink: 0 }} />
-                    <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.86rem' }}>
-                      Automatic district shelter provisioning and safe route guidance
-                    </Typography>
-                  </Box>
-                </Stack>
-              </Box>
-            </Grid>
-
-            {/* RIGHT COLUMN: The Registration Card */}
-            <Grid size={{ xs: 12, md: 7 }}>
-          {/* Centered Registration Card */}
-          <Box
-            sx={{
-              backgroundColor: surfaceBg,
-              borderRadius: 3.5,
-              p: { xs: 3, sm: 4.5 },
-              border: `1px solid ${borderColor}`,
-              boxShadow: isDark
-                ? '0 20px 40px -4px rgba(0, 0, 0, 0.6)'
-                : '0 10px 30px -4px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(0, 0, 0, 0.02)',
-              transition: 'background-color 0.25s ease, border-color 0.25s ease',
-            }}
-          >
-            {/* Card Header */}
-            <Box mb={3.5} textAlign="center">
-              <Box
-                display="inline-flex"
-                sx={{
-                  p: 1.25,
-                  borderRadius: 2.5,
-                  backgroundColor: isDark ? 'rgba(56,189,248,0.1)' : 'rgba(2,132,199,0.08)',
-                  color: isDark ? '#38bdf8' : '#0284c7',
-                  mb: 1.5,
-                }}
-              >
-                <ShieldCheck size={28} />
-              </Box>
-              <Typography
-                variant="h4"
-                fontWeight={800}
-                letterSpacing="-0.02em"
-                sx={{
-                  color: textPrimary,
-                  fontSize: { xs: '1.5rem', sm: '1.75rem' },
-                  mb: 0.75
-                }}
-              >
-                Create your AapdaNetra Account
-              </Typography>
-              <Typography
-                variant="subtitle2"
-                fontWeight={650}
-                sx={{
-                  color: isDark ? '#38bdf8' : '#0284c7',
-                  fontSize: '0.92rem',
-                  mb: 0.5
-                }}
-              >
-                Stay informed. Stay protected.
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: textSecondary,
-                  fontSize: '0.8rem',
-                  maxWidth: 420,
-                  display: 'block',
-                  mx: 'auto'
-                }}
-              >
-                Create your account to receive localized disaster information and emergency alerts.
-              </Typography>
-            </Box>
-
-            {/* Server Error Banner */}
-            {serverError && (
-              <Alert
-                severity="error"
-                onClose={() => setServerError('')}
-                sx={{
-                  mb: 3,
-                  borderRadius: 2,
-                  fontSize: '0.84rem',
-                }}
-              >
-                {serverError}
-              </Alert>
-            )}
-
-            {/* Form */}
-            <Box component="form" onSubmit={handleSubmit} noValidate>
-              <Stack spacing={2.5}>
-                {/* 1. Full Name */}
-                <Box>
-                  <Typography
-                    variant="caption"
-                    fontWeight={650}
-                    sx={{ display: 'block', mb: 0.75, color: textPrimary, fontSize: '0.82rem' }}
-                  >
-                    Full Name <Box component="span" sx={{ color: '#ef4444' }}>*</Box>
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    id="signup-name"
-                    name="name"
-                    placeholder="Enter your full name"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    error={Boolean(fieldErrors.name)}
-                    helperText={fieldErrors.name}
-                    variant="outlined"
-                    size="small"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <User size={17} color={textMuted} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        backgroundColor: inputBg,
-                        borderRadius: 2,
-                        color: textPrimary,
-                        fontSize: '0.88rem',
-                        '& fieldset': { borderColor: borderColor },
-                        '&:hover fieldset': { borderColor: isDark ? '#38bdf8' : '#0284c7' },
-                        '&.Mui-focused fieldset': {
-                          borderColor: isDark ? '#38bdf8' : '#0284c7',
-                          borderWidth: '1.5px',
-                        },
-                      },
-                      '& .MuiFormHelperText-root': {
-                        marginLeft: 0.5,
-                        fontSize: '0.75rem',
-                      }
-                    }}
-                  />
-                </Box>
-
-                {/* 2. Email Address */}
-                <Box>
-                  <Typography
-                    variant="caption"
-                    fontWeight={650}
-                    sx={{ display: 'block', mb: 0.75, color: textPrimary, fontSize: '0.82rem' }}
-                  >
-                    Email Address <Box component="span" sx={{ color: '#ef4444' }}>*</Box>
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    id="signup-email"
-                    name="email"
-                    type="email"
-                    placeholder="Enter your email address"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    error={Boolean(fieldErrors.email)}
-                    helperText={fieldErrors.email}
-                    variant="outlined"
-                    size="small"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Mail size={17} color={textMuted} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        backgroundColor: inputBg,
-                        borderRadius: 2,
-                        color: textPrimary,
-                        fontSize: '0.88rem',
-                        '& fieldset': { borderColor: borderColor },
-                        '&:hover fieldset': { borderColor: isDark ? '#38bdf8' : '#0284c7' },
-                        '&.Mui-focused fieldset': {
-                          borderColor: isDark ? '#38bdf8' : '#0284c7',
-                          borderWidth: '1.5px',
-                        },
-                      },
-                      '& .MuiFormHelperText-root': {
-                        marginLeft: 0.5,
-                        fontSize: '0.75rem',
-                      }
-                    }}
-                  />
-                </Box>
-
-                {/* 3. Mobile Number (Optional) */}
-                <Box>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.75}>
-                    <Typography
-                      variant="caption"
-                      fontWeight={650}
-                      sx={{ color: textPrimary, fontSize: '0.82rem' }}
-                    >
-                      Mobile Number
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.72rem' }}>
-                      Optional
-                    </Typography>
-                  </Box>
-                  <TextField
-                    fullWidth
-                    id="signup-phone"
-                    name="phone"
-                    placeholder="+91 XXXXX XXXXX"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    error={Boolean(fieldErrors.phone)}
-                    helperText={fieldErrors.phone || 'Used for emergency SMS alerts in localized zones.'}
-                    variant="outlined"
-                    size="small"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Phone size={17} color={textMuted} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        backgroundColor: inputBg,
-                        borderRadius: 2,
-                        color: textPrimary,
-                        fontSize: '0.88rem',
-                        '& fieldset': { borderColor: borderColor },
-                        '&:hover fieldset': { borderColor: isDark ? '#38bdf8' : '#0284c7' },
-                        '&.Mui-focused fieldset': {
-                          borderColor: isDark ? '#38bdf8' : '#0284c7',
-                          borderWidth: '1.5px',
-                        },
-                      },
-                      '& .MuiFormHelperText-root': {
-                        marginLeft: 0.5,
-                        fontSize: '0.75rem',
-                        color: fieldErrors.phone ? undefined : textMuted,
-                      }
-                    }}
-                  />
-                </Box>
-
-                {/* 4. Password */}
-                <Box>
-                  <Typography
-                    variant="caption"
-                    fontWeight={650}
-                    sx={{ display: 'block', mb: 0.75, color: textPrimary, fontSize: '0.82rem' }}
-                  >
-                    Password <Box component="span" sx={{ color: '#ef4444' }}>*</Box>
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    id="signup-password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Create a strong password"
-                    value={formData.password}
-                    onChange={(e) => handleInputChange('password', e.target.value)}
-                    error={Boolean(fieldErrors.password)}
-                    helperText={fieldErrors.password}
-                    variant="outlined"
-                    size="small"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Lock size={17} color={textMuted} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => setShowPassword(!showPassword)}
-                            edge="end"
-                            size="small"
-                            sx={{ color: textMuted }}
-                          >
-                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        backgroundColor: inputBg,
-                        borderRadius: 2,
-                        color: textPrimary,
-                        fontSize: '0.88rem',
-                        '& fieldset': { borderColor: borderColor },
-                        '&:hover fieldset': { borderColor: isDark ? '#38bdf8' : '#0284c7' },
-                        '&.Mui-focused fieldset': {
-                          borderColor: isDark ? '#38bdf8' : '#0284c7',
-                          borderWidth: '1.5px',
-                        },
-                      },
-                      '& .MuiFormHelperText-root': {
-                        marginLeft: 0.5,
-                        fontSize: '0.75rem',
-                      }
-                    }}
-                  />
-
-                  {/* Subtle Password Strength Bar */}
-                  {formData.password && (
-                    <Box mt={1} px={0.5}>
-                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.5}>
-                        <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.7rem' }}>
-                          Password strength:
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          fontWeight={700}
-                          sx={{ color: passwordStrength.color, fontSize: '0.7rem' }}
-                        >
-                          {passwordStrength.label}
-                        </Typography>
-                      </Box>
-                      <Box display="flex" gap={0.5}>
-                        {[1, 2, 3].map((step) => (
-                          <Box
-                            key={step}
-                            sx={{
-                              flex: 1,
-                              height: 3.5,
-                              borderRadius: 1,
-                              backgroundColor:
-                                passwordStrength.score >= step
-                                  ? passwordStrength.color
-                                  : isDark
-                                  ? 'rgba(255,255,255,0.08)'
-                                  : '#e2e8f0',
-                              transition: 'background-color 0.2s ease',
-                            }}
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-                </Box>
-
-                {/* 5. Confirm Password */}
-                <Box>
-                  <Typography
-                    variant="caption"
-                    fontWeight={650}
-                    sx={{ display: 'block', mb: 0.75, color: textPrimary, fontSize: '0.82rem' }}
-                  >
-                    Confirm Password <Box component="span" sx={{ color: '#ef4444' }}>*</Box>
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    id="signup-confirm-password"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    placeholder="Re-enter your password"
-                    value={formData.confirmPassword}
-                    onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                    error={Boolean(fieldErrors.confirmPassword)}
-                    helperText={fieldErrors.confirmPassword}
-                    variant="outlined"
-                    size="small"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Lock size={17} color={textMuted} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            edge="end"
-                            size="small"
-                            sx={{ color: textMuted }}
-                          >
-                            {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        backgroundColor: inputBg,
-                        borderRadius: 2,
-                        color: textPrimary,
-                        fontSize: '0.88rem',
-                        '& fieldset': { borderColor: borderColor },
-                        '&:hover fieldset': { borderColor: isDark ? '#38bdf8' : '#0284c7' },
-                        '&.Mui-focused fieldset': {
-                          borderColor: isDark ? '#38bdf8' : '#0284c7',
-                          borderWidth: '1.5px',
-                        },
-                      },
-                      '& .MuiFormHelperText-root': {
-                        marginLeft: 0.5,
-                        fontSize: '0.75rem',
-                      }
-                    }}
-                  />
-                </Box>
-
-                {/* 6. Location for Emergency Alerts (Searchable District & Readonly State) */}
-                <Box>
-                  <Typography
-                    variant="caption"
-                    fontWeight={650}
-                    sx={{ display: 'block', mb: 0.25, color: textPrimary, fontSize: '0.82rem' }}
-                  >
-                    Location for Emergency Alerts <Box component="span" sx={{ color: '#ef4444' }}>*</Box>
-                  </Typography>
-                  <Typography variant="caption" sx={{ display: 'block', mb: 1, color: textSecondary, fontSize: '0.74rem' }}>
-                    We'll use your district to provide relevant disaster alerts and local emergency information.
-                  </Typography>
-
-                  <Stack spacing={1.5}>
-                    {/* Searchable District Dropdown */}
-                    <Autocomplete
-                      freeSolo
-                      options={DISTRICT_DATA}
-                      getOptionLabel={(option) => {
-                        if (typeof option === 'string') return option;
-                        return `${option.district} (${option.state})`;
-                      }}
-                      value={
-                        DISTRICT_DATA.find(d => d.district === formData.district) || formData.district
-                      }
-                      onChange={handleDistrictChange}
-                      onInputChange={(event, newInputValue) => {
-                        // Support custom free-text input
-                        if (event && event.type === 'change') {
-                          handleInputChange('district', newInputValue);
-                          const matched = DISTRICT_DATA.find(
-                            d => d.district.toLowerCase() === newInputValue.toLowerCase().trim()
-                          );
-                          if (matched) {
-                            handleInputChange('state', matched.state);
-                          }
-                        }
-                      }}
-                      renderInput={(params) => {
-                        const existingStartAdornment = params?.slotProps?.input?.startAdornment || params?.InputProps?.startAdornment;
-                        const commonSx = {
-                          '& .MuiOutlinedInput-root': {
-                            backgroundColor: inputBg,
-                            borderRadius: 2,
-                            color: textPrimary,
-                            fontSize: '0.88rem',
-                            '& fieldset': { borderColor: borderColor },
-                            '&:hover fieldset': { borderColor: isDark ? '#38bdf8' : '#0284c7' },
-                            '&.Mui-focused fieldset': {
-                              borderColor: isDark ? '#38bdf8' : '#0284c7',
-                              borderWidth: '1.5px',
-                            },
-                          },
-                          '& .MuiFormHelperText-root': {
-                            marginLeft: 0.5,
-                            fontSize: '0.75rem',
-                          }
-                        };
-
-                        if (params?.slotProps?.input) {
-                          return (
-                            <TextField
-                              {...params}
-                              placeholder="Select or search your district"
-                              size="small"
-                              error={Boolean(fieldErrors.district)}
-                              helperText={fieldErrors.district}
-                              slotProps={{
-                                ...params.slotProps,
-                                input: {
-                                  ...params.slotProps.input,
-                                  startAdornment: (
-                                    <>
-                                      <InputAdornment position="start">
-                                        <MapPin size={17} color={isDark ? '#38bdf8' : '#0284c7'} />
-                                      </InputAdornment>
-                                      {existingStartAdornment}
-                                    </>
-                                  ),
-                                },
-                              }}
-                              sx={commonSx}
-                            />
-                          );
-                        }
-
-                        return (
-                          <TextField
-                            {...params}
-                            placeholder="Select or search your district"
-                            size="small"
-                            error={Boolean(fieldErrors.district)}
-                            helperText={fieldErrors.district}
-                            InputProps={{
-                              ...(params?.InputProps || {}),
-                              startAdornment: (
-                                <>
-                                  <InputAdornment position="start">
-                                    <MapPin size={17} color={isDark ? '#38bdf8' : '#0284c7'} />
-                                  </InputAdornment>
-                                  {existingStartAdornment}
-                                </>
-                              ),
-                            }}
-                            sx={commonSx}
-                          />
-                        );
-                      }}
-                    />
-
-                    {/* Auto-populated State (Read-only) */}
-                    <Box>
-                      <Typography
-                        variant="caption"
-                        fontWeight={650}
-                        sx={{ display: 'block', mb: 0.5, color: textMuted, fontSize: '0.75rem' }}
-                      >
-                        State (Auto-determined)
-                      </Typography>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        value={formData.state || 'India'}
-                        InputProps={{
-                          readOnly: true,
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <CheckCircle2 size={16} color="#10b981" />
-                            </InputAdornment>
-                          ),
-                        }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : '#f8fafc',
-                            borderRadius: 2,
-                            color: textSecondary,
-                            fontSize: '0.86rem',
-                            fontWeight: 600,
-                            '& fieldset': { borderColor: borderColor },
-                          },
-                        }}
-                      />
-                    </Box>
-                  </Stack>
-                </Box>
-
-                {/* 7. Emergency Alert Preference Checkbox */}
-                <Box
-                  sx={{
-                    p: 1.5,
-                    borderRadius: 2.5,
-                    backgroundColor: isDark ? 'rgba(56,189,248,0.06)' : 'rgba(2,132,199,0.04)',
-                    border: `1px solid ${isDark ? 'rgba(56,189,248,0.2)' : 'rgba(2,132,199,0.15)'}`,
-                  }}
-                >
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={formData.receiveAlerts}
-                        onChange={(e) => handleInputChange('receiveAlerts', e.target.checked)}
-                        size="small"
-                        sx={{
-                          color: isDark ? '#38bdf8' : '#0284c7',
-                          '&.Mui-checked': { color: isDark ? '#38bdf8' : '#0284c7' },
-                          pt: 0.2,
-                        }}
-                      />
-                    }
-                    label={
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          fontWeight={700}
-                          sx={{ color: textPrimary, fontSize: '0.82rem' }}
-                        >
-                          Receive emergency alerts for my district
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          sx={{ color: textSecondary, fontSize: '0.74rem', display: 'block' }}
-                        >
-                          Get important disaster alerts and safety information for your selected district.
-                        </Typography>
-                      </Box>
-                    }
-                    sx={{ m: 0, alignItems: 'flex-start' }}
-                  />
-                </Box>
-
-                {/* 8. Primary Create Account CTA */}
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  disabled={loading}
-                  endIcon={
-                    loading ? (
-                      <CircularProgress size={18} sx={{ color: '#ffffff' }} />
-                    ) : (
-                      <ArrowRight size={18} />
-                    )
-                  }
-                  sx={{
-                    background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-                    color: '#ffffff',
-                    py: 1.35,
+                    width: 42,
+                    height: 3.5,
+                    backgroundColor: primaryBrandBlue,
                     borderRadius: 2,
-                    fontWeight: 700,
-                    fontSize: '0.94rem',
-                    textTransform: 'none',
-                    boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%)',
-                      boxShadow: '0 6px 18px rgba(2, 132, 199, 0.45)',
-                    },
-                    '&:disabled': {
-                      background: isDark ? 'rgba(255,255,255,0.1)' : '#cbd5e1',
-                      color: isDark ? '#64748b' : '#94a3b8',
-                    },
+                    mb: 3,
+                  }}
+                />
+
+                {/* 3 Value Pillars Side-by-Side */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: { xs: 2, sm: 2.5 },
+                    mb: 4,
+                  }}
+                >
+                  {/* Pillar 1 */}
+                  <Box>
+                    <Typography sx={{ fontWeight: 750, fontSize: '0.86rem', color: brandDarkNavy }}>
+                      Anticipate Risks
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.78rem', color: brandMutedText }}>
+                      Data-driven insights
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ width: '1px', height: 26, backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : '#dfe1e6' }} />
+
+                  {/* Pillar 2 */}
+                  <Box>
+                    <Typography sx={{ fontWeight: 750, fontSize: '0.86rem', color: brandDarkNavy }}>
+                      Enable Faster Response
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.78rem', color: brandMutedText }}>
+                      Coordinated action
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ width: '1px', height: 26, backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : '#dfe1e6' }} />
+
+                  {/* Pillar 3 */}
+                  <Box>
+                    <Typography sx={{ fontWeight: 750, fontSize: '0.86rem', color: brandDarkNavy }}>
+                      Build Safer Communities
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.78rem', color: brandMutedText }}>
+                      A more resilient tomorrow
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Floating Cursive Brush Sticker: "Together for a Safer Tomorrow" */}
+                <Box
+                  sx={{
+                    display: 'inline-flex',
+                    flexDirection: 'column',
+                    transform: 'rotate(-4deg)',
                     mt: 1,
                   }}
                 >
-                  {loading ? 'Creating Account...' : 'Create Account'}
-                </Button>
-
-                {/* Divider with contained absolute label */}
-                <Box sx={{ position: 'relative', textAlign: 'center', my: 2.5 }}>
-                  <Divider sx={{ borderColor }} />
-                  <Box
+                  <Typography
                     sx={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      backgroundColor: surfaceBg,
-                      px: 1.5,
+                      fontFamily: '"Caveat", cursive',
+                      fontSize: { xs: '1.65rem', sm: '2rem' },
+                      fontWeight: 700,
+                      color: primaryBrandBlue,
+                      lineHeight: 1.1,
+                      textShadow: '0 2px 10px rgba(255, 255, 255, 0.8)',
                     }}
                   >
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: textMuted,
-                        fontSize: '0.72rem',
-                        fontWeight: 650,
-                        letterSpacing: '0.04em',
-                      }}
-                    >
-                      OR CONTINUE WITH
-                    </Typography>
-                  </Box>
+                    Together for a Safer Tomorrow
+                  </Typography>
+                  <svg width="150" height="12" viewBox="0 0 150 12" fill="none">
+                    <path
+                      d="M 5,6 Q 75,12 145,5"
+                      stroke={primaryBrandBlue}
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </Box>
+              </Box>
+            </Grid>
+
+            {/* RIGHT COLUMN: The Clean White Authentication Card */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box
+                sx={{
+                  backgroundColor: cardBg,
+                  borderRadius: 4,
+                  p: { xs: 3.5, sm: 4, lg: 4.5 },
+                  boxShadow: isDark
+                    ? '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+                    : '0 20px 45px -10px rgba(9, 30, 66, 0.15), 0 0 1px 1px rgba(9, 30, 66, 0.05)',
+                  border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #ebecf0',
+                  backdropFilter: 'blur(16px)',
+                }}
+              >
+                {/* Card Title */}
+                <Box mb={2.5}>
+                  <Typography
+                    variant="h4"
+                    sx={{
+                      fontWeight: 800,
+                      letterSpacing: '-0.025em',
+                      color: brandDarkNavy,
+                      fontSize: '1.85rem',
+                      mb: 0.5,
+                    }}
+                  >
+                    Create Account
+                  </Typography>
+                  <Typography sx={{ color: brandMutedText, fontSize: '0.88rem' }}>
+                    Join the citizen emergency network for your district
+                  </Typography>
                 </Box>
 
-                {/* Google Sign-in Button */}
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  onClick={handleGoogleSignup}
-                  startIcon={
-                    <svg width="18" height="18" viewBox="0 0 24 24">
-                      <path
-                        fill="#4285F4"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                      />
-                      <path
-                        fill="#EA4335"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                      />
-                    </svg>
-                  }
-                  sx={{
-                    py: 1.15,
-                    borderColor: borderColor,
-                    borderRadius: 2,
-                    color: textPrimary,
-                    fontWeight: 650,
-                    fontSize: '0.88rem',
-                    textTransform: 'none',
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#ffffff',
-                    '&:hover': {
-                      borderColor: isDark ? '#38bdf8' : '#0284c7',
-                      backgroundColor: isDark ? 'rgba(56,189,248,0.05)' : '#f8fafc',
-                    },
-                  }}
-                >
-                  Continue with Google
-                </Button>
-              </Stack>
-            </Box>
+                {/* Server Error Banner */}
+                {serverError && (
+                  <Alert
+                    severity="error"
+                    onClose={() => setServerError('')}
+                    sx={{
+                      mb: 2.5,
+                      borderRadius: 2,
+                      fontSize: '0.82rem',
+                    }}
+                  >
+                    {serverError}
+                  </Alert>
+                )}
 
-            {/* Bottom Link to Sign In */}
-            <Box sx={{ textAlign: 'center', mt: 3, pt: 2, borderTop: `1px solid ${borderColor}` }}>
-              <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.84rem' }}>
-                Already have an account?{' '}
-                <Link
-                  to="/login"
-                  style={{
-                    color: isDark ? '#38bdf8' : '#0284c7',
-                    textDecoration: 'none',
-                    fontWeight: 700,
-                  }}
-                >
-                  Sign In
-                </Link>
-              </Typography>
-            </Box>
-          </Box>
-        </Grid>
-      </Grid>
-    </Container>
-  </Box>
+                {/* Registration Form */}
+                <Box component="form" onSubmit={handleSubmit} noValidate>
+                  <Stack spacing={2}>
+                    {/* Row 1: Full Name & Email */}
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography
+                          sx={{
+                            display: 'block',
+                            mb: 0.75,
+                            color: brandDarkNavy,
+                            fontWeight: 700,
+                            fontSize: '0.82rem',
+                          }}
+                        >
+                          Full Name <Box component="span" sx={{ color: '#ef4444' }}>*</Box>
+                        </Typography>
+                        <TextField
+                          fullWidth
+                          id="signup-name"
+                          name="name"
+                          placeholder="Full Name"
+                          value={formData.name}
+                          onChange={(e) => handleInputChange('name', e.target.value)}
+                          error={Boolean(fieldErrors.name)}
+                          helperText={fieldErrors.name}
+                          variant="outlined"
+                          size="small"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: inputBg,
+                              borderRadius: 2,
+                              color: brandDarkNavy,
+                              fontSize: '0.88rem',
+                              '& fieldset': { borderColor: inputBorder },
+                              '&:hover fieldset': { borderColor: primaryBrandBlue },
+                              '&.Mui-focused fieldset': {
+                                borderColor: primaryBrandBlue,
+                                borderWidth: '1.5px',
+                              },
+                            },
+                            '& .MuiFormHelperText-root': { ml: 0.5, fontSize: '0.72rem' }
+                          }}
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography
+                          sx={{
+                            display: 'block',
+                            mb: 0.75,
+                            color: brandDarkNavy,
+                            fontWeight: 700,
+                            fontSize: '0.82rem',
+                          }}
+                        >
+                          Email Address <Box component="span" sx={{ color: '#ef4444' }}>*</Box>
+                        </Typography>
+                        <TextField
+                          fullWidth
+                          id="signup-email"
+                          name="email"
+                          type="email"
+                          placeholder="name@example.com"
+                          value={formData.email}
+                          onChange={(e) => handleInputChange('email', e.target.value)}
+                          error={Boolean(fieldErrors.email)}
+                          helperText={fieldErrors.email}
+                          variant="outlined"
+                          size="small"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: inputBg,
+                              borderRadius: 2,
+                              color: brandDarkNavy,
+                              fontSize: '0.88rem',
+                              '& fieldset': { borderColor: inputBorder },
+                              '&:hover fieldset': { borderColor: primaryBrandBlue },
+                              '&.Mui-focused fieldset': {
+                                borderColor: primaryBrandBlue,
+                                borderWidth: '1.5px',
+                              },
+                            },
+                            '& .MuiFormHelperText-root': { ml: 0.5, fontSize: '0.72rem' }
+                          }}
+                        />
+                      </Grid>
+                    </Grid>
+
+                    {/* Row 2: Mobile Number & District Search */}
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
+                          <Typography
+                            sx={{
+                              color: brandDarkNavy,
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                            }}
+                          >
+                            Mobile Number
+                          </Typography>
+                          <Typography sx={{ color: brandMutedText, fontSize: '0.72rem' }}>
+                            Optional
+                          </Typography>
+                        </Box>
+                        <TextField
+                          fullWidth
+                          id="signup-phone"
+                          name="phone"
+                          placeholder="+91 XXXXX XXXXX"
+                          value={formData.phone}
+                          onChange={(e) => handleInputChange('phone', e.target.value)}
+                          error={Boolean(fieldErrors.phone)}
+                          helperText={fieldErrors.phone}
+                          variant="outlined"
+                          size="small"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: inputBg,
+                              borderRadius: 2,
+                              color: brandDarkNavy,
+                              fontSize: '0.88rem',
+                              '& fieldset': { borderColor: inputBorder },
+                              '&:hover fieldset': { borderColor: primaryBrandBlue },
+                              '&.Mui-focused fieldset': {
+                                borderColor: primaryBrandBlue,
+                                borderWidth: '1.5px',
+                              },
+                            },
+                            '& .MuiFormHelperText-root': { ml: 0.5, fontSize: '0.72rem' }
+                          }}
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography
+                          sx={{
+                            display: 'block',
+                            mb: 0.75,
+                            color: brandDarkNavy,
+                            fontWeight: 700,
+                            fontSize: '0.82rem',
+                          }}
+                        >
+                          District (Alert Zone) <Box component="span" sx={{ color: '#ef4444' }}>*</Box>
+                        </Typography>
+                        <Autocomplete
+                          freeSolo
+                          options={DISTRICT_DATA}
+                          getOptionLabel={(option) => {
+                            if (typeof option === 'string') return option;
+                            return `${option.district} (${option.state})`;
+                          }}
+                          value={
+                            DISTRICT_DATA.find(d => d.district === formData.district) || formData.district
+                          }
+                          onChange={handleDistrictChange}
+                          onInputChange={(event, newInputValue) => {
+                            if (event && event.type === 'change') {
+                              handleInputChange('district', newInputValue);
+                              const matched = DISTRICT_DATA.find(
+                                d => d.district.toLowerCase() === newInputValue.toLowerCase().trim()
+                              );
+                              if (matched) {
+                                handleInputChange('state', matched.state);
+                              }
+                            }
+                          }}
+                          renderInput={(params) => {
+                            const commonSx = {
+                              '& .MuiOutlinedInput-root': {
+                                backgroundColor: inputBg,
+                                borderRadius: 2,
+                                color: brandDarkNavy,
+                                fontSize: '0.88rem',
+                                '& fieldset': { borderColor: inputBorder },
+                                '&:hover fieldset': { borderColor: primaryBrandBlue },
+                                '&.Mui-focused fieldset': {
+                                  borderColor: primaryBrandBlue,
+                                  borderWidth: '1.5px',
+                                },
+                              },
+                              '& .MuiFormHelperText-root': { ml: 0.5, fontSize: '0.72rem' }
+                            };
+
+                            const existingAdornment = params?.slotProps?.input?.startAdornment || params?.InputProps?.startAdornment;
+
+                            if (params?.slotProps?.input) {
+                              return (
+                                <TextField
+                                  {...params}
+                                  placeholder="Search district"
+                                  size="small"
+                                  error={Boolean(fieldErrors.district)}
+                                  helperText={fieldErrors.district}
+                                  slotProps={{
+                                    ...params.slotProps,
+                                    input: {
+                                      ...params.slotProps.input,
+                                      startAdornment: (
+                                        <>
+                                          <InputAdornment position="start">
+                                            <MapPin size={16} color={primaryBrandBlue} />
+                                          </InputAdornment>
+                                          {existingAdornment}
+                                        </>
+                                      ),
+                                    },
+                                  }}
+                                  sx={commonSx}
+                                />
+                              );
+                            }
+
+                            return (
+                              <TextField
+                                {...params}
+                                placeholder="Search district"
+                                size="small"
+                                error={Boolean(fieldErrors.district)}
+                                helperText={fieldErrors.district}
+                                InputProps={{
+                                  ...(params?.InputProps || {}),
+                                  startAdornment: (
+                                    <>
+                                      <InputAdornment position="start">
+                                        <MapPin size={16} color={primaryBrandBlue} />
+                                      </InputAdornment>
+                                      {existingAdornment}
+                                    </>
+                                  ),
+                                }}
+                                sx={commonSx}
+                              />
+                            );
+                          }}
+                        />
+                      </Grid>
+                    </Grid>
+
+                    {/* Row 3: Password & Confirm Password */}
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography
+                          sx={{
+                            display: 'block',
+                            mb: 0.75,
+                            color: brandDarkNavy,
+                            fontWeight: 700,
+                            fontSize: '0.82rem',
+                          }}
+                        >
+                          Password <Box component="span" sx={{ color: '#ef4444' }}>*</Box>
+                        </Typography>
+                        <TextField
+                          fullWidth
+                          id="signup-password"
+                          name="password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Password (min 6 chars)"
+                          value={formData.password}
+                          onChange={(e) => handleInputChange('password', e.target.value)}
+                          error={Boolean(fieldErrors.password)}
+                          helperText={fieldErrors.password}
+                          variant="outlined"
+                          size="small"
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={() => setShowPassword(!showPassword)}
+                                  edge="end"
+                                  size="small"
+                                  sx={{ color: brandMutedText }}
+                                >
+                                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: inputBg,
+                              borderRadius: 2,
+                              color: brandDarkNavy,
+                              fontSize: '0.88rem',
+                              '& fieldset': { borderColor: inputBorder },
+                              '&:hover fieldset': { borderColor: primaryBrandBlue },
+                              '&.Mui-focused fieldset': {
+                                borderColor: primaryBrandBlue,
+                                borderWidth: '1.5px',
+                              },
+                            },
+                            '& .MuiFormHelperText-root': { ml: 0.5, fontSize: '0.72rem' }
+                          }}
+                        />
+
+                        {/* Password strength mini indicator */}
+                        {formData.password && (
+                          <Box mt={0.8} px={0.5}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.4 }}>
+                              <Typography sx={{ color: brandMutedText, fontSize: '0.68rem' }}>
+                                Strength:
+                              </Typography>
+                              <Typography sx={{ color: passwordStrength.color, fontSize: '0.68rem', fontWeight: 700 }}>
+                                {passwordStrength.label}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                              {[1, 2, 3].map((step) => (
+                                <Box
+                                  key={step}
+                                  sx={{
+                                    flex: 1,
+                                    height: 3,
+                                    borderRadius: 1,
+                                    backgroundColor:
+                                      passwordStrength.score >= step
+                                        ? passwordStrength.color
+                                        : isDark ? 'rgba(255,255,255,0.1)' : '#dfe1e6',
+                                    transition: 'background-color 0.2s ease',
+                                  }}
+                                />
+                              ))}
+                            </Box>
+                          </Box>
+                        )}
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography
+                          sx={{
+                            display: 'block',
+                            mb: 0.75,
+                            color: brandDarkNavy,
+                            fontWeight: 700,
+                            fontSize: '0.82rem',
+                          }}
+                        >
+                          Confirm Password <Box component="span" sx={{ color: '#ef4444' }}>*</Box>
+                        </Typography>
+                        <TextField
+                          fullWidth
+                          id="signup-confirm-password"
+                          name="confirmPassword"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          placeholder="Re-enter password"
+                          value={formData.confirmPassword}
+                          onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                          error={Boolean(fieldErrors.confirmPassword)}
+                          helperText={fieldErrors.confirmPassword}
+                          variant="outlined"
+                          size="small"
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                  edge="end"
+                                  size="small"
+                                  sx={{ color: brandMutedText }}
+                                >
+                                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: inputBg,
+                              borderRadius: 2,
+                              color: brandDarkNavy,
+                              fontSize: '0.88rem',
+                              '& fieldset': { borderColor: inputBorder },
+                              '&:hover fieldset': { borderColor: primaryBrandBlue },
+                              '&.Mui-focused fieldset': {
+                                borderColor: primaryBrandBlue,
+                                borderWidth: '1.5px',
+                              },
+                            },
+                            '& .MuiFormHelperText-root': { ml: 0.5, fontSize: '0.72rem' }
+                          }}
+                        />
+                      </Grid>
+                    </Grid>
+
+                    {/* Receive Emergency Alerts Checkbox */}
+                    <Box
+                      sx={{
+                        p: 1.25,
+                        borderRadius: 2,
+                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f4f5f7',
+                        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #dfe1e6',
+                      }}
+                    >
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formData.receiveAlerts}
+                            onChange={(e) => handleInputChange('receiveAlerts', e.target.checked)}
+                            size="small"
+                            sx={{
+                              color: inputBorder,
+                              '&.Mui-checked': { color: primaryBrandBlue },
+                              p: 0.5,
+                            }}
+                          />
+                        }
+                        label={
+                          <Box>
+                            <Typography sx={{ color: brandDarkNavy, fontSize: '0.82rem', fontWeight: 650 }}>
+                              Receive real-time disaster alerts for {formData.district || 'my district'}
+                            </Typography>
+                            <Typography sx={{ color: brandMutedText, fontSize: '0.72rem' }}>
+                              Instant broadcast notifications for localized flood, weather, and civil advisories.
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{ m: 0, alignItems: 'flex-start' }}
+                      />
+                    </Box>
+
+                    {/* Primary CTA Button: Create Account → */}
+                    <Button
+                      type="submit"
+                      fullWidth
+                      variant="contained"
+                      disabled={loading}
+                      endIcon={
+                        loading ? (
+                          <CircularProgress size={18} sx={{ color: '#ffffff' }} />
+                        ) : (
+                          <ArrowRight size={18} />
+                        )
+                      }
+                      sx={{
+                        backgroundColor: primaryBrandBlue,
+                        color: '#ffffff',
+                        py: 1.3,
+                        borderRadius: 2,
+                        fontWeight: 700,
+                        fontSize: '0.94rem',
+                        textTransform: 'none',
+                        boxShadow: '0 4px 14px rgba(0, 101, 255, 0.3)',
+                        '&:hover': {
+                          backgroundColor: '#0052cc',
+                          boxShadow: '0 6px 18px rgba(0, 101, 255, 0.4)',
+                        },
+                        mt: 0.5,
+                      }}
+                    >
+                      {loading ? 'Creating Citizen Account...' : 'Create Account'}
+                    </Button>
+
+                    {/* Clean Contained OR Divider */}
+                    <Box sx={{ position: 'relative', textAlign: 'center', my: 2 }}>
+                      <Divider sx={{ borderColor: inputBorder }} />
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          backgroundColor: cardBg,
+                          px: 1.5,
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            color: brandMutedText,
+                            fontSize: '0.74rem',
+                            fontWeight: 600,
+                            letterSpacing: '0.04em',
+                          }}
+                        >
+                          OR
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    {/* Google Sign-in Button */}
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      onClick={handleGoogleSignup}
+                      startIcon={
+                        <svg width="18" height="18" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                          />
+                        </svg>
+                      }
+                      sx={{
+                        color: brandDarkNavy,
+                        borderColor: inputBorder,
+                        py: 1.15,
+                        borderRadius: 2,
+                        fontSize: '0.88rem',
+                        fontWeight: 650,
+                        textTransform: 'none',
+                        backgroundColor: inputBg,
+                        '&:hover': {
+                          borderColor: primaryBrandBlue,
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                        },
+                      }}
+                    >
+                      Continue with Google
+                    </Button>
+
+                    {/* Already have an account */}
+                    <Box sx={{ textAlign: 'center', pt: 1 }}>
+                      <Typography sx={{ color: brandSecondaryNavy, fontSize: '0.86rem' }}>
+                        Already have an account?{' '}
+                        <Typography
+                          component={Link}
+                          to="/login"
+                          sx={{
+                            color: primaryBrandBlue,
+                            textDecoration: 'none',
+                            fontWeight: 700,
+                            '&:hover': { textDecoration: 'underline' },
+                          }}
+                        >
+                          Sign In
+                        </Typography>
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+        </Container>
+      </Box>
+
+      {/* 3. CLEAN BOTTOM FOOTER MATCHING MOCKUP & LOGIN.JSX */}
+      <Box
+        component="footer"
+        sx={{
+          py: 2.5,
+          px: { xs: 2.5, md: 6, lg: 8 },
+          backgroundColor: isDark ? '#080c14' : '#ffffff',
+          borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #ebecf0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 2,
+        }}
+      >
+        <Box>
+          <Typography sx={{ fontWeight: 650, fontSize: '0.82rem', color: brandDarkNavy }}>
+            Building a safer, more resilient tomorrow.
+          </Typography>
+          <Typography sx={{ fontSize: '0.76rem', color: brandMutedText }}>
+            Empowering communities with data, intelligence, and timely action.
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: { xs: 1.5, sm: 2 } }}>
+          <Typography
+            onClick={() => setInfoModal('about')}
+            sx={{
+              fontSize: '0.78rem',
+              color: brandSecondaryNavy,
+              cursor: 'pointer',
+              '&:hover': { color: primaryBrandBlue },
+            }}
+          >
+            About
+          </Typography>
+          <Typography sx={{ color: inputBorder, fontSize: '0.78rem' }}>|</Typography>
+          <Typography
+            onClick={() => setInfoModal('contact')}
+            sx={{
+              fontSize: '0.78rem',
+              color: brandSecondaryNavy,
+              cursor: 'pointer',
+              '&:hover': { color: primaryBrandBlue },
+            }}
+          >
+            Contact
+          </Typography>
+          <Typography sx={{ color: inputBorder, fontSize: '0.78rem' }}>|</Typography>
+          <Typography
+            onClick={() => setInfoModal('about')}
+            sx={{
+              fontSize: '0.78rem',
+              color: brandSecondaryNavy,
+              cursor: 'pointer',
+              '&:hover': { color: primaryBrandBlue },
+            }}
+          >
+            Privacy Policy
+          </Typography>
+          <Typography sx={{ color: inputBorder, fontSize: '0.78rem' }}>|</Typography>
+          <Typography
+            onClick={() => setInfoModal('about')}
+            sx={{
+              fontSize: '0.78rem',
+              color: brandSecondaryNavy,
+              cursor: 'pointer',
+              '&:hover': { color: primaryBrandBlue },
+            }}
+          >
+            Terms of Service
+          </Typography>
+          <Typography sx={{ color: inputBorder, fontSize: '0.78rem' }}>|</Typography>
+          <Typography sx={{ fontSize: '0.78rem', color: brandMutedText }}>
+            © 2026. All rights reserved.
+          </Typography>
+        </Box>
+      </Box>
 
       {/* Google Authentication Dialog Modal (Matching Login.jsx) */}
       <Dialog
@@ -1354,9 +1396,9 @@ export default function Signup() {
         PaperProps={{
           sx: {
             borderRadius: 3,
-            backgroundColor: surfaceBg,
-            color: textPrimary,
-            border: `1px solid ${borderColor}`,
+            backgroundColor: cardBg,
+            color: brandDarkNavy,
+            border: `1px solid ${inputBorder}`,
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
             p: 1,
           },
@@ -1392,14 +1434,14 @@ export default function Signup() {
             <IconButton
               size="small"
               onClick={() => !googleLoading && setGoogleModalOpen(false)}
-              sx={{ color: textMuted }}
+              sx={{ color: brandMutedText }}
             >
               <X size={18} />
             </IconButton>
           </Box>
 
-          <Typography variant="body2" sx={{ color: textSecondary, mb: 2.5, fontSize: '0.84rem' }}>
-            Choose an account to continue to <strong>AapdaNetra Crisis Portal</strong> as a Citizen.
+          <Typography variant="body2" sx={{ color: brandSecondaryNavy, mb: 2.5, fontSize: '0.84rem' }}>
+            Choose an account to continue to <strong>AapdaNetra Platform</strong> as a Citizen.
           </Typography>
 
           {googleError && (
@@ -1410,13 +1452,12 @@ export default function Signup() {
 
           {googleStep === 'email' ? (
             <Box>
-              {/* Quick Click Google Demo Account */}
               <Box
                 onClick={() => handleGoogleNextEmail('citizen.delhi@gmail.com')}
                 sx={{
                   p: 1.5,
                   borderRadius: 2,
-                  border: `1px solid ${borderColor}`,
+                  border: `1px solid ${inputBorder}`,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1.5,
@@ -1424,7 +1465,7 @@ export default function Signup() {
                   mb: 2,
                   '&:hover': {
                     backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc',
-                    borderColor: isDark ? '#38bdf8' : '#0284c7',
+                    borderColor: primaryBrandBlue,
                   },
                 }}
               >
@@ -1433,7 +1474,7 @@ export default function Signup() {
                     width: 34,
                     height: 34,
                     borderRadius: '50%',
-                    backgroundColor: '#0284c7',
+                    backgroundColor: primaryBrandBlue,
                     color: '#fff',
                     display: 'flex',
                     alignItems: 'center',
@@ -1448,13 +1489,13 @@ export default function Signup() {
                   <Typography variant="body2" fontWeight={650} sx={{ fontSize: '0.84rem' }}>
                     Citizen User
                   </Typography>
-                  <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.74rem' }}>
+                  <Typography variant="caption" sx={{ color: brandMutedText, fontSize: '0.74rem' }}>
                     citizen.delhi@gmail.com
                   </Typography>
                 </Box>
               </Box>
 
-              <Typography variant="caption" sx={{ color: textMuted, display: 'block', mb: 1 }}>
+              <Typography variant="caption" sx={{ color: brandMutedText, display: 'block', mb: 1 }}>
                 Or use your own Google email:
               </Typography>
 
@@ -1469,9 +1510,9 @@ export default function Signup() {
                   '& .MuiOutlinedInput-root': {
                     backgroundColor: inputBg,
                     borderRadius: 2,
-                    color: textPrimary,
+                    color: brandDarkNavy,
                     fontSize: '0.86rem',
-                    '& fieldset': { borderColor: borderColor },
+                    '& fieldset': { borderColor: inputBorder },
                   },
                 }}
               />
@@ -1481,7 +1522,7 @@ export default function Signup() {
                   size="small"
                   variant="outlined"
                   onClick={() => setGoogleModalOpen(false)}
-                  sx={{ textTransform: 'none', borderRadius: 2, color: textSecondary, borderColor }}
+                  sx={{ textTransform: 'none', borderRadius: 2, color: brandSecondaryNavy, borderColor: inputBorder }}
                 >
                   Cancel
                 </Button>
@@ -1492,7 +1533,7 @@ export default function Signup() {
                   sx={{
                     textTransform: 'none',
                     borderRadius: 2,
-                    backgroundColor: '#0284c7',
+                    backgroundColor: primaryBrandBlue,
                     fontWeight: 700,
                   }}
                 >
@@ -1503,13 +1544,13 @@ export default function Signup() {
           ) : (
             <Box component="form" onSubmit={handleGoogleSubmitPassword}>
               <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <Typography variant="body2" fontWeight={600} sx={{ color: textPrimary }}>
+                <Typography variant="body2" fontWeight={600} sx={{ color: brandDarkNavy }}>
                   {googleEmail}
                 </Typography>
                 <Button
                   size="small"
                   onClick={() => setGoogleStep('email')}
-                  sx={{ textTransform: 'none', fontSize: '0.75rem', p: 0, minWidth: 0, color: '#0284c7' }}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem', p: 0, minWidth: 0, color: primaryBrandBlue }}
                 >
                   Change
                 </Button>
@@ -1528,7 +1569,7 @@ export default function Signup() {
                       <IconButton
                         size="small"
                         onClick={() => setGoogleShowPassword(!googleShowPassword)}
-                        sx={{ color: textMuted }}
+                        sx={{ color: brandMutedText }}
                       >
                         {googleShowPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </IconButton>
@@ -1540,9 +1581,9 @@ export default function Signup() {
                   '& .MuiOutlinedInput-root': {
                     backgroundColor: inputBg,
                     borderRadius: 2,
-                    color: textPrimary,
+                    color: brandDarkNavy,
                     fontSize: '0.86rem',
-                    '& fieldset': { borderColor: borderColor },
+                    '& fieldset': { borderColor: inputBorder },
                   },
                 }}
               />
@@ -1553,7 +1594,7 @@ export default function Signup() {
                   variant="outlined"
                   onClick={() => setGoogleStep('email')}
                   disabled={googleLoading}
-                  sx={{ textTransform: 'none', borderRadius: 2, color: textSecondary, borderColor }}
+                  sx={{ textTransform: 'none', borderRadius: 2, color: brandSecondaryNavy, borderColor: inputBorder }}
                 >
                   Back
                 </Button>
@@ -1565,7 +1606,7 @@ export default function Signup() {
                   sx={{
                     textTransform: 'none',
                     borderRadius: 2,
-                    backgroundColor: '#0284c7',
+                    backgroundColor: primaryBrandBlue,
                     fontWeight: 700,
                   }}
                 >
@@ -1587,22 +1628,22 @@ export default function Signup() {
           sx: {
             borderRadius: 3,
             p: 1,
-            backgroundColor: surfaceBg,
-            color: textPrimary,
-            border: `1px solid ${borderColor}`,
+            backgroundColor: cardBg,
+            color: brandDarkNavy,
+            border: `1px solid ${inputBorder}`,
           },
         }}
       >
         <DialogContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
           {infoModal === 'about' && (
             <Box>
-              <Typography variant="h5" fontWeight={750} sx={{ color: textPrimary, mb: 0.5 }}>
+              <Typography variant="h5" fontWeight={750} sx={{ color: brandDarkNavy, mb: 0.5 }}>
                 About AapdaNetra
               </Typography>
               <Typography
                 variant="caption"
                 sx={{
-                  color: isDark ? '#38bdf8' : '#0284c7',
+                  color: primaryBrandBlue,
                   fontWeight: 700,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
@@ -1612,10 +1653,10 @@ export default function Signup() {
               >
                 Public Safety & Emergency Decision Support Platform
               </Typography>
-              <Typography variant="body2" sx={{ color: textSecondary, lineHeight: 1.7, mb: 2 }}>
+              <Typography variant="body2" sx={{ color: brandSecondaryNavy, lineHeight: 1.7, mb: 2 }}>
                 AapdaNetra is a high-availability disaster intelligence and crisis coordination platform built to protect communities during critical environmental emergencies.
               </Typography>
-              <Typography variant="body2" sx={{ color: textSecondary, lineHeight: 1.7, mb: 3 }}>
+              <Typography variant="body2" sx={{ color: brandSecondaryNavy, lineHeight: 1.7, mb: 3 }}>
                 By integrating early warning sensor telemetry, localized hazard analytics, and district-level automated triage, AapdaNetra empowers both citizens and government administrations to act swiftly when every second counts.
               </Typography>
             </Box>
@@ -1623,13 +1664,13 @@ export default function Signup() {
 
           {infoModal === 'how-it-works' && (
             <Box>
-              <Typography variant="h5" fontWeight={750} sx={{ color: textPrimary, mb: 0.5 }}>
+              <Typography variant="h5" fontWeight={750} sx={{ color: brandDarkNavy, mb: 0.5 }}>
                 How It Works
               </Typography>
               <Typography
                 variant="caption"
                 sx={{
-                  color: isDark ? '#38bdf8' : '#0284c7',
+                  color: primaryBrandBlue,
                   fontWeight: 700,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
@@ -1641,26 +1682,26 @@ export default function Signup() {
               </Typography>
               <Stack spacing={2} sx={{ mb: 3 }}>
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: textPrimary }}>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: brandDarkNavy }}>
                     1. Real-Time Telemetry & Hazard Tracking
                   </Typography>
-                  <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.85rem' }}>
+                  <Typography variant="body2" sx={{ color: brandSecondaryNavy, fontSize: '0.85rem' }}>
                     Continuous tracking of river basin levels, precipitation thresholds, and seismic sensors provides crucial predictive lead time.
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: textPrimary }}>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: brandDarkNavy }}>
                     2. Citizen Incident Reporting & Rapid Alerts
                   </Typography>
-                  <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.85rem' }}>
+                  <Typography variant="body2" sx={{ color: brandSecondaryNavy, fontSize: '0.85rem' }}>
                     Registered citizens receive district-tailored notifications and can submit field-level hazard reports with precise coordinates.
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: textPrimary }}>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: brandDarkNavy }}>
                     3. Unified Emergency Operations Center (EOC)
                   </Typography>
-                  <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.85rem' }}>
+                  <Typography variant="body2" sx={{ color: brandSecondaryNavy, fontSize: '0.85rem' }}>
                     District and state officers prioritize safe shelter intakes, coordinate evacuation corridors, and manage relief deployment.
                   </Typography>
                 </Box>
@@ -1670,13 +1711,13 @@ export default function Signup() {
 
           {infoModal === 'contact' && (
             <Box>
-              <Typography variant="h5" fontWeight={750} sx={{ color: textPrimary, mb: 0.5 }}>
+              <Typography variant="h5" fontWeight={750} sx={{ color: brandDarkNavy, mb: 0.5 }}>
                 Emergency Operations Desk
               </Typography>
               <Typography
                 variant="caption"
                 sx={{
-                  color: isDark ? '#38bdf8' : '#0284c7',
+                  color: primaryBrandBlue,
                   fontWeight: 700,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
@@ -1686,7 +1727,7 @@ export default function Signup() {
               >
                 24x7 State Disaster Control Room
               </Typography>
-              <Typography variant="body2" sx={{ color: textSecondary, lineHeight: 1.7, mb: 2 }}>
+              <Typography variant="body2" sx={{ color: brandSecondaryNavy, lineHeight: 1.7, mb: 2 }}>
                 For emergency assistance and incident escalation, please contact the respective helpline desks:
               </Typography>
               <Box
@@ -1694,17 +1735,17 @@ export default function Signup() {
                   p: 2,
                   borderRadius: 2,
                   bgcolor: isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc',
-                  border: `1px solid ${borderColor}`,
+                  border: `1px solid ${inputBorder}`,
                   mb: 3,
                 }}
               >
-                <Typography variant="body2" sx={{ color: textPrimary, fontWeight: 650, mb: 0.5 }}>
+                <Typography variant="body2" sx={{ color: brandDarkNavy, fontWeight: 650, mb: 0.5 }}>
                   National Emergency: <span style={{ color: '#ef4444' }}>112</span>
                 </Typography>
-                <Typography variant="body2" sx={{ color: textPrimary, fontWeight: 650, mb: 0.5 }}>
-                  NDRF Control Room: <span style={{ color: isDark ? '#38bdf8' : '#0284c7' }}>1078</span>
+                <Typography variant="body2" sx={{ color: brandDarkNavy, fontWeight: 650, mb: 0.5 }}>
+                  NDRF Control Room: <span style={{ color: primaryBrandBlue }}>1078</span>
                 </Typography>
-                <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.85rem' }}>
+                <Typography variant="body2" sx={{ color: brandSecondaryNavy, fontSize: '0.85rem' }}>
                   Operations Support: support@aapdanetra.in
                 </Typography>
               </Box>
@@ -1717,13 +1758,13 @@ export default function Signup() {
               size="small"
               onClick={() => setInfoModal(null)}
               sx={{
-                backgroundColor: isDark ? '#38bdf8' : '#0284c7',
+                backgroundColor: primaryBrandBlue,
                 color: '#ffffff',
                 textTransform: 'none',
                 fontWeight: 650,
                 borderRadius: 1.5,
                 px: 2.5,
-                '&:hover': { backgroundColor: isDark ? '#0284c7' : '#0369a1' },
+                '&:hover': { backgroundColor: '#0052cc' },
               }}
             >
               Close
