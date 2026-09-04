@@ -71,12 +71,18 @@ const register = async (req, res) => {
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
+        const normalized = (email || "").trim();
 
-        const user = await User.findOne({ email });
+        const user = await User.findOne({
+            $or: [
+                { email: normalized.toLowerCase() },
+                { phone: normalized }
+            ]
+        });
         if (!user) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid email or password"
+                message: "Invalid credentials. Please verify your identifier and password."
             });
         }
 

@@ -15,9 +15,9 @@ export function ThemeContextProvider({ children }) {
   const [themeMode, setThemeMode] = useState(() => {
     try {
       const saved = localStorage.getItem('aapdanetra_theme');
-      return saved === 'light' ? 'light' : 'dark';
+      return saved === 'dark' ? 'dark' : 'light';
     } catch {
-      return 'dark';
+      return 'light';
     }
   });
 
