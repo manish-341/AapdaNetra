@@ -141,21 +141,23 @@ export default function StatCard({
           {value}
         </Typography>
 
-        <Box display="flex" alignItems="center" flexWrap="wrap" gap={0.75}>
+        <Box display="flex" alignItems="center" justifyContent="space-between" gap={1} flexWrap="nowrap" overflow="hidden">
           {change && (
             <Box
               sx={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 0.5,
-                px: 1,
-                py: 0.3,
+                gap: 0.6,
+                px: 1.1,
+                py: 0.35,
                 borderRadius: 1.5,
                 backgroundColor: scheme.badgeBg,
                 border: `1px solid ${scheme.border}`,
                 color: scheme.badgeText,
-                fontSize: '0.74rem',
-                fontWeight: 700,
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                whiteSpace: 'nowrap',
+                flexShrink: 0
               }}
             >
               <Box
@@ -165,13 +167,24 @@ export default function StatCard({
                   height: 6,
                   borderRadius: '50%',
                   bgcolor: scheme.accent,
+                  flexShrink: 0
                 }}
               />
               {change}
             </Box>
           )}
           {subtext && (
-            <Typography variant="caption" sx={{ color: isDark ? '#64748b' : '#94a3b8', fontSize: '0.74rem', fontWeight: 500 }}>
+            <Typography
+              variant="caption"
+              noWrap
+              sx={{
+                color: isDark ? '#94a3b8' : '#64748b',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                textOverflow: 'ellipsis',
+                overflow: 'hidden'
+              }}
+            >
               {subtext}
             </Typography>
           )}

@@ -7,7 +7,6 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import HomeWorkOutlinedIcon from '@mui/icons-material/HomeWorkOutlined';
 import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
-import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
@@ -18,10 +17,8 @@ import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import Boilerplate from '../layouts/Boilerplate';
 import StatCard from '../components/StatCard';
 import RiskBadge from '../components/RiskBadge';
-import { getDashboardStats, postAICopilot } from '../services/api';
-import TextField from '@mui/material/TextField';
+import { getDashboardStats } from '../services/api';
 import Chip from '@mui/material/Chip';
-import SendIcon from '@mui/icons-material/Send';
 import { getCurrentUser } from '../lib/auth';
 import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext } from '../context/LocationContext';
@@ -61,86 +58,6 @@ const formatAlertTime = (alert) => {
   return null;
 };
 
-function FormattedCopilotMessage({ text, isDark }) {
-  if (!text) return null;
-  const lines = text.split('\n');
-
-  const parseInlineStyles = (line) => {
-    const segments = line.split(/(\*\*.*?\*\*|\*.*?\*)/g);
-    return segments.map((seg, i) => {
-      if (seg.startsWith('**') && seg.endsWith('**')) {
-        return (
-          <Box component="span" key={i} sx={{ fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a' }}>
-            {seg.slice(2, -2)}
-          </Box>
-        );
-      }
-      if (seg.startsWith('*') && seg.endsWith('*')) {
-        return (
-          <Box component="span" key={i} sx={{ fontStyle: 'italic', color: isDark ? '#94a3b8' : '#475569' }}>
-            {seg.slice(1, -1)}
-          </Box>
-        );
-      }
-      return seg;
-    });
-  };
-
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.7, fontSize: '0.88rem', lineHeight: 1.6 }}>
-      {lines.map((line, idx) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <Box key={idx} sx={{ height: 4 }} />;
-
-        if (trimmed.startsWith('###')) {
-          const headerText = trimmed.replace(/^###\s*/, '');
-          return (
-            <Typography
-              key={idx}
-              variant="subtitle2"
-              sx={{
-                fontWeight: 800,
-                fontSize: '0.94rem',
-                color: isDark ? '#38bdf8' : '#0284c7',
-                mt: idx === 0 ? 0 : 0.75,
-                mb: 0.25,
-              }}
-            >
-              {parseInlineStyles(headerText)}
-            </Typography>
-          );
-        }
-
-        if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
-          const bulletText = trimmed.replace(/^[•\-]\s*/, '');
-          return (
-            <Box key={idx} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, pl: 0.5, my: 0.15 }}>
-              <Box component="span" sx={{ color: isDark ? '#38bdf8' : '#0284c7', fontWeight: 900, userSelect: 'none' }}>
-                &bull;
-              </Box>
-              <Box sx={{ flex: 1 }}>{parseInlineStyles(bulletText)}</Box>
-            </Box>
-          );
-        }
-
-        const numMatch = trimmed.match(/^(\d+)\.\s*(.*)/);
-        if (numMatch) {
-          return (
-            <Box key={idx} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, pl: 0.5, my: 0.2 }}>
-              <Box component="span" sx={{ fontWeight: 800, color: isDark ? '#38bdf8' : '#0284c7', minWidth: 18 }}>
-                {numMatch[1]}.
-              </Box>
-              <Box sx={{ flex: 1 }}>{parseInlineStyles(numMatch[2])}</Box>
-            </Box>
-          );
-        }
-
-        return <Box key={idx}>{parseInlineStyles(trimmed)}</Box>;
-      })}
-    </Box>
-  );
-}
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const { isDark } = useThemeMode();
@@ -150,28 +67,7 @@ export default function Dashboard() {
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [copilotQuery, setCopilotQuery] = useState('');
-  const [copilotLoading, setCopilotLoading] = useState(false);
-  const [copilotResult, setCopilotResult] = useState(null);
   const [alertFilter, setAlertFilter] = useState('ALL');
-
-  const handleAskCopilot = async (q) => {
-    const query = q || copilotQuery;
-    if (!query) return;
-    setCopilotLoading(true);
-    try {
-      const res = await postAICopilot({ query, message: query, latitude: location.lat, longitude: location.lng });
-      setCopilotResult(res.data?.data || null);
-    } catch (err) {
-      console.error("Copilot query error:", err);
-      setCopilotResult({
-        response: err.response?.data?.message || "Failed to reach AI Copilot. Please verify that the backend server is running.",
-        source: "System Alert"
-      });
-    } finally {
-      setCopilotLoading(false);
-    }
-  };
 
   useEffect(() => {
     getDashboardStats()
@@ -232,29 +128,29 @@ export default function Dashboard() {
 
   return (
     <Boilerplate>
-      {/* Top Header with Command Status & Quick Action Buttons */}
+      {/* 1. Top Clean Status Header */}
       <Box
         display="flex"
         flexDirection={{ xs: 'column', md: 'row' }}
         justifyContent="space-between"
         alignItems={{ xs: 'flex-start', md: 'center' }}
         gap={2}
-        mb={3}
+        mb={2.5}
       >
         <Box>
-          <Box display="flex" alignItems="center" gap={1.5} mb={0.75}>
+          <Box display="flex" alignItems="center" gap={1.2} mb={0.4}>
             <span className="beacon-live" />
             <Typography
               variant="caption"
               sx={{
                 color: isDark ? '#38bdf8' : '#0284c7',
                 fontWeight: 800,
-                letterSpacing: '0.08em',
+                letterSpacing: '0.06em',
                 textTransform: 'uppercase',
-                fontSize: '0.72rem'
+                fontSize: '0.7rem'
               }}
             >
-              Live Command Center • Real-Time AI Inference Active
+              Live Command Center • Real-Time AI Telemetry
             </Typography>
           </Box>
           <Typography
@@ -267,167 +163,155 @@ export default function Dashboard() {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               letterSpacing: '-0.02em',
-              fontSize: { xs: '1.65rem', md: '2.1rem' }
+              fontSize: { xs: '1.6rem', md: '1.95rem' },
+              lineHeight: 1.25
             }}
           >
             AapdaNetra Crisis Decision Cockpit
           </Typography>
-          <Typography variant="body2" sx={{ color: secondaryTextColor, mt: 0.5 }}>
-            Welcome back, <strong style={{ color: primaryTextColor }}>{user.name}</strong> ({user.role}) • Live situational intelligence for{' '}
+          <Typography variant="body2" sx={{ color: secondaryTextColor, mt: 0.3 }}>
+            Welcome back, <strong style={{ color: primaryTextColor }}>{user.name}</strong> ({user.role}) • Situational intelligence for{' '}
             <span style={{ color: isDark ? '#38bdf8' : '#0284c7', fontWeight: 700 }}>{user.district || 'Delhi'}</span>
           </Typography>
         </Box>
 
-        {/* Header Action Buttons with Colorful Gradients */}
-        <Stack direction="row" spacing={1.5} flexWrap="wrap">
+        {/* Header Action Button */}
+        <Stack direction="row" spacing={1.5} alignItems="center">
           <Button
             variant="contained"
             startIcon={<MapOutlinedIcon />}
             onClick={() => navigate('/disaster-map')}
             sx={{
               background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-              boxShadow: '0 4px 16px rgba(37, 99, 235, 0.35)',
+              boxShadow: '0 4px 16px rgba(37, 99, 235, 0.3)',
               fontWeight: 700,
-              px: 2.5,
-              py: 1,
-              borderRadius: 2,
+              fontSize: '0.82rem',
+              px: 2.2,
+              py: 0.85,
+              borderRadius: 2.5,
+              textTransform: 'none',
               '&:hover': {
                 background: 'linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%)',
-                boxShadow: '0 6px 20px rgba(37, 99, 235, 0.5)',
+                boxShadow: '0 6px 20px rgba(37, 99, 235, 0.45)',
               }
             }}
           >
             Live Disaster Map
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<SmartToyOutlinedIcon />}
-            onClick={() => navigate('/ai-assistant')}
-            sx={{
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
-              boxShadow: '0 4px 16px rgba(139, 92, 246, 0.35)',
-              fontWeight: 700,
-              px: 2.5,
-              py: 1,
-              borderRadius: 2,
-              '&:hover': {
-                background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
-                boxShadow: '0 6px 20px rgba(139, 92, 246, 0.5)',
-              }
-            }}
-          >
-            AI Assistant
-          </Button>
         </Stack>
       </Box>
 
-      {/* Real-time Environmental Telemetry Pills */}
+      {/* 2. Real-Time Environmental Telemetry Bar (Compact & Polished) */}
       <Paper
         className="glass-card"
         sx={{
-          p: 1.75,
-          mb: 3,
-          borderRadius: 3,
+          p: 1.25,
+          px: 2,
+          mb: 2.5,
+          borderRadius: 2.5,
           background: isDark
-            ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 30, 55, 0.8) 100%) !important'
-            : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important',
+            ? 'rgba(15, 23, 42, 0.75) !important'
+            : '#ffffff !important',
           border: isDark
-            ? '1px solid rgba(56, 189, 248, 0.2) !important'
-            : '1px solid rgba(2, 132, 199, 0.2) !important'
+            ? '1px solid rgba(255, 255, 255, 0.08) !important'
+            : '1px solid rgba(226, 232, 240, 0.9) !important',
+          boxShadow: isDark
+            ? '0 4px 16px rgba(0, 0, 0, 0.25)'
+            : '0 2px 10px rgba(0, 0, 0, 0.03)'
         }}
       >
-        <Grid container spacing={2} alignItems="center">
+        <Grid container spacing={1.5} alignItems="center">
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Box display="flex" alignItems="center" gap={1.5}>
+            <Box display="flex" alignItems="center" gap={1.2}>
               <Box
                 sx={{
-                  p: 1,
-                  borderRadius: 2,
-                  bgcolor: 'rgba(249, 115, 22, 0.15)',
+                  p: 0.8,
+                  borderRadius: 1.5,
+                  bgcolor: 'rgba(249, 115, 22, 0.12)',
                   color: '#f97316',
                   display: 'flex'
                 }}
               >
-                <WaterDropOutlinedIcon fontSize="small" />
+                <WaterDropOutlinedIcon sx={{ fontSize: 18 }} />
               </Box>
               <Box>
-                <Typography variant="caption" sx={{ color: secondaryTextColor, display: 'block', fontSize: '0.72rem', fontWeight: 600 }}>
-                  Yamuna River Level
+                <Typography variant="caption" sx={{ color: secondaryTextColor, display: 'block', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                  River Level Gauge
                 </Typography>
-                <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 700 }}>
-                  205.85 m <span style={{ color: '#f97316', fontSize: '0.75rem', fontWeight: 700 }}>(+0.52m Warning)</span>
+                <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 800, fontSize: '0.85rem' }}>
+                  205.85 m <span style={{ color: '#f97316', fontSize: '0.72rem', fontWeight: 700 }}>(+0.52m Warning)</span>
                 </Typography>
               </Box>
             </Box>
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Box display="flex" alignItems="center" gap={1.5}>
+            <Box display="flex" alignItems="center" gap={1.2}>
               <Box
                 sx={{
-                  p: 1,
-                  borderRadius: 2,
-                  bgcolor: isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.12)',
+                  p: 0.8,
+                  borderRadius: 1.5,
+                  bgcolor: isDark ? 'rgba(56, 189, 248, 0.12)' : 'rgba(2, 132, 199, 0.1)',
                   color: isDark ? '#38bdf8' : '#0284c7',
                   display: 'flex'
                 }}
               >
-                <ThunderstormOutlinedIcon fontSize="small" />
+                <ThunderstormOutlinedIcon sx={{ fontSize: 18 }} />
               </Box>
               <Box>
-                <Typography variant="caption" sx={{ color: secondaryTextColor, display: 'block', fontSize: '0.72rem', fontWeight: 600 }}>
+                <Typography variant="caption" sx={{ color: secondaryTextColor, display: 'block', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase' }}>
                   24h Precipitation
                 </Typography>
-                <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 700 }}>
-                  68.4 mm <span style={{ color: isDark ? '#38bdf8' : '#0284c7', fontSize: '0.75rem', fontWeight: 700 }}>(Heavy Showers)</span>
+                <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 800, fontSize: '0.85rem' }}>
+                  68.4 mm <span style={{ color: isDark ? '#38bdf8' : '#0284c7', fontSize: '0.72rem', fontWeight: 700 }}>(Heavy Showers)</span>
                 </Typography>
               </Box>
             </Box>
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Box display="flex" alignItems="center" gap={1.5}>
+            <Box display="flex" alignItems="center" gap={1.2}>
               <Box
                 sx={{
-                  p: 1,
-                  borderRadius: 2,
-                  bgcolor: 'rgba(244, 63, 94, 0.15)',
+                  p: 0.8,
+                  borderRadius: 1.5,
+                  bgcolor: 'rgba(244, 63, 94, 0.12)',
                   color: '#f43f5e',
                   display: 'flex'
                 }}
               >
-                <ShieldOutlinedIcon fontSize="small" />
+                <ShieldOutlinedIcon sx={{ fontSize: 18 }} />
               </Box>
               <Box>
-                <Typography variant="caption" sx={{ color: secondaryTextColor, display: 'block', fontSize: '0.72rem', fontWeight: 600 }}>
-                  High-Risk Habitations
+                <Typography variant="caption" sx={{ color: secondaryTextColor, display: 'block', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Monitored Risk Sectors
                 </Typography>
-                <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 700 }}>
-                  6 Zones Active <span style={{ color: '#f43f5e', fontSize: '0.75rem', fontWeight: 700 }}>(2 Critical)</span>
+                <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 800, fontSize: '0.85rem' }}>
+                  6 Active <span style={{ color: '#f43f5e', fontSize: '0.72rem', fontWeight: 700 }}>(2 Critical)</span>
                 </Typography>
               </Box>
             </Box>
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Box display="flex" alignItems="center" gap={1.5}>
+            <Box display="flex" alignItems="center" gap={1.2}>
               <Box
                 sx={{
-                  p: 1,
-                  borderRadius: 2,
-                  bgcolor: 'rgba(16, 185, 129, 0.15)',
+                  p: 0.8,
+                  borderRadius: 1.5,
+                  bgcolor: 'rgba(16, 185, 129, 0.12)',
                   color: '#10b981',
                   display: 'flex'
                 }}
               >
-                <HomeWorkOutlinedIcon fontSize="small" />
+                <HomeWorkOutlinedIcon sx={{ fontSize: 18 }} />
               </Box>
               <Box>
-                <Typography variant="caption" sx={{ color: secondaryTextColor, display: 'block', fontSize: '0.72rem', fontWeight: 600 }}>
-                  Evacuation Shelters
+                <Typography variant="caption" sx={{ color: secondaryTextColor, display: 'block', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Shelter Readiness
                 </Typography>
-                <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 700 }}>
-                  88% Capacity Ready <span style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 700 }}>(14 Facilities)</span>
+                <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 800, fontSize: '0.85rem' }}>
+                  88% Capacity <span style={{ color: '#10b981', fontSize: '0.72rem', fontWeight: 700 }}>(14 Verified)</span>
                 </Typography>
               </Box>
             </Box>
@@ -440,14 +324,14 @@ export default function Dashboard() {
           <CircularProgress sx={{ color: isDark ? '#38bdf8' : '#0284c7' }} size={48} thickness={4} />
         </Box>
       ) : (
-        <Grid container spacing={3}>
-          {/* Top 4 Vibrant Stat Cards */}
+        <Grid container spacing={2.5}>
+          {/* 3. Top 4 Clean KPI Stat Cards */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard
               title="Active System Alerts"
               value={stats?.alerts?.total || displayAlerts.length}
-              change={`${stats?.alerts?.critical || 1} Critical Priority`}
-              subtext="Real-time automated feeds"
+              change={`${stats?.alerts?.critical || 1} Critical`}
+              subtext="Live Feeds"
               icon={WarningAmberIcon}
               colorScheme="crimson"
             />
@@ -456,9 +340,9 @@ export default function Dashboard() {
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard
               title="Available Shelters"
-              value={stats?.shelters?.total ? `${stats.shelters.available}/${stats.shelters.total}` : '12/14'}
-              change={`${stats?.shelters?.occupied || 2} Occupied`}
-              subtext="Intake capacity verified"
+              value={stats?.shelters?.total ? `${stats.shelters.available}/${stats.shelters.total}` : '18/20'}
+              change={`${stats?.shelters?.occupied || 1740} Occupied`}
+              subtext="Intake Verified"
               icon={HomeWorkOutlinedIcon}
               colorScheme="emerald"
             />
@@ -467,9 +351,9 @@ export default function Dashboard() {
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard
               title="Population at Risk"
-              value={stats?.populationAtRisk ? stats.populationAtRisk.toLocaleString() : '14,850'}
-              change="Threat Score ≥ 60"
-              subtext="In flood-prone wards"
+              value={stats?.populationAtRisk ? stats.populationAtRisk.toLocaleString() : '62,730'}
+              change="Score ≥ 60"
+              subtext="Flood Wards"
               icon={PeopleAltOutlinedIcon}
               colorScheme="amber"
             />
@@ -478,23 +362,23 @@ export default function Dashboard() {
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard
               title="Citizen Reports (24h)"
-              value={stats?.reports?.last24h || 24}
-              change={`${stats?.reports?.verified || 19} Verified`}
-              subtext="NLP triage classified"
+              value={stats?.reports?.last24h || 9}
+              change={`${stats?.reports?.verified || 4} Verified`}
+              subtext="NLP Triaged"
               icon={BoltOutlinedIcon}
               colorScheme="cyan"
             />
           </Grid>
 
-          {/* Middle Section Left: Habitations by Risk Category */}
+          {/* 4. Middle Section Left: Habitations by Risk Category */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Paper className="glass-card card-accent-purple" sx={{ p: 3, borderRadius: 3, height: '100%' }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2.5}>
-                <Box display="flex" alignItems="center" gap={1.5}>
+            <Paper className="glass-card card-accent-purple" sx={{ p: 2.5, borderRadius: 3, height: '100%' }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Box display="flex" alignItems="center" gap={1.2}>
                   <Box
                     sx={{
-                      width: 36,
-                      height: 36,
+                      width: 34,
+                      height: 34,
                       borderRadius: 2,
                       background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)',
                       display: 'flex',
@@ -534,13 +418,13 @@ export default function Dashboard() {
               <Grid container spacing={2} alignItems="center">
                 {/* Donut Chart with Center Label */}
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <Box height={220} position="relative" display="flex" justifyContent="center" alignItems="center">
+                  <Box height={210} position="relative" display="flex" justifyContent="center" alignItems="center">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={pieData}
-                          innerRadius={62}
-                          outerRadius={88}
+                          innerRadius={58}
+                          outerRadius={84}
                           paddingAngle={5}
                           dataKey="value"
                           stroke="none"
@@ -573,23 +457,23 @@ export default function Dashboard() {
                       <Typography variant="h5" fontWeight={800} sx={{ color: primaryTextColor, lineHeight: 1 }}>
                         {totalHabitations}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: secondaryTextColor, fontSize: '0.7rem', fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: secondaryTextColor, fontSize: '0.68rem', fontWeight: 600 }}>
                         Total Zones
                       </Typography>
                     </Box>
                   </Box>
                 </Grid>
 
-                {/* Colorful Interactive Breakdown Bars */}
+                {/* Breakdown Bars */}
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <Stack spacing={1.5}>
+                  <Stack spacing={1.2}>
                     {pieData.map((item, idx) => {
                       const percentage = Math.round((item.value / totalHabitations) * 100);
                       return (
                         <Box
                           key={idx}
                           sx={{
-                            p: 1.25,
+                            p: 1.1,
                             borderRadius: 2,
                             bgcolor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
                             border: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0, 0, 0, 0.06)',
@@ -600,7 +484,7 @@ export default function Dashboard() {
                             }
                           }}
                         >
-                          <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.75}>
+                          <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.6}>
                             <Box display="flex" alignItems="center" gap={1}>
                               <Box
                                 sx={{
@@ -611,20 +495,19 @@ export default function Dashboard() {
                                   boxShadow: `0 0 8px ${item.color}`
                                 }}
                               />
-                              <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 600, fontSize: '0.8rem' }}>
+                              <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 600, fontSize: '0.78rem' }}>
                                 {item.name}
                               </Typography>
                             </Box>
-                            <Typography variant="caption" sx={{ color: item.color, fontWeight: 700 }}>
+                            <Typography variant="caption" sx={{ color: item.color, fontWeight: 700, fontSize: '0.75rem' }}>
                               {item.value} ({percentage}%)
                             </Typography>
                           </Box>
 
-                          {/* Mini Progress Bar */}
                           <Box
                             sx={{
                               width: '100%',
-                              height: 6,
+                              height: 5,
                               borderRadius: 3,
                               bgcolor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)',
                               overflow: 'hidden'
@@ -649,15 +532,15 @@ export default function Dashboard() {
             </Paper>
           </Grid>
 
-          {/* Middle Section Right: 24-Hour Regional Risk Trend */}
+          {/* 5. Middle Section Right: 24-Hour Regional Risk Trend */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Paper className="glass-card card-accent-crimson" sx={{ p: 3, borderRadius: 3, height: '100%' }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Box display="flex" alignItems="center" gap={1.5}>
+            <Paper className="glass-card card-accent-crimson" sx={{ p: 2.5, borderRadius: 3, height: '100%' }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+                <Box display="flex" alignItems="center" gap={1.2}>
                   <Box
                     sx={{
-                      width: 36,
-                      height: 36,
+                      width: 34,
+                      height: 34,
                       borderRadius: 2,
                       background: 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)',
                       display: 'flex',
@@ -694,16 +577,16 @@ export default function Dashboard() {
                 </Box>
               </Box>
 
-              {/* Quick Trend Telemetry Badges */}
-              <Box display="flex" gap={1} mb={2} flexWrap="wrap">
+              {/* Quick Trend Badges */}
+              <Box display="flex" gap={1} mb={1.5} flexWrap="wrap">
                 <Box
                   sx={{
-                    px: 1.2,
-                    py: 0.4,
+                    px: 1,
+                    py: 0.3,
                     borderRadius: 1.5,
                     bgcolor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)',
                     border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
-                    fontSize: '0.75rem',
+                    fontSize: '0.72rem',
                     color: secondaryTextColor
                   }}
                 >
@@ -711,12 +594,12 @@ export default function Dashboard() {
                 </Box>
                 <Box
                   sx={{
-                    px: 1.2,
-                    py: 0.4,
+                    px: 1,
+                    py: 0.3,
                     borderRadius: 1.5,
                     bgcolor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)',
                     border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
-                    fontSize: '0.75rem',
+                    fontSize: '0.72rem',
                     color: secondaryTextColor
                   }}
                 >
@@ -724,21 +607,21 @@ export default function Dashboard() {
                 </Box>
                 <Box
                   sx={{
-                    px: 1.2,
-                    py: 0.4,
+                    px: 1,
+                    py: 0.3,
                     borderRadius: 1.5,
                     bgcolor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)',
                     border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
-                    fontSize: '0.75rem',
+                    fontSize: '0.72rem',
                     color: secondaryTextColor
                   }}
                 >
-                  Model Confidence: <strong style={{ color: isDark ? '#38bdf8' : '#0284c7' }}>94.6%</strong>
+                  Confidence: <strong style={{ color: isDark ? '#38bdf8' : '#0284c7' }}>94.6%</strong>
                 </Box>
               </Box>
 
               {/* Glowing Area Chart */}
-              <Box height={200}>
+              <Box height={190}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={mockTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
@@ -753,8 +636,8 @@ export default function Dashboard() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.06)"} />
-                    <XAxis dataKey="time" stroke={secondaryTextColor} tick={{ fill: secondaryTextColor, fontSize: 12 }} />
-                    <YAxis domain={[0, 100]} stroke={secondaryTextColor} tick={{ fill: secondaryTextColor, fontSize: 12 }} />
+                    <XAxis dataKey="time" stroke={secondaryTextColor} tick={{ fill: secondaryTextColor, fontSize: 11 }} />
+                    <YAxis domain={[0, 100]} stroke={secondaryTextColor} tick={{ fill: secondaryTextColor, fontSize: 11 }} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : '#ffffff',
@@ -794,116 +677,7 @@ export default function Dashboard() {
             </Paper>
           </Grid>
 
-          {/* AI Emergency Copilot Operational Console (Feature 9 & 12) */}
-          <Grid size={{ xs: 12 }}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                borderRadius: 3,
-                bgcolor: isDark ? 'rgba(15, 23, 42, 0.85)' : '#f0fdf4',
-                border: isDark ? '1px solid rgba(22, 163, 74, 0.3)' : '1px solid rgba(22, 163, 74, 0.25)',
-                boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.3)' : '0 4px 20px rgba(0,0,0,0.05)'
-              }}
-            >
-              <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} gap={1.5} mb={2}>
-                <Box display="flex" alignItems="center" gap={1.5}>
-                  <Box sx={{ p: 1, borderRadius: 2, bgcolor: 'rgba(22, 163, 74, 0.15)', color: '#16a34a', display: 'flex' }}>
-                    <SmartToyOutlinedIcon />
-                  </Box>
-                  <Box>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Typography variant="subtitle1" fontWeight={800} sx={{ color: primaryTextColor }}>
-                        AI Emergency Copilot — Operational Decision Support
-                      </Typography>
-                      <Chip label="LIVE RETRIEVAL ENGINE" size="small" sx={{ fontWeight: 800, fontSize: '0.65rem', bgcolor: '#16a34a', color: '#fff', height: 18 }} />
-                    </Box>
-                    <Typography variant="caption" sx={{ color: secondaryTextColor }}>
-                      Context-grounded tactical intelligence querying live database telemetry without hallucination.
-                    </Typography>
-                  </Box>
-                </Box>
 
-                {/* Suggested Quick Tactical Prompts */}
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  <Chip
-                    label="🚨 Which area needs immediate attention?"
-                    onClick={() => {
-                      setCopilotQuery("Which area needs immediate attention?");
-                      handleAskCopilot("Which area needs immediate attention?");
-                    }}
-                    size="small"
-                    sx={{ fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer', bgcolor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2', color: '#ef4444' }}
-                  />
-                  <Chip
-                    label="🏥 Check shelter capacity & bottlenecks"
-                    onClick={() => {
-                      setCopilotQuery("Check shelter capacity and bottlenecks");
-                      handleAskCopilot("Check shelter capacity and bottlenecks");
-                    }}
-                    size="small"
-                    sx={{ fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer', bgcolor: isDark ? 'rgba(2, 132, 199, 0.15)' : '#e0f2fe', color: '#0284c7' }}
-                  />
-                  <Chip
-                    label="📱 Summarize verified citizen reports (24h)"
-                    onClick={() => {
-                      setCopilotQuery("Summarize verified citizen reports in last 24h");
-                      handleAskCopilot("Summarize verified citizen reports in last 24h");
-                    }}
-                    size="small"
-                    sx={{ fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer', bgcolor: isDark ? 'rgba(234, 88, 12, 0.15)' : '#ffedd5', color: '#ea580c' }}
-                  />
-                </Stack>
-              </Box>
-
-              {/* Search & Submit Input */}
-              <Box display="flex" gap={1} mb={copilotResult ? 2 : 0}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Ask the AI Copilot: e.g., 'What is the evacuation priority for Yamuna basin?' or 'List open shelters in Central Delhi'"
-                  value={copilotQuery}
-                  onChange={(e) => setCopilotQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAskCopilot()}
-                  sx={{
-                    bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#ffffff',
-                    borderRadius: 2,
-                    '& .MuiOutlinedInput-root': { color: primaryTextColor }
-                  }}
-                />
-                <Button
-                  variant="contained"
-                  disabled={copilotLoading}
-                  onClick={() => handleAskCopilot()}
-                  endIcon={copilotLoading ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SendIcon />}
-                  sx={{ bgcolor: '#16a34a', fontWeight: 700, px: 3, '&:hover': { bgcolor: '#15803d' } }}
-                >
-                  Ask Copilot
-                </Button>
-              </Box>
-
-              {/* Copilot Result Box */}
-              {copilotResult && (
-                <Box
-                  sx={{
-                    mt: 2,
-                    p: 2.5,
-                    borderRadius: 2.5,
-                    bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#ffffff',
-                    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0'
-                  }}
-                >
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography variant="caption" fontWeight={800} sx={{ color: '#16a34a' }}>
-                      TACTICAL DIRECTIVE • SOURCE: {copilotResult.source || "AapdaNetra Decision Intelligence Engine"}
-                    </Typography>
-                    <Chip label="GROUNDED DATA" size="small" sx={{ fontSize: '0.65rem', height: 18, fontWeight: 700 }} />
-                  </Box>
-                  <FormattedCopilotMessage text={copilotResult.response} isDark={isDark} />
-                </Box>
-              )}
-            </Paper>
-          </Grid>
 
           {/* Bottom Section: Live Active Alerts & Emergency Response Center */}
           <Grid size={{ xs: 12 }}>

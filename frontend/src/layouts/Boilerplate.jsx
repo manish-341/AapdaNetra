@@ -3,6 +3,7 @@ import Sidebar from '../includes/Sidebar';
 import Navbar from '../includes/Navbar';
 import Footer from '../includes/Footer';
 import EmergencyAlertSentinel from '../components/EmergencyAlertSentinel';
+import FloatingAIAssistant from '../components/FloatingAIAssistant';
 import { useThemeMode } from '../context/ThemeContext';
 
 const Boilerplate = ({ children }) => {
@@ -28,6 +29,7 @@ const Boilerplate = ({ children }) => {
         >
           <EmergencyAlertSentinel />
           {children}
+          <FloatingAIAssistant />
         </main>
         <Footer />
       </div>
