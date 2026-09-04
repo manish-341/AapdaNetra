@@ -2,6 +2,7 @@ import React from 'react';
 import Sidebar from '../includes/Sidebar';
 import Navbar from '../includes/Navbar';
 import Footer from '../includes/Footer';
+import EmergencyAlertSentinel from '../components/EmergencyAlertSentinel';
 import { useThemeMode } from '../context/ThemeContext';
 
 const Boilerplate = ({ children }) => {
@@ -25,6 +26,7 @@ const Boilerplate = ({ children }) => {
             transition: 'background 0.25s ease',
           }}
         >
+          <EmergencyAlertSentinel />
           {children}
         </main>
         <Footer />
