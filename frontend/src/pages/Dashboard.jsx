@@ -146,6 +146,7 @@ export default function Dashboard() {
   const { isDark } = useThemeMode();
   const { location } = useLocationContext();
   const user = getCurrentUser() || { name: 'Officer', role: 'DISTRICT_OFFICER', district: 'Delhi' };
+  const isAdmin = ["ADMIN", "ADMINISTRATOR"].includes(user?.role);
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1065,23 +1066,25 @@ export default function Dashboard() {
                         </Box>
 
                         <Stack direction="row" spacing={1} sx={{ mt: { xs: 1, sm: 0 }, flexShrink: 0 }}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => navigate('/relocation-planning')}
-                            sx={{
-                              color: primaryTextColor,
-                              borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
-                              fontSize: '0.75rem',
-                              fontWeight: 600,
-                              '&:hover': {
-                                borderColor: isDark ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
-                                bgcolor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)'
-                              }
-                            }}
-                          >
-                            Relocation
-                          </Button>
+                          {isAdmin && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => navigate('/relocation-planning')}
+                              sx={{
+                                color: primaryTextColor,
+                                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                '&:hover': {
+                                  borderColor: isDark ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
+                                  bgcolor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)'
+                                }
+                              }}
+                            >
+                              Relocation
+                            </Button>
+                          )}
                           <Button
                             size="small"
                             variant="contained"

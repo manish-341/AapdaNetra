@@ -22,6 +22,7 @@ import { useThemeMode } from '../context/ThemeContext';
 const Sidebar = () => {
   const role = getUserRole();
   const { isDark } = useThemeMode();
+  const isAdmin = ["ADMIN", "ADMINISTRATOR"].includes(role);
   const isResponder = ["ADMIN", "DISTRICT_OFFICER", "FIELD_OFFICER", "RESPONDER"].includes(role);
 
   return (
@@ -72,16 +73,17 @@ const Sidebar = () => {
           <NavLink to="/simulation" className="nav-item"><Sliders size={17} /> "What If?" Simulation</NavLink>
         )}
 
-        <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', margin: '0.85rem 0 0.25rem 0', paddingLeft: '0.5rem' }}>
-          Operations & Relocation
-        </div>
-        
-        <NavLink to="/vulnerable-habitations" className="nav-item"><AlertTriangle size={17} /> Vulnerable Habitations</NavLink>
-        <NavLink to="/carrying-capacity" className="nav-item"><BarChart3 size={17} /> Shelter Capacity</NavLink>
-        <NavLink to="/relocation-planning" className="nav-item"><Navigation size={17} /> Relocation Plans</NavLink>
-        
-        {role === "ADMIN" && (
-          <NavLink to="/user-management" className="nav-item"><Users size={17} /> User Management</NavLink>
+        {isAdmin && (
+          <>
+            <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', margin: '0.85rem 0 0.25rem 0', paddingLeft: '0.5rem' }}>
+              Operations & Relocation
+            </div>
+            
+            <NavLink to="/vulnerable-habitations" className="nav-item"><AlertTriangle size={17} /> Vulnerable Habitations</NavLink>
+            <NavLink to="/carrying-capacity" className="nav-item"><BarChart3 size={17} /> Shelter Capacity</NavLink>
+            <NavLink to="/relocation-planning" className="nav-item"><Navigation size={17} /> Relocation Plans</NavLink>
+            <NavLink to="/user-management" className="nav-item"><Users size={17} /> User Management</NavLink>
+          </>
         )}
 
         <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', margin: '0.85rem 0 0.25rem 0', paddingLeft: '0.5rem' }}>

@@ -37,6 +37,12 @@ function RequireResponder({ children }) {
   return isAuthenticated() && isResponder ? children : <Navigate to="/dashboard" replace />;
 }
 
+function RequireAdmin({ children }) {
+  const role = getUserRole();
+  const isAdmin = ["ADMIN", "ADMINISTRATOR"].includes(role);
+  return isAuthenticated() && isAdmin ? children : <Navigate to="/dashboard" replace />;
+}
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -53,10 +59,12 @@ export default function AppRoutes() {
       <Route path="/risk-analysis" element={<RequireAuth><RiskAnalysis /></RequireAuth>} />
       <Route path="/simulation" element={<RequireResponder><Simulation /></RequireResponder>} />
 
-      <Route path="/carrying-capacity" element={<RequireAuth><CarryingCapacity /></RequireAuth>} />
-      <Route path="/vulnerable-habitations" element={<RequireAuth><VulnerableHabitations /></RequireAuth>} />
-      <Route path="/relocation-planning" element={<RequireAuth><RelocationPlan /></RequireAuth>} />
-      <Route path="/user-management" element={<RequireAuth><UserManage /></RequireAuth>} />
+      {/* OPERATIONS & RELOCATION (ADMIN ONLY) */}
+      <Route path="/carrying-capacity" element={<RequireAdmin><CarryingCapacity /></RequireAdmin>} />
+      <Route path="/vulnerable-habitations" element={<RequireAdmin><VulnerableHabitations /></RequireAdmin>} />
+      <Route path="/relocation-planning" element={<RequireAdmin><RelocationPlan /></RequireAdmin>} />
+      <Route path="/user-management" element={<RequireAdmin><UserManage /></RequireAdmin>} />
+
       <Route path="/reports" element={<RequireAuth><Reports /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
 
