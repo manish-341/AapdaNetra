@@ -5,6 +5,7 @@ import { clearAuthToken, getCurrentUser } from '../lib/auth';
 import { getAlerts } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext } from '../context/LocationContext';
+import { alertMatchesLocation } from '../utils/alertMatcher';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -47,7 +48,11 @@ const Navbar = () => {
     navigate('/login', { replace: true });
   };
 
-  const criticalAlerts = alerts.filter(a => a.severity === 'CRITICAL' || a.severity === 'HIGH');
+  // Filter alerts specifically for current jurisdiction to prevent overwhelming clutter
+  const localAlerts = alerts.filter(a => a.isActive !== false && alertMatchesLocation(a, location));
+  const localCriticalAlerts = localAlerts.filter(a => a.severity === 'CRITICAL');
+  const hasLocalCritical = localCriticalAlerts.length > 0;
+  const localBadgeCount = hasLocalCritical ? localCriticalAlerts.length : localAlerts.length;
 
   return (
     <header className="top-navbar">
@@ -264,17 +269,17 @@ const Navbar = () => {
               width: 38,
               height: 38,
               borderRadius: 10,
-              border: criticalAlerts.length > 0 ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)',
-              background: criticalAlerts.length > 0
+              border: hasLocalCritical ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)',
+              background: hasLocalCritical
                 ? (isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)')
                 : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'),
-              color: criticalAlerts.length > 0 ? '#ef4444' : 'var(--text-secondary)',
+              color: hasLocalCritical ? '#ef4444' : 'var(--text-secondary)',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
             }}
           >
             <Bell size={18} />
-            {alerts.length > 0 && (
+            {localBadgeCount > 0 && (
               <span
                 style={{
                   position: 'absolute',
@@ -284,17 +289,17 @@ const Navbar = () => {
                   height: 16,
                   padding: '0 4px',
                   borderRadius: 8,
-                  backgroundColor: criticalAlerts.length > 0 ? '#ef4444' : '#0284c7',
+                  backgroundColor: hasLocalCritical ? '#ef4444' : '#0284c7',
                   color: '#ffffff',
                   fontSize: '0.62rem',
                   fontWeight: 900,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: criticalAlerts.length > 0 ? '0 0 8px #ef4444' : 'none',
+                  boxShadow: hasLocalCritical ? '0 0 8px #ef4444' : 'none',
                 }}
               >
-                {alerts.length}
+                {localBadgeCount}
               </span>
             )}
           </button>
