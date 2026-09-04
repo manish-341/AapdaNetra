@@ -12,7 +12,6 @@ const Navbar = () => {
   const { location, switchLocation, detectLiveGPS, gpsLoading, presets } = useLocationContext();
   const user = getCurrentUser() || { name: 'Guest User', role: 'CITIZEN', district: 'Vindhya' };
   const [alerts, setAlerts] = useState([]);
-  const [showAlertMenu, setShowAlertMenu] = useState(false);
   const [showLocationMenu, setShowLocationMenu] = useState(false);
   const [searchDistrict, setSearchDistrict] = useState('');
   const locationMenuRef = useRef(null);
@@ -249,12 +248,14 @@ const Navbar = () => {
           {isDark ? <Sun size={19} /> : <Moon size={19} />}
         </button>
 
-        {/* Alerts Notification dropdown */}
+        {/* Alerts Notification button (Opens Full Alert Popup for both User and Admin) */}
         <div style={{ position: 'relative' }}>
           <button
             type="button"
-            onClick={() => setShowAlertMenu(!showAlertMenu)}
-            title="Active Emergency Alerts"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('open-notifications-popup'));
+            }}
+            title="Open Emergency Alert & Notification Center"
             style={{
               position: 'relative',
               display: 'flex',
@@ -263,106 +264,40 @@ const Navbar = () => {
               width: 38,
               height: 38,
               borderRadius: 10,
-              border: '1px solid var(--border-color)',
-              background: showAlertMenu
-                ? (isDark ? '#1e293b' : '#e2e8f0')
+              border: criticalAlerts.length > 0 ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)',
+              background: criticalAlerts.length > 0
+                ? (isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)')
                 : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'),
-              color: 'var(--text-secondary)',
+              color: criticalAlerts.length > 0 ? '#ef4444' : 'var(--text-secondary)',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
             }}
           >
             <Bell size={18} />
-            {criticalAlerts.length > 0 && (
+            {alerts.length > 0 && (
               <span
                 style={{
                   position: 'absolute',
-                  top: 5,
-                  right: 5,
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  backgroundColor: '#ef4444',
-                  boxShadow: '0 0 8px #ef4444',
-                }}
-              />
-            )}
-          </button>
-
-          {showAlertMenu && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '120%',
-                right: 0,
-                width: 320,
-                maxHeight: 360,
-                overflowY: 'auto',
-                backgroundColor: 'var(--bg-secondary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: 12,
-                boxShadow: 'var(--card-shadow)',
-                zIndex: 100,
-                padding: '0.85rem',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '0.85rem',
-                  fontWeight: 700,
-                  color: 'var(--text-primary)',
-                  marginBottom: '0.5rem',
-                  borderBottom: '1px solid var(--border-color)',
-                  paddingBottom: '0.5rem',
+                  top: -2,
+                  right: -4,
+                  minWidth: 16,
+                  height: 16,
+                  padding: '0 4px',
+                  borderRadius: 8,
+                  backgroundColor: criticalAlerts.length > 0 ? '#ef4444' : '#0284c7',
+                  color: '#ffffff',
+                  fontSize: '0.62rem',
+                  fontWeight: 900,
                   display: 'flex',
-                  justifyContent: 'space-between',
                   alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: criticalAlerts.length > 0 ? '0 0 8px #ef4444' : 'none',
                 }}
               >
-                <span>Active System Alerts</span>
-                <span
-                  style={{
-                    fontSize: '0.72rem',
-                    padding: '2px 8px',
-                    borderRadius: 999,
-                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                    color: '#ef4444',
-                    fontWeight: 700,
-                  }}
-                >
-                  {alerts.length} Active
-                </span>
-              </div>
-              {alerts.length === 0 ? (
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '0.5rem 0' }}>
-                  No active alerts.
-                </div>
-              ) : (
-                alerts.slice(0, 5).map((a, i) => (
-                  <div
-                    key={a._id || i}
-                    style={{
-                      padding: '0.6rem 0',
-                      borderBottom: '1px solid var(--border-subtle)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        color: a.severity === 'CRITICAL' ? '#ef4444' : '#f97316',
-                      }}
-                    >
-                      {a.title || a.message}
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: 3 }}>
-                      {a.message}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
+                {alerts.length}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* User profile */}
