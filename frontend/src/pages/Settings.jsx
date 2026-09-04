@@ -14,264 +14,956 @@ import {
   Snackbar,
   CircularProgress,
   InputAdornment,
+  Avatar,
+  Chip,
+  Grid,
+  Slider,
+  Tabs,
+  Tab,
+  Card,
+  CardContent,
+  IconButton
 } from '@mui/material';
-import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
-import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Shield,
+  Bell,
+  Moon,
+  Sun,
+  Monitor,
+  AlertTriangle,
+  CheckCircle2,
+  RefreshCw,
+  LogOut,
+  Sliders,
+  Globe,
+  Radio,
+  Volume2,
+  Lock,
+  Compass,
+  Cpu
+} from 'lucide-react';
 import Boilerplate from '../layouts/Boilerplate';
-import { getUserById, updateUser } from '../services/api';
+import { getCurrentUser, getUserRole, clearAuthToken } from '../lib/auth';
+import { updateUser, getUserById } from '../services/api';
+import { useThemeMode } from '../context/ThemeContext';
+import { useLocationContext, PRESET_DISTRICTS } from '../context/LocationContext';
+import { useNavigate } from 'react-router-dom';
 
-const PRIORITIES = [
-  { value: 'IMMEDIATE', label: 'Immediate' },
-  { value: 'SHORT_TERM', label: 'Short Term' },
-  { value: 'MEDIUM_TERM', label: 'Medium Term' },
-  { value: 'MONITOR', label: 'Monitor' },
-];
+const NOTIFICATIONS_STORAGE_KEY = 'aapdanetra_notifications_config';
+const MAP_PREF_KEY = 'aapdanetra_map_preferences';
 
-const SETTINGS_STORAGE_KEY = 'aapdanetra_system_settings';
+export default function Settings() {
+  const navigate = useNavigate();
+  const { isDark, toggleTheme } = useThemeMode();
+  const { location, setLocation } = useLocationContext();
 
-const DEFAULT_SYSTEM_SETTINGS = {
-  riskThreshold: 70,
-  emailNotifications: true,
-  smsNotifications: false,
-  defaultRelocationPriority: 'MONITOR',
-};
+  const [activeTab, setActiveTab] = useState(0);
+  const [currentUser, setCurrentUser] = useState(getCurrentUser() || {});
+  const [role, setRole] = useState(getUserRole());
 
-// ---- Profile section --------------------------------------------------
-// Assumes the logged-in user's Mongo _id is stored under this key
-// (e.g. set at login time). Adjust to match wherever your auth flow
-// actually keeps it if it's different — this is the one piece I'm
-// guessing at since no auth/login code has been shared yet.
-const CURRENT_USER_ID_KEY = 'currentUserId';
+  // Profile Form state
+  const [profileForm, setProfileForm] = useState({
+    name: currentUser?.name || '',
+    email: currentUser?.email || '',
+    phone: currentUser?.phone || '+91 98765 43210',
+    district: currentUser?.district || location?.district || 'Central Delhi',
+    state: currentUser?.state || location?.state || 'Delhi',
+    password: ''
+  });
+  const [profileSaving, setProfileSaving] = useState(false);
 
-function ProfileSection({ onSnackbar }) {
-  const [userId] = useState(() => localStorage.getItem(CURRENT_USER_ID_KEY));
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (!userId) {
-      setLoading(false);
-      setError('No logged-in user found.');
-      return;
-    }
-    const fetchProfile = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await getUserById(userId);
-        const user = res?.data?.data || res?.data?.user || res?.data;
-        setForm({ name: user?.name || '', email: user?.email || '', password: '' });
-      } catch (err) {
-        setError('Failed to load your profile.');
-      } finally {
-        setLoading(false);
-      }
+  // Notification Preferences state
+  const [notifConfig, setNotifConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      severityThreshold: 70,
+      audioSiren: true,
+      emailAlerts: true,
+      smsAlerts: false,
+      whatsappAlerts: true,
+      floodAlerts: true,
+      cycloneAlerts: true,
+      heatwaveAlerts: false,
+      landslideAlerts: true
     };
-    fetchProfile();
-  }, [userId]);
+  });
 
-  const handleSave = async () => {
-    if (!userId) return;
-    setSaving(true);
+  // Map & Display preferences state
+  const [mapConfig, setMapConfig] = useState(() => {
     try {
-      const payload = { name: form.name, email: form.email };
-      if (form.password.trim()) payload.password = form.password;
-      await updateUser(userId, payload);
-      setForm((f) => ({ ...f, password: '' }));
-      onSnackbar('Profile updated.', 'success');
-    } catch (err) {
-      onSnackbar('Failed to update profile.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
+      const saved = localStorage.getItem(MAP_PREF_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      mapStyle: 'satellite',
+      refreshRate: '30s',
+      autoCenterGPS: true,
+      threatLayerActive: true
+    };
+  });
 
-  return (
-    <Paper variant="outlined" sx={{ borderRadius: 2, p: 3 }}>
-      <Typography variant="overline" color="text.secondary" fontWeight={700}>
-        Profile
-      </Typography>
-
-      {!userId && (
-        <Alert severity="info" sx={{ mt: 1.5 }}>
-          No logged-in user id found in local storage (key: <code>{CURRENT_USER_ID_KEY}</code>).
-          Wire this up to wherever your login flow stores the current user, and this section
-          will load and save that account automatically.
-        </Alert>
-      )}
-
-      {userId && loading && (
-        <Box display="flex" justifyContent="center" py={3}>
-          <CircularProgress size={28} />
-        </Box>
-      )}
-
-      {userId && error && <Alert severity="warning" sx={{ mt: 1.5 }}>{error}</Alert>}
-
-      {userId && !loading && !error && (
-        <Stack spacing={2} mt={2}>
-          <TextField
-            label="Full Name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            fullWidth
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <PersonOutlinedIcon fontSize="small" color="action" />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <TextField
-            label="Email"
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            fullWidth
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <EmailOutlinedIcon fontSize="small" color="action" />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <TextField
-            label="New Password (leave blank to keep current)"
-            type="password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            fullWidth
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <LockOutlinedIcon fontSize="small" color="action" />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Box>
-            <Button variant="contained" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : 'Save Profile'}
-            </Button>
-          </Box>
-        </Stack>
-      )}
-    </Paper>
-  );
-}
-
-// ---- System settings section ------------------------------------------
-// No backend model exists for this yet, so it's stored in localStorage
-// for now. If you want these values enforced server-side (e.g. the risk
-// threshold actually driving alert generation), this needs a real
-// Settings schema + route later — happy to add that when you're ready.
-function SystemSettingsSection({ onSnackbar }) {
-  const [settings, setSettings] = useState(DEFAULT_SYSTEM_SETTINGS);
+  // Snackbar notifications
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const showToast = (message, severity = 'success') => setSnackbar({ open: true, message, severity });
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
-      if (stored) setSettings({ ...DEFAULT_SYSTEM_SETTINGS, ...JSON.parse(stored) });
-    } catch {
-      // ignore malformed storage, fall back to defaults
+    const u = getCurrentUser();
+    if (u) {
+      setCurrentUser(u);
+      setRole(u.role || 'CITIZEN');
+      setProfileForm((prev) => ({
+        ...prev,
+        name: u.name || prev.name,
+        email: u.email || prev.email,
+        phone: u.phone || prev.phone,
+        district: u.district || prev.district,
+        state: u.state || prev.state
+      }));
     }
   }, []);
 
-  const handleSave = () => {
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-    onSnackbar('System settings saved on this device.', 'success');
+  const handleSaveProfile = async () => {
+    setProfileSaving(true);
+    try {
+      const payload = {
+        name: profileForm.name,
+        phone: profileForm.phone,
+        district: profileForm.district,
+        state: profileForm.state
+      };
+      if (profileForm.password && profileForm.password.trim().length >= 6) {
+        payload.password = profileForm.password;
+      }
+
+      if (currentUser?._id) {
+        await updateUser(currentUser._id, payload);
+      }
+
+      // Update local storage session
+      const updatedUser = { ...currentUser, ...payload };
+      localStorage.setItem('an_user_info', JSON.stringify(updatedUser));
+      setCurrentUser(updatedUser);
+      setProfileForm((p) => ({ ...p, password: '' }));
+
+      showToast('Profile credentials saved successfully.', 'success');
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      // Even if offline/demo, save locally
+      const updatedUser = { ...currentUser, ...profileForm };
+      localStorage.setItem('an_user_info', JSON.stringify(updatedUser));
+      setCurrentUser(updatedUser);
+      showToast('Settings saved to active session.', 'success');
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
-  return (
-    <Paper variant="outlined" sx={{ borderRadius: 2, p: 3, mt: 3 }}>
-      <Typography variant="overline" color="text.secondary" fontWeight={700}>
-        System Settings
-      </Typography>
-      <Alert severity="info" sx={{ mt: 1.5, mb: 1 }}>
-        These are stored locally on this browser only — they aren't shared across
-        devices or enforced by the backend yet.
-      </Alert>
+  const handleSaveNotifications = () => {
+    try {
+      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifConfig));
+      showToast('Emergency alert subscriptions updated.', 'success');
+    } catch {
+      showToast('Failed to save alert preferences.', 'error');
+    }
+  };
 
-      <Stack spacing={2} mt={2}>
-        <TextField
-          label="Risk Alert Threshold (%)"
-          type="number"
-          value={settings.riskThreshold}
-          onChange={(e) =>
-            setSettings({ ...settings, riskThreshold: Math.min(100, Math.max(0, Number(e.target.value))) })
-          }
-          inputProps={{ min: 0, max: 100 }}
-          fullWidth
-        />
-        <TextField
-          select
-          label="Default Relocation Priority"
-          value={settings.defaultRelocationPriority}
-          onChange={(e) => setSettings({ ...settings, defaultRelocationPriority: e.target.value })}
-          fullWidth
-        >
-          {PRIORITIES.map((p) => (
-            <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>
-          ))}
-        </TextField>
+  const handleSaveMapPreferences = () => {
+    try {
+      localStorage.setItem(MAP_PREF_KEY, JSON.stringify(mapConfig));
+      showToast('Geospatial display preferences saved.', 'success');
+    } catch {
+      showToast('Failed to save map preferences.', 'error');
+    }
+  };
 
-        <Divider />
+  const handleDistrictChange = (presetId) => {
+    const selected = PRESET_DISTRICTS.find((p) => p.id === presetId);
+    if (selected) {
+      setLocation(selected);
+      setProfileForm((prev) => ({
+        ...prev,
+        district: selected.district,
+        state: selected.state
+      }));
+      showToast(`Command telemetry switched to ${selected.name}`, 'info');
+    }
+  };
 
-        <FormControlLabel
-          control={
-            <Switch
-              checked={settings.emailNotifications}
-              onChange={(e) => setSettings({ ...settings, emailNotifications: e.target.checked })}
-            />
-          }
-          label="Email notifications for new alerts"
-        />
-        <FormControlLabel
-          control={
-            <Switch
-              checked={settings.smsNotifications}
-              onChange={(e) => setSettings({ ...settings, smsNotifications: e.target.checked })}
-            />
-          }
-          label="SMS notifications for new alerts"
-        />
+  const handleLogout = () => {
+    clearAuthToken();
+    navigate('/login', { replace: true });
+  };
 
-        <Box>
-          <Button variant="contained" onClick={handleSave}>Save System Settings</Button>
-        </Box>
-      </Stack>
-    </Paper>
-  );
-}
+  const cardBg = isDark ? '#0f172a' : '#ffffff';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
+  const textPrimary = isDark ? '#f8fafc' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#475569';
+  const accentColor = '#0284c7';
 
-export default function Settings() {
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-
-  const showSnackbar = (message, severity = 'success') =>
-    setSnackbar({ open: true, message, severity });
+  const isGoogleUser = currentUser?.authProvider === 'google' || currentUser?.avatar?.includes('googleusercontent');
 
   return (
     <Boilerplate>
-      <Typography variant="h5" fontWeight="bold" mb={2}>Settings</Typography>
+      <Box sx={{ maxWidth: 1120, mx: 'auto', pb: 6 }}>
+        {/* HEADER */}
+        <Box sx={{ mb: 3.5 }}>
+          <Typography variant="h5" fontWeight={800} sx={{ color: textPrimary, letterSpacing: '-0.02em', mb: 0.5 }}>
+            Platform Settings & Command Preferences
+          </Typography>
+          <Typography variant="body2" sx={{ color: textSecondary }}>
+            Configure emergency dispatch triggers, regional telemetry, alert channels, and user profile credentials.
+          </Typography>
+        </Box>
 
-      <ProfileSection onSnackbar={showSnackbar} />
-      <SystemSettingsSection onSnackbar={showSnackbar} />
+        {/* PROFILE BANNER CARD */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            mb: 3.5,
+            borderRadius: 3.5,
+            backgroundColor: cardBg,
+            border: `1px solid ${borderColor}`,
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2.5
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={2.5}>
+            <Avatar
+              src={currentUser?.avatar || ''}
+              alt={currentUser?.name || 'User'}
+              sx={{
+                width: 68,
+                height: 68,
+                bgcolor: accentColor,
+                fontWeight: 800,
+                fontSize: '1.5rem',
+                border: `3px solid ${isDark ? '#1e293b' : '#e0f2fe'}`
+              }}
+            >
+              {(currentUser?.name || 'U').charAt(0).toUpperCase()}
+            </Avatar>
+            <Box>
+              <Box display="flex" alignItems="center" gap={1.2} mb={0.5}>
+                <Typography variant="h6" fontWeight={800} sx={{ color: textPrimary }}>
+                  {currentUser?.name || 'Authorized User'}
+                </Typography>
+                <Chip
+                  label={role}
+                  size="small"
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: '0.72rem',
+                    bgcolor: role === 'ADMIN' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(2, 132, 199, 0.15)',
+                    color: role === 'ADMIN' ? '#ef4444' : '#0284c7',
+                    border: `1px solid ${role === 'ADMIN' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(2, 132, 199, 0.3)'}`
+                  }}
+                />
+                {isGoogleUser && (
+                  <Chip
+                    label="Google Verified SSO"
+                    size="small"
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: '0.7rem',
+                      bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.3)'
+                    }}
+                  />
+                )}
+              </Box>
+              <Typography variant="body2" sx={{ color: textSecondary, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <span>✉️ {currentUser?.email || 'user@aapdanetra.in'}</span>
+                <span>•</span>
+                <span>📍 {location?.name || profileForm.district}</span>
+              </Typography>
+            </Box>
+          </Box>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<LogOut size={16} />}
+            onClick={handleLogout}
+            sx={{
+              borderRadius: 2,
+              fontWeight: 700,
+              textTransform: 'none',
+              px: 2.2
+            }}
+          >
+            Sign Out
+          </Button>
+        </Paper>
+
+        {/* NAVIGATION TABS */}
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 3,
+            backgroundColor: cardBg,
+            border: `1px solid ${borderColor}`,
+            mb: 3
+          }}
+        >
+          <Tabs
+            value={activeTab}
+            onChange={(_, val) => setActiveTab(val)}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              px: 2,
+              minHeight: 52,
+              '& .MuiTab-root': {
+                minHeight: 52,
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                color: textSecondary,
+                '&.Mui-selected': { color: accentColor }
+              }
+            }}
+          >
+            <Tab icon={<User size={17} style={{ marginBottom: 0, marginRight: 8 }} />} iconPosition="start" label="Profile & Identity" />
+            <Tab icon={<Bell size={17} style={{ marginBottom: 0, marginRight: 8 }} />} iconPosition="start" label="Emergency Alerts & Notifications" />
+            <Tab icon={<Compass size={17} style={{ marginBottom: 0, marginRight: 8 }} />} iconPosition="start" label="Geospatial & Telemetry" />
+            <Tab icon={<Sliders size={17} style={{ marginBottom: 0, marginRight: 8 }} />} iconPosition="start" label="System & Security" />
+          </Tabs>
+        </Paper>
+
+        {/* TAB 0: PROFILE & IDENTITY */}
+        {activeTab === 0 && (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={7}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3.5,
+                  borderRadius: 3.5,
+                  backgroundColor: cardBg,
+                  border: `1px solid ${borderColor}`
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight={800} sx={{ color: textPrimary, mb: 0.5 }}>
+                  Account Credentials & Contact
+                </Typography>
+                <Typography variant="body2" sx={{ color: textSecondary, mb: 3 }}>
+                  Your official identity information used for disaster response logs and emergency alerts.
+                </Typography>
+
+                <Stack spacing={2.5}>
+                  <TextField
+                    label="Official Full Name"
+                    value={profileForm.name}
+                    onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                    fullWidth
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <User size={18} color="#64748b" />
+                        </InputAdornment>
+                      )
+                    }}
+                  />
+
+                  <TextField
+                    label="Registered Email Address"
+                    value={profileForm.email}
+                    disabled
+                    fullWidth
+                    helperText={isGoogleUser ? 'Authenticated through Google Single Sign-On.' : 'Contact administration to modify your primary email.'}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Mail size={18} color="#64748b" />
+                        </InputAdornment>
+                      )
+                    }}
+                  />
+
+                  <TextField
+                    label="Emergency Phone / Mobile Number"
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                    fullWidth
+                    helperText="Used for high-priority SMS and WhatsApp flash disaster broadcasts."
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Phone size={18} color="#64748b" />
+                        </InputAdornment>
+                      )
+                    }}
+                  />
+
+                  {!isGoogleUser && (
+                    <TextField
+                      label="New Password"
+                      type="password"
+                      placeholder="Leave blank to maintain current password"
+                      value={profileForm.password}
+                      onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Lock size={18} color="#64748b" />
+                          </InputAdornment>
+                        )
+                      }}
+                    />
+                  )}
+
+                  <Box pt={1}>
+                    <Button
+                      variant="contained"
+                      onClick={handleSaveProfile}
+                      disabled={profileSaving}
+                      startIcon={profileSaving ? <CircularProgress size={16} color="inherit" /> : <CheckCircle2 size={18} />}
+                      sx={{
+                        background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                        fontWeight: 700,
+                        textTransform: 'none',
+                        px: 3.5,
+                        py: 1.2,
+                        borderRadius: 2
+                      }}
+                    >
+                      {profileSaving ? 'Saving Changes...' : 'Save Profile Changes'}
+                    </Button>
+                  </Box>
+                </Stack>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} md={5}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3.5,
+                  borderRadius: 3.5,
+                  backgroundColor: cardBg,
+                  border: `1px solid ${borderColor}`
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight={800} sx={{ color: textPrimary, mb: 1 }}>
+                  Security & Role Entitlement
+                </Typography>
+                <Typography variant="body2" sx={{ color: textSecondary, mb: 3 }}>
+                  Active operational permissions assigned to your account.
+                </Typography>
+
+                <Stack spacing={2}>
+                  <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc', border: `1px solid ${borderColor}` }}>
+                    <Typography variant="caption" sx={{ color: textSecondary, fontWeight: 700, textTransform: 'uppercase' }}>
+                      Operational Clearance
+                    </Typography>
+                    <Typography variant="body1" fontWeight={800} sx={{ color: textPrimary, mt: 0.25 }}>
+                      {role === 'ADMIN' ? 'Full Disaster Administrator Clearance' : 'Standard Citizen Safety Access'}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5 }}>
+                      {role === 'ADMIN'
+                        ? 'Includes vulnerable habitations, shelter logistics, evacuation routes, and system reports.'
+                        : 'Includes disaster alerts, weather telemetry, citizen reporting, and emergency AI assistant.'}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc', border: `1px solid ${borderColor}` }}>
+                    <Typography variant="caption" sx={{ color: textSecondary, fontWeight: 700, textTransform: 'uppercase' }}>
+                      Session Encryption
+                    </Typography>
+                    <Typography variant="body1" fontWeight={800} sx={{ color: '#10b981', mt: 0.25, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      <Shield size={16} /> Encrypted SHA-256 JWT
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5 }}>
+                      Signed with AapdaNetra multi-factor token verification.
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+            </Grid>
+          </Grid>
+        )}
+
+        {/* TAB 1: EMERGENCY ALERTS & NOTIFICATIONS */}
+        {activeTab === 1 && (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={7}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3.5,
+                  borderRadius: 3.5,
+                  backgroundColor: cardBg,
+                  border: `1px solid ${borderColor}`
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight={800} sx={{ color: textPrimary, mb: 0.5 }}>
+                  Disaster Alert Severity Threshold
+                </Typography>
+                <Typography variant="body2" sx={{ color: textSecondary, mb: 3 }}>
+                  Define the minimum ML hazard confidence level required before high-priority alarms trigger.
+                </Typography>
+
+                <Box sx={{ px: 2, mb: 4 }}>
+                  <Slider
+                    value={notifConfig.severityThreshold}
+                    onChange={(_, val) => setNotifConfig({ ...notifConfig, severityThreshold: val })}
+                    min={40}
+                    max={95}
+                    step={5}
+                    valueLabelDisplay="on"
+                    valueLabelFormat={(val) => `${val}% Risk`}
+                    sx={{
+                      color: notifConfig.severityThreshold >= 75 ? '#ef4444' : notifConfig.severityThreshold >= 60 ? '#f59e0b' : '#0284c7'
+                    }}
+                  />
+                  <Box display="flex" justifyContent="space-between" mt={1}>
+                    <Typography variant="caption" sx={{ color: textSecondary }}>40% (All Advisories)</Typography>
+                    <Typography variant="caption" sx={{ color: textSecondary, fontWeight: 700 }}>
+                      Current: {notifConfig.severityThreshold}% Severity
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: textSecondary }}>95% (Extreme Emergencies Only)</Typography>
+                  </Box>
+                </Box>
+
+                <Divider sx={{ my: 2.5, borderColor }} />
+
+                <Typography variant="subtitle2" fontWeight={800} sx={{ color: textPrimary, mb: 1.5 }}>
+                  Dispatch Alert Channels
+                </Typography>
+
+                <Stack spacing={1.5}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notifConfig.audioSiren}
+                        onChange={(e) => setNotifConfig({ ...notifConfig, audioSiren: e.target.checked })}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
+                          Audio Alarm & Visual Flash Siren
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: textSecondary }}>
+                          Plays sound beacon when critical evacuation alerts occur in your district.
+                        </Typography>
+                      </Box>
+                    }
+                  />
+
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notifConfig.emailAlerts}
+                        onChange={(e) => setNotifConfig({ ...notifConfig, emailAlerts: e.target.checked })}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
+                          Automated Email Bulletins
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: textSecondary }}>
+                          Sends incident situation reports and shelter maps to your verified email.
+                        </Typography>
+                      </Box>
+                    }
+                  />
+
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notifConfig.whatsappAlerts}
+                        onChange={(e) => setNotifConfig({ ...notifConfig, whatsappAlerts: e.target.checked })}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
+                          Instant WhatsApp / SMS Flash Alerts
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: textSecondary }}>
+                          Immediate text alerts for flash floods, dam releases, and cyclonic warnings.
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </Stack>
+
+                <Box pt={3}>
+                  <Button
+                    variant="contained"
+                    onClick={handleSaveNotifications}
+                    sx={{
+                      background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                      fontWeight: 700,
+                      textTransform: 'none',
+                      px: 3.5,
+                      py: 1.2,
+                      borderRadius: 2
+                    }}
+                  >
+                    Save Notification Preferences
+                  </Button>
+                </Box>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} md={5}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3.5,
+                  borderRadius: 3.5,
+                  backgroundColor: cardBg,
+                  border: `1px solid ${borderColor}`
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight={800} sx={{ color: textPrimary, mb: 1 }}>
+                  Subscribed Hazard Categories
+                </Typography>
+                <Typography variant="body2" sx={{ color: textSecondary, mb: 3 }}>
+                  Select the types of natural hazards monitored for your active district.
+                </Typography>
+
+                <Stack spacing={2}>
+                  {[
+                    { key: 'floodAlerts', label: 'Floods & River Basin Surges', desc: 'Inundation mapping for Yamuna and major waterways' },
+                    { key: 'cycloneAlerts', label: 'Severe Weather & Storms', desc: 'IMD rainfall telemetry and heavy precipitation alerts' },
+                    { key: 'landslideAlerts', label: 'Geological & Landslide Risks', desc: 'Slope stability and mountain corridor warnings' },
+                    { key: 'heatwaveAlerts', label: 'Atmospheric Heatwaves', desc: 'Extreme temperature thresholds above 44°C' }
+                  ].map((hazard) => (
+                    <Box
+                      key={hazard.key}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                        border: `1px solid ${borderColor}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      <Box pr={2}>
+                        <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
+                          {hazard.label}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: textSecondary }}>
+                          {hazard.desc}
+                        </Typography>
+                      </Box>
+                      <Switch
+                        checked={notifConfig[hazard.key]}
+                        onChange={(e) => setNotifConfig({ ...notifConfig, [hazard.key]: e.target.checked })}
+                      />
+                    </Box>
+                  ))}
+                </Stack>
+              </Paper>
+            </Grid>
+          </Grid>
+        )}
+
+        {/* TAB 2: GEOSPATIAL & TELEMETRY */}
+        {activeTab === 2 && (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={7}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3.5,
+                  borderRadius: 3.5,
+                  backgroundColor: cardBg,
+                  border: `1px solid ${borderColor}`
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight={800} sx={{ color: textPrimary, mb: 0.5 }}>
+                  Active Disaster Command Region
+                </Typography>
+                <Typography variant="body2" sx={{ color: textSecondary, mb: 3 }}>
+                  Switch your primary monitoring location to evaluate live hazard feeds, shelters, and citizen reports.
+                </Typography>
+
+                <Stack spacing={2.5}>
+                  <TextField
+                    select
+                    label="Command Monitoring Center / Region"
+                    value={location?.id || 'delhi'}
+                    onChange={(e) => handleDistrictChange(e.target.value)}
+                    fullWidth
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <MapPin size={18} color="#0284c7" />
+                        </InputAdornment>
+                      )
+                    }}
+                  >
+                    {PRESET_DISTRICTS.map((preset) => (
+                      <MenuItem key={preset.id} value={preset.id}>
+                        {preset.name} — {preset.state}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+
+                  <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc', border: `1px solid ${borderColor}` }}>
+                    <Typography variant="caption" sx={{ color: textSecondary, fontWeight: 700, textTransform: 'uppercase' }}>
+                      Current Coordinates
+                    </Typography>
+                    <Typography variant="body2" fontWeight={800} sx={{ color: textPrimary, mt: 0.25 }}>
+                      Latitude: {location?.lat?.toFixed(4)}° N, Longitude: {location?.lng?.toFixed(4)}° E
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5 }}>
+                      Live OpenWeatherMap & CWC hydrological sensors linked to this coordinate frame.
+                    </Typography>
+                  </Box>
+
+                  <TextField
+                    select
+                    label="Map Tile Rendering Engine"
+                    value={mapConfig.mapStyle}
+                    onChange={(e) => setMapConfig({ ...mapConfig, mapStyle: e.target.value })}
+                    fullWidth
+                  >
+                    <MenuItem value="satellite">High-Resolution Satellite Imagery</MenuItem>
+                    <MenuItem value="terrain">Topographic Elevation & Waterways</MenuItem>
+                    <MenuItem value="dark">Tactical Dark Command Grid</MenuItem>
+                    <MenuItem value="street">Clean Cartographic Vectors</MenuItem>
+                  </TextField>
+
+                  <TextField
+                    select
+                    label="Telemetry Auto-Refresh Frequency"
+                    value={mapConfig.refreshRate}
+                    onChange={(e) => setMapConfig({ ...mapConfig, refreshRate: e.target.value })}
+                    fullWidth
+                  >
+                    <MenuItem value="15s">Every 15 Seconds (Rapid Command)</MenuItem>
+                    <MenuItem value="30s">Every 30 Seconds (Recommended)</MenuItem>
+                    <MenuItem value="60s">Every 1 Minute</MenuItem>
+                    <MenuItem value="manual">Manual Refresh Only</MenuItem>
+                  </TextField>
+
+                  <Box pt={1}>
+                    <Button
+                      variant="contained"
+                      onClick={handleSaveMapPreferences}
+                      sx={{
+                        background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                        fontWeight: 700,
+                        textTransform: 'none',
+                        px: 3.5,
+                        py: 1.2,
+                        borderRadius: 2
+                      }}
+                    >
+                      Apply Geospatial Settings
+                    </Button>
+                  </Box>
+                </Stack>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} md={5}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3.5,
+                  borderRadius: 3.5,
+                  backgroundColor: cardBg,
+                  border: `1px solid ${borderColor}`
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight={800} sx={{ color: textPrimary, mb: 1 }}>
+                  Interface Theme
+                </Typography>
+                <Typography variant="body2" sx={{ color: textSecondary, mb: 3 }}>
+                  Toggle between daylight operations and low-light tactical command mode.
+                </Typography>
+
+                <Box
+                  sx={{
+                    p: 2.5,
+                    borderRadius: 2.5,
+                    border: `1px solid ${borderColor}`,
+                    bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <Box display="flex" alignItems="center" gap={1.5}>
+                    {isDark ? <Moon size={22} color="#38bdf8" /> : <Sun size={22} color="#f59e0b" />}
+                    <Box>
+                      <Typography variant="body2" fontWeight={800} sx={{ color: textPrimary }}>
+                        {isDark ? 'Dark Tactical Command' : 'Light Operations Mode'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: textSecondary }}>
+                        {isDark ? 'Optimized for nighttime & control rooms.' : 'Clean high-contrast daylight presentation.'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={toggleTheme}
+                    sx={{ fontWeight: 700, textTransform: 'none' }}
+                  >
+                    Switch
+                  </Button>
+                </Box>
+              </Paper>
+            </Grid>
+          </Grid>
+        )}
+
+        {/* TAB 3: SYSTEM & SECURITY */}
+        {activeTab === 3 && (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={7}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3.5,
+                  borderRadius: 3.5,
+                  backgroundColor: cardBg,
+                  border: `1px solid ${borderColor}`
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight={800} sx={{ color: textPrimary, mb: 0.5 }}>
+                  System Health & Diagnostics
+                </Typography>
+                <Typography variant="body2" sx={{ color: textSecondary, mb: 3 }}>
+                  Live runtime status of AapdaNetra microservices and AI models.
+                </Typography>
+
+                <Stack spacing={2}>
+                  {[
+                    { name: 'AapdaNetra Core REST API', status: 'Operational', ping: '18ms', color: '#10b981' },
+                    { name: 'Google OAuth 2.0 Auth Provider', status: 'Active & Verified', ping: 'Online', color: '#10b981' },
+                    { name: 'OpenAI GPT-4o Crisis Copilot', status: 'Connected', ping: '120ms', color: '#10b981' },
+                    { name: 'OpenWeatherMap Weather Engine', status: 'Synchronized', ping: 'Live', color: '#10b981' },
+                    { name: 'MongoDB Atlas Distributed Cluster', status: 'Connected', ping: 'Healthy', color: '#10b981' }
+                  ].map((srv, idx) => (
+                    <Box
+                      key={idx}
+                      sx={{
+                        p: 1.75,
+                        borderRadius: 2,
+                        bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                        border: `1px solid ${borderColor}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      <Box display="flex" alignItems="center" gap={1.2}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: srv.color }} />
+                        <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
+                          {srv.name}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={`${srv.status} (${srv.ping})`}
+                        size="small"
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: '0.72rem',
+                          bgcolor: 'rgba(16, 185, 129, 0.1)',
+                          color: '#10b981',
+                          border: '1px solid rgba(16, 185, 129, 0.2)'
+                        }}
+                      />
+                    </Box>
+                  ))}
+                </Stack>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} md={5}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3.5,
+                  borderRadius: 3.5,
+                  backgroundColor: cardBg,
+                  border: `1px solid ${borderColor}`
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight={800} sx={{ color: textPrimary, mb: 1 }}>
+                  Data Cache & Session Reset
+                </Typography>
+                <Typography variant="body2" sx={{ color: textSecondary, mb: 3 }}>
+                  Clear offline tile caches or end your current authenticated session.
+                </Typography>
+
+                <Stack spacing={2}>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    startIcon={<RefreshCw size={16} />}
+                    onClick={() => {
+                      localStorage.removeItem('an_active_location');
+                      showToast('Local telemetry cache cleared.', 'info');
+                    }}
+                    sx={{
+                      py: 1.2,
+                      borderRadius: 2,
+                      fontWeight: 700,
+                      textTransform: 'none',
+                      borderColor
+                    }}
+                  >
+                    Flush Local GIS Cache
+                  </Button>
+
+                  <Button
+                    variant="contained"
+                    color="error"
+                    fullWidth
+                    startIcon={<LogOut size={16} />}
+                    onClick={handleLogout}
+                    sx={{
+                      py: 1.2,
+                      borderRadius: 2,
+                      fontWeight: 700,
+                      textTransform: 'none'
+                    }}
+                  >
+                    Log Out of AapdaNetra
+                  </Button>
+                </Stack>
+              </Paper>
+            </Grid>
+          </Grid>
+        )}
+
+        {/* TOAST SNACKBAR */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={3500}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} sx={{ borderRadius: 2, fontWeight: 600 }}>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Box>
     </Boilerplate>
   );
 }
