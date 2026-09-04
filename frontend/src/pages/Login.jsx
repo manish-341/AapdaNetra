@@ -14,7 +14,6 @@ import {
   FormControlLabel,
   Divider,
   Container,
-  Chip,
   Stack,
   Dialog,
   DialogContent,
@@ -30,13 +29,13 @@ import {
   ArrowRight,
   Sun,
   Moon,
-  CheckCircle2,
-  AlertCircle
+  CheckCircle2
 } from 'lucide-react';
 import { loginUser, googleDirectLogin } from '../services/api';
 import { setAuthToken } from '../lib/auth';
 import { useThemeMode } from '../context/ThemeContext';
 import AapdaNetraLogo from '../components/AapdaNetraLogo';
+import disasterHeroImg from '../assets/disaster_operations_hero.jpg';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -51,6 +50,9 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Info Modal State for Navbar Links
+  const [infoModal, setInfoModal] = useState(null); // 'about' | 'how-it-works' | 'contact' | null
 
   // Read error parameter if redirected back from OAuth
   useEffect(() => {
@@ -171,9 +173,6 @@ export default function Login() {
     }
   };
 
-  // Info Modal State for Navbar Links
-  const [infoModal, setInfoModal] = useState(null); // 'about' | 'how-it-works' | 'contact' | null
-
   return (
     <Box
       sx={{
@@ -189,7 +188,7 @@ export default function Login() {
       <Box
         component="header"
         sx={{
-          py: 1.35,
+          py: 1.4,
           px: { xs: 2.5, md: 6 },
           borderBottom: `1px solid ${borderColor}`,
           backgroundColor: surfaceBg,
@@ -199,34 +198,30 @@ export default function Login() {
           transition: 'background-color 0.25s ease, border-color 0.25s ease',
         }}
       >
-        {/* LEFT: Polished Logo + Name Lockup */}
-        <Box display="flex" alignItems="center" gap={1.35}>
-          <AapdaNetraLogo size={34} />
-          <Box display="flex" flexDirection="column" justifyContent="center">
+        {/* LEFT: Polished Logo + Brand Name Lockup */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <AapdaNetraLogo size={36} />
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
             <Typography
-              variant="h6"
-              component="span"
               sx={{
-                fontWeight: 750,
+                fontWeight: 800,
                 letterSpacing: '-0.02em',
                 color: textPrimary,
-                lineHeight: 1.15,
-                fontSize: '1.18rem',
+                lineHeight: 1.1,
+                fontSize: '1.22rem',
               }}
             >
               AapdaNetra
             </Typography>
             <Typography
-              variant="caption"
-              component="span"
               sx={{
                 fontWeight: 700,
                 fontSize: '0.62rem',
-                letterSpacing: '0.12em',
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 color: accentBlue,
                 lineHeight: 1,
-                mt: 0.25,
+                mt: 0.35,
               }}
             >
               DISASTER INTELLIGENCE
@@ -234,17 +229,13 @@ export default function Login() {
           </Box>
         </Box>
 
-        {/* RIGHT: About | How It Works | Contact | Theme Toggle */}
-        <Box display="flex" alignItems="center" gap={{ xs: 1.5, sm: 2.5 }}>
-          <Stack
-            direction="row"
-            spacing={{ xs: 1.5, sm: 2.5 }}
-            sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}
-          >
+        {/* RIGHT: Navigation Links + Theme Toggle (Strict Single Row) */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, sm: 2.5 } }}>
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 2.5 }}>
             <Typography
               onClick={() => setInfoModal('about')}
               sx={{
-                fontSize: '0.84rem',
+                fontSize: '0.85rem',
                 fontWeight: 550,
                 color: textSecondary,
                 cursor: 'pointer',
@@ -257,7 +248,7 @@ export default function Login() {
             <Typography
               onClick={() => setInfoModal('how-it-works')}
               sx={{
-                fontSize: '0.84rem',
+                fontSize: '0.85rem',
                 fontWeight: 550,
                 color: textSecondary,
                 cursor: 'pointer',
@@ -270,7 +261,7 @@ export default function Login() {
             <Typography
               onClick={() => setInfoModal('contact')}
               sx={{
-                fontSize: '0.84rem',
+                fontSize: '0.85rem',
                 fontWeight: 550,
                 color: textSecondary,
                 cursor: 'pointer',
@@ -280,15 +271,15 @@ export default function Login() {
             >
               Contact
             </Typography>
-          </Stack>
+          </Box>
 
           <Divider
             orientation="vertical"
             flexItem
-            sx={{ display: { xs: 'none', md: 'block' }, height: 18, my: 'auto', borderColor }}
+            sx={{ display: { xs: 'none', md: 'block' }, height: 20, my: 'auto', borderColor }}
           />
 
-          {/* Top-Right Theme Toggle (☀ / 🌙) */}
+          {/* Theme Toggle (☀ / 🌙) */}
           <IconButton
             onClick={toggleTheme}
             size="small"
@@ -318,20 +309,20 @@ export default function Login() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          py: { xs: 5, md: 8 },
-          px: { xs: 2.5, md: 6, lg: 10 },
+          py: { xs: 4, md: 6 },
+          px: { xs: 2.5, md: 6, lg: 8 },
         }}
       >
         <Container maxWidth="lg" disableGutters>
           <Grid
             container
-            spacing={{ xs: 5, md: 8, lg: 10 }}
+            spacing={{ xs: 4, md: 6, lg: 8 }}
             alignItems="center"
             justifyContent="center"
           >
-            {/* LEFT COLUMN: Clean Minimalist Typography & Mission (No Logo Repeated in Body) */}
+            {/* LEFT COLUMN: Clean Minimalist Typography, Hero Image & Mission */}
             <Grid size={{ xs: 12, md: 6 }}>
-              <Box sx={{ pr: { md: 4, lg: 6 } }}>
+              <Box sx={{ pr: { md: 2, lg: 4 } }}>
                 {/* Secondary Uppercase Label */}
                 <Typography
                   variant="caption"
@@ -342,22 +333,22 @@ export default function Login() {
                     letterSpacing: '0.14em',
                     textTransform: 'uppercase',
                     color: accentBlue,
-                    mb: 1.25,
+                    mb: 1,
                   }}
                 >
                   DISASTER INTELLIGENCE
                 </Typography>
 
-                {/* Primary Brand Heading (Strongest element) */}
+                {/* Primary Brand Heading */}
                 <Typography
                   variant="h2"
                   sx={{
                     fontWeight: 750,
                     letterSpacing: '-0.025em',
                     color: textPrimary,
-                    fontSize: { xs: '2.2rem', sm: '2.6rem', lg: '3rem' },
+                    fontSize: { xs: '2.1rem', sm: '2.5rem', lg: '2.8rem' },
                     lineHeight: 1.15,
-                    mb: 1.5,
+                    mb: 1,
                   }}
                 >
                   AapdaNetra
@@ -369,24 +360,100 @@ export default function Login() {
                   sx={{
                     fontWeight: 600,
                     color: textSecondary,
-                    fontSize: { xs: '1rem', md: '1.08rem' },
+                    fontSize: { xs: '0.96rem', md: '1.04rem' },
                     lineHeight: 1.5,
-                    mb: 3,
-                    maxWidth: 480,
+                    mb: 2.5,
+                    maxWidth: 500,
                   }}
                 >
                   Public Safety & Emergency Decision Support Platform
                 </Typography>
 
-                {/* Simple Memorable Mission Statement */}
+                {/* HERO IMAGE CARD: Modern Crisis Operations Visualization */}
+                <Box
+                  sx={{
+                    position: 'relative',
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    border: `1px solid ${borderColor}`,
+                    boxShadow: isDark
+                      ? '0 16px 36px rgba(0, 0, 0, 0.5)'
+                      : '0 8px 24px rgba(15, 23, 42, 0.06)',
+                    mb: 2.5,
+                    maxHeight: 250,
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={disasterHeroImg}
+                    alt="AapdaNetra Disaster Operations Center"
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      maxHeight: 250,
+                      objectFit: 'cover',
+                      display: 'block',
+                    }}
+                  />
+                  {/* Status Pill Badge over image */}
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 12,
+                      left: 12,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.8,
+                      px: 1.25,
+                      py: 0.5,
+                      borderRadius: 20,
+                      backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                      color: '#38bdf8',
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        backgroundColor: '#38bdf8',
+                        boxShadow: '0 0 8px #38bdf8',
+                      }}
+                    />
+                    <Typography variant="caption" sx={{ fontWeight: 750, fontSize: '0.68rem', letterSpacing: '0.04em' }}>
+                      LIVE EOC CRISIS OPERATIONS
+                    </Typography>
+                  </Box>
+
+                  {/* Bottom caption */}
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      p: 1.25,
+                      background: 'linear-gradient(to top, rgba(15, 23, 42, 0.92) 0%, rgba(15, 23, 42, 0) 100%)',
+                      color: '#ffffff',
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.76rem', color: '#e2e8f0' }}>
+                      Satellite Telemetry & Automated Crisis Response Corridors
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Mission Statement */}
                 <Typography
                   variant="body1"
                   sx={{
                     color: textSecondary,
-                    fontSize: { xs: '0.98rem', md: '1.05rem' },
-                    lineHeight: 1.65,
-                    mb: 4,
-                    maxWidth: 480,
+                    fontSize: { xs: '0.94rem', md: '1rem' },
+                    lineHeight: 1.6,
+                    mb: 2.5,
+                    maxWidth: 500,
                     fontStyle: 'italic',
                     borderLeft: `3px solid ${accentBlue}`,
                     pl: 2,
@@ -396,16 +463,16 @@ export default function Login() {
                 </Typography>
 
                 {/* Subtle Trust Indicators */}
-                <Stack spacing={1.75}>
-                  <Box display="flex" alignItems="center" gap={1.2}>
+                <Stack spacing={1.2}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
                     <CheckCircle2 size={16} color={accentBlue} />
-                    <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.88rem' }}>
+                    <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.86rem' }}>
                       Real-time alert dissemination and emergency response
                     </Typography>
                   </Box>
-                  <Box display="flex" alignItems="center" gap={1.2}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
                     <CheckCircle2 size={16} color={accentBlue} />
-                    <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.88rem' }}>
+                    <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.86rem' }}>
                       Unified coordination for citizens and government administration
                     </Typography>
                   </Box>
@@ -652,13 +719,15 @@ export default function Login() {
                     />
                   </Box>
 
-                  {/* Options Row */}
+                  {/* Options Row (Remember Me & Forgot Password) - PROPER HORIZONTAL FLEX */}
                   <Box
-                    display="flex"
-                    justifyContent={activeRole === 'citizen' ? 'space-between' : 'flex-end'}
-                    alignItems="center"
-                    mb={2.5}
-                    flexWrap="wrap"
+                    sx={{
+                      display: 'flex',
+                      justifyContent: activeRole === 'citizen' ? 'space-between' : 'flex-end',
+                      alignItems: 'center',
+                      width: '100%',
+                      mb: 2.5,
+                    }}
                   >
                     {activeRole === 'citizen' && (
                       <FormControlLabel
@@ -745,11 +814,10 @@ export default function Login() {
                   {/* CITIZEN-ONLY: Divider, Google SSO, and Account Registration Link */}
                   {activeRole === 'citizen' && (
                     <>
-                      {/* Divider */}
-                      <Box position="relative" textAlign="center" mb={2.5}>
+                      {/* Divider with centered OR badge strictly within card */}
+                      <Box sx={{ position: 'relative', textAlign: 'center', my: 2.5 }}>
                         <Divider sx={{ borderColor }} />
-                        <Typography
-                          variant="caption"
+                        <Box
                           sx={{
                             position: 'absolute',
                             top: '50%',
@@ -757,14 +825,20 @@ export default function Login() {
                             transform: 'translate(-50%, -50%)',
                             backgroundColor: surfaceBg,
                             px: 1.5,
-                            color: textMuted,
-                            fontSize: '0.72rem',
-                            fontWeight: 650,
-                            letterSpacing: '0.04em',
                           }}
                         >
-                          OR
-                        </Typography>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: textMuted,
+                              fontSize: '0.72rem',
+                              fontWeight: 650,
+                              letterSpacing: '0.04em',
+                            }}
+                          >
+                            OR
+                          </Typography>
+                        </Box>
                       </Box>
 
                       {/* Google Sign-in Button */}
@@ -811,8 +885,8 @@ export default function Login() {
                         Sign in with Google
                       </Button>
 
-                      {/* Create an Account */}
-                      <Box textAlign="center">
+                      {/* Create an Account Link */}
+                      <Box sx={{ textAlign: 'center' }}>
                         <Typography variant="body2" sx={{ color: textSecondary, fontSize: '0.85rem' }}>
                           Don't have an account?{' '}
                           <Typography
@@ -881,7 +955,7 @@ export default function Login() {
             boxShadow: '0 24px 38px 3px rgba(0,0,0,0.14), 0 9px 46px 8px rgba(0,0,0,0.12)',
             bgcolor: '#ffffff',
             color: '#202124',
-          }
+          },
         }}
       >
         {googleLoading && (
@@ -891,7 +965,6 @@ export default function Login() {
         )}
 
         <DialogContent sx={{ p: { xs: 3, sm: 4 } }}>
-          {/* Google Logo Header */}
           <Box display="flex" justifyContent="center" mb={2}>
             <svg width="32" height="32" viewBox="0 0 24 24">
               <path
@@ -932,7 +1005,6 @@ export default function Login() {
           )}
 
           {googleStep === 'email' ? (
-            /* STEP 1: Enter Gmail or choose saved account */
             <Box>
               <TextField
                 fullWidth
@@ -960,7 +1032,6 @@ export default function Login() {
                 Forgot email?
               </Typography>
 
-              {/* Saved Account Suggestions */}
               <Box sx={{ mb: 3, border: '1px solid #dadce0', borderRadius: 1.5, p: 1.5, bgcolor: '#f8f9fa' }}>
                 <Typography variant="caption" sx={{ color: '#5f6368', fontWeight: 600, display: 'block', mb: 1 }}>
                   Choose a Google account:
@@ -1042,7 +1113,6 @@ export default function Login() {
               </Box>
             </Box>
           ) : (
-            /* STEP 2: Enter Password */
             <form onSubmit={handleGoogleSubmitPassword}>
               <Box
                 onClick={() => setGoogleStep('email')}
