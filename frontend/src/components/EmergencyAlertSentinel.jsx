@@ -31,7 +31,8 @@ import {
   ChevronRight,
   Layers,
   Sparkles,
-  Search
+  Search,
+  CheckCheck
 } from 'lucide-react';
 import { getAlerts, dispatchEmergencyAlert } from '../services/api';
 import { playEmergencySiren, stopEmergencySiren, isSirenActive } from '../utils/emergencyAudio';
@@ -40,6 +41,7 @@ import { useLocationContext } from '../context/LocationContext';
 import { useThemeMode } from '../context/ThemeContext';
 import { getCurrentUser } from '../lib/auth';
 import { alertMatchesLocation, isTrueCriticalAlert, getAlertRegionName } from '../utils/alertMatcher';
+import { isAlertRead, markAlertAsRead, markAllAlertsAsRead } from '../utils/notificationsStore';
 
 const NOTIFICATIONS_STORAGE_KEY = 'aapdanetra_notifications_config';
 const ACKNOWLEDGED_ALERTS_KEY = 'an_acknowledged_critical_alerts';
@@ -67,13 +69,23 @@ export default function EmergencyAlertSentinel() {
   useEffect(() => {
     const handleOpenPopup = () => {
       setModalOpen(true);
+      if (alerts && alerts.length > 0) {
+        markAllAlertsAsRead(alerts);
+      }
     };
 
     window.addEventListener('open-notifications-popup', handleOpenPopup);
     return () => {
       window.removeEventListener('open-notifications-popup', handleOpenPopup);
     };
-  }, []);
+  }, [alerts]);
+
+  // Mark alerts as read whenever modal is opened
+  useEffect(() => {
+    if (modalOpen && alerts.length > 0) {
+      markAllAlertsAsRead(alerts);
+    }
+  }, [modalOpen, alerts]);
 
   // Listen for siren stop event to automatically sync sirenPlaying state
   useEffect(() => {
@@ -210,6 +222,7 @@ export default function EmergencyAlertSentinel() {
     setSirenPlaying(false);
     setModalOpen(false);
     setToastPopupOpen(false);
+    markAllAlertsAsRead(alerts);
 
     if (activeCriticalAlert) {
       try {
@@ -599,6 +612,26 @@ export default function EmergencyAlertSentinel() {
                 </Button>
               )}
 
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => markAllAlertsAsRead(alerts)}
+                startIcon={<CheckCheck size={14} />}
+                sx={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  py: 0.3,
+                  px: 1.2,
+                  borderColor: 'var(--border-color)',
+                  color: 'text.secondary',
+                  '&:hover': { color: '#0284c7', borderColor: '#0284c7' }
+                }}
+              >
+                Mark all read
+              </Button>
+
               <IconButton onClick={() => setModalOpen(false)} sx={{ color: 'text.secondary' }}>
                 <X size={18} />
               </IconButton>
@@ -735,6 +768,7 @@ export default function EmergencyAlertSentinel() {
                     : '#f0f9ff';
 
                   const isCurrentDistrict = alertMatchesLocation(item, location);
+                  const isRead = isAlertRead(item);
 
                   return (
                     <Box
@@ -768,6 +802,19 @@ export default function EmergencyAlertSentinel() {
                               height: 22
                             }}
                           />
+                          {!isRead && (
+                            <Chip
+                              label="UNREAD"
+                              size="small"
+                              sx={{
+                                bgcolor: '#ef4444',
+                                color: '#fff',
+                                fontWeight: 900,
+                                fontSize: '0.62rem',
+                                height: 22
+                              }}
+                            />
+                          )}
                           <Chip
                             label={effectiveSev}
                             size="small"
@@ -810,6 +857,23 @@ export default function EmergencyAlertSentinel() {
                         )}
 
                         <Box display="flex" alignItems="center" gap={1} ml="auto">
+                          {!isRead && (
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={() => markAlertAsRead(item)}
+                              sx={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                textTransform: 'none',
+                                py: 0.3,
+                                px: 1,
+                                color: '#0284c7'
+                              }}
+                            >
+                              Mark read
+                            </Button>
+                          )}
                           {!isCurrentDistrict && (
                             <Button
                               size="small"
@@ -884,6 +948,7 @@ export default function EmergencyAlertSentinel() {
               {regionalImportantAlerts.length > 0 ? (
                 regionalImportantAlerts.map(({ region, alert: item }) => {
                   const isTrulyCritical = isTrueCriticalAlert(item);
+                  const isRead = isAlertRead(item);
                   const effectiveSev = isTrulyCritical
                     ? 'CRITICAL'
                     : item.severity === 'CRITICAL'
@@ -936,6 +1001,19 @@ export default function EmergencyAlertSentinel() {
                               height: 22
                             }}
                           />
+                          {!isRead && (
+                            <Chip
+                              label="UNREAD"
+                              size="small"
+                              sx={{
+                                bgcolor: '#ef4444',
+                                color: '#fff',
+                                fontWeight: 900,
+                                fontSize: '0.62rem',
+                                height: 22
+                              }}
+                            />
+                          )}
                           <Chip
                             label={effectiveSev}
                             size="small"
@@ -978,6 +1056,23 @@ export default function EmergencyAlertSentinel() {
                         )}
 
                         <Box display="flex" alignItems="center" gap={1} ml="auto">
+                          {!isRead && (
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={() => markAlertAsRead(item)}
+                              sx={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                textTransform: 'none',
+                                py: 0.3,
+                                px: 1,
+                                color: '#0284c7'
+                              }}
+                            >
+                              Mark read
+                            </Button>
+                          )}
                           <Button
                             size="small"
                             variant="text"

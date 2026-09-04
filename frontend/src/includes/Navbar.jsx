@@ -1,27 +1,59 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, User, LogOut, ShieldAlert, Sun, Moon, MapPin, Crosshair, ChevronDown, Search } from 'lucide-react';
+import { Bell, LogOut, ShieldAlert, Sun, Moon, MapPin, Crosshair, ChevronDown } from 'lucide-react';
 import { clearAuthToken, getCurrentUser } from '../lib/auth';
 import { getAlerts } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext } from '../context/LocationContext';
-import { alertMatchesLocation, isTrueCriticalAlert } from '../utils/alertMatcher';
+import { alertMatchesLocation } from '../utils/alertMatcher';
+import { getUnreadAlerts, markAllAlertsAsRead } from '../utils/notificationsStore';
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const { themeMode, toggleTheme, isDark } = useThemeMode();
+  const { toggleTheme, isDark } = useThemeMode();
   const { location, switchLocation, detectLiveGPS, gpsLoading, presets } = useLocationContext();
   const user = getCurrentUser() || { name: 'Guest User', role: 'CITIZEN', district: 'Vindhya' };
   const [alerts, setAlerts] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [showLocationMenu, setShowLocationMenu] = useState(false);
   const [searchDistrict, setSearchDistrict] = useState('');
   const locationMenuRef = useRef(null);
 
+  const updateUnread = (alertList, loc) => {
+    const unread = getUnreadAlerts(alertList, loc, alertMatchesLocation);
+    setUnreadCount(unread.length);
+  };
+
   useEffect(() => {
     getAlerts()
-      .then(res => setAlerts(res.data?.data || []))
-      .catch(() => setAlerts([]));
+      .then((res) => {
+        const data = res.data?.data || [];
+        setAlerts(data);
+        updateUnread(data, location);
+      })
+      .catch(() => {
+        setAlerts([]);
+        setUnreadCount(0);
+      });
   }, []);
+
+  // Recalculate unread notifications whenever location changes or alerts list updates
+  useEffect(() => {
+    if (alerts.length > 0) {
+      updateUnread(alerts, location);
+    }
+  }, [location?.district, location?.name, alerts]);
+
+  // Listen for real-time notification read events
+  useEffect(() => {
+    const handleNotificationsUpdated = () => {
+      updateUnread(alerts, location);
+    };
+    window.addEventListener('notifications-updated', handleNotificationsUpdated);
+    return () => {
+      window.removeEventListener('notifications-updated', handleNotificationsUpdated);
+    };
+  }, [alerts, location]);
 
   // Close location menu on outside click
   useEffect(() => {
@@ -48,11 +80,11 @@ const Navbar = () => {
     navigate('/login', { replace: true });
   };
 
-  // Filter alerts specifically for current jurisdiction to prevent overwhelming clutter
-  const localAlerts = alerts.filter(a => a.isActive !== false && alertMatchesLocation(a, location));
-  const localCriticalAlerts = localAlerts.filter(a => isTrueCriticalAlert(a));
-  const hasLocalCritical = localCriticalAlerts.length > 0;
-  const localBadgeCount = localAlerts.length;
+  const handleOpenNotifications = () => {
+    window.dispatchEvent(new CustomEvent('open-notifications-popup'));
+    markAllAlertsAsRead(alerts);
+    setUnreadCount(0);
+  };
 
   return (
     <header className="top-navbar">
@@ -261,14 +293,12 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* Alerts Notification button with Red Badge */}
+        {/* Alerts Notification button with Dynamic Red Badge */}
         <div style={{ position: 'relative' }}>
           <button
             type="button"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('open-notifications-popup'));
-            }}
-            title="Open Emergency Alert & Notification Center"
+            onClick={handleOpenNotifications}
+            title={unreadCount > 0 ? `${unreadCount} unread emergency alerts - click to read` : 'Emergency Alert & Notification Center'}
             style={{
               position: 'relative',
               display: 'flex',
@@ -286,26 +316,29 @@ const Navbar = () => {
             }}
           >
             <Bell size={18} />
-            <span
-              style={{
-                position: 'absolute',
-                top: -2,
-                right: -2,
-                minWidth: 16,
-                height: 16,
-                padding: '0 4px',
-                borderRadius: 8,
-                backgroundColor: '#ef4444',
-                color: '#ffffff',
-                fontSize: '0.62rem',
-                fontWeight: 900,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              3
-            </span>
+            {unreadCount > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: -2,
+                  right: -2,
+                  minWidth: 16,
+                  height: 16,
+                  padding: '0 4px',
+                  borderRadius: 8,
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.62rem',
+                  fontWeight: 900,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 4px rgba(239, 68, 68, 0.4)',
+                }}
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
         </div>
 
