@@ -262,18 +262,25 @@ const resolveGoogleCallbackUrl = (req) => {
 
 // Helper to determine frontend destination URL
 const resolveFrontendUrl = (req) => {
-    const host = req.get("host") || "";
+    const host = req?.get ? (req.get("host") || "") : "";
     const isProduction = process.env.NODE_ENV === "production" || host.includes("onrender.com");
-    const envFrontend = process.env.FRONTEND_URL;
+    let envFrontend = (process.env.FRONTEND_URL || "").trim();
+
+    // Validate that envFrontend is a proper absolute URL (not '*' or wildcard or relative path)
+    const isValidAbsoluteUrl = envFrontend.startsWith("http://") || envFrontend.startsWith("https://");
 
     if (isProduction) {
-        if (!envFrontend || envFrontend.includes("localhost") || envFrontend.includes("127.0.0.1")) {
+        if (!isValidAbsoluteUrl || envFrontend.includes("localhost") || envFrontend.includes("127.0.0.1")) {
             return "https://aapdanetra-frontend.onrender.com";
         }
-        return envFrontend;
+        return envFrontend.replace(/\/+$/, "");
     }
 
-    return envFrontend || "http://localhost:5173";
+    if (!isValidAbsoluteUrl) {
+        return "http://localhost:5173";
+    }
+
+    return envFrontend.replace(/\/+$/, "");
 };
 
 // Helper to verify Google Token / UserInfo and enforce email_verified check
