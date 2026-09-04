@@ -101,3 +101,22 @@ export function isTrueCriticalAlert(alert) {
 
   return true;
 }
+
+/**
+ * Extract clean, human-readable region or district name for an alert
+ */
+export function getAlertRegionName(alert) {
+  if (!alert) return 'Monitored Zone';
+  if (alert.district) return alert.district;
+  const title = alert.title || '';
+  const match = title.match(/\(([^)]+)\)/);
+  if (match) return match[1];
+  const lower = (title + ' ' + (alert.message || alert.description || '')).toLowerCase();
+  if (lower.includes('bhopal')) return 'Bhopal (MP)';
+  if (lower.includes('mumbai')) return 'Mumbai (MH)';
+  if (lower.includes('dehradun')) return 'Dehradun (UK)';
+  if (lower.includes('gautam buddha') || lower.includes('noida') || lower.includes('hindon')) return 'Gautam Buddha Nagar (UP)';
+  if (lower.includes('delhi') || lower.includes('yamuna')) return 'Delhi (NCR)';
+  if (lower.includes('nepal')) return 'Nepal Border Zone';
+  return 'National Monitored Zone';
+}
