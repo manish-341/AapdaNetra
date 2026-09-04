@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Box, Paper, Typography, TextField, Button, Alert, CircularProgress,
-  MenuItem, Container, Grid
+  MenuItem, Container, Grid, Chip
 } from '@mui/material';
 import ShieldAlertIcon from '@mui/icons-material/ShieldOutlined';
 import { registerUser } from '../services/api';
