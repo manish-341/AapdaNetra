@@ -48,6 +48,7 @@ const explainRisk = async (req, res) => {
                 location: risk.location,
                 weather: risk.weather,
                 overallRisk: risk.overallRisk,
+                assessments: risk.assessments,
                 explanations,
                 dataQuality: risk.dataQuality,
                 timestamp: risk.timestamp

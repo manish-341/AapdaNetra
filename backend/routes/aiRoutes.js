@@ -1,6 +1,6 @@
 const express = require("express");
 const { chatAssistant, chatCopilot, explainRisk, summarizeIncidents, getRiskAssessment } = require("../controllers/aiController");
-const { protect, authorize } = require("../middleware/authMiddleware");
+const { protect, optionalProtect, authorize } = require("../middleware/authMiddleware");
 const { validateAIChat, promptInjectionGuard } = require("../middleware/validators");
 const { aiLimiter } = require("../middleware/rateLimiter");
 
@@ -13,10 +13,10 @@ router.post("/chat", protect, aiLimiter, promptInjectionGuard(), validateAIChat,
 router.post("/copilot", protect, authorize("ADMIN", "DISTRICT_OFFICER", "FIELD_OFFICER", "RESPONDER", "CITIZEN"), aiLimiter, promptInjectionGuard(["message", "query"]), chatCopilot);
 
 // Explainable AI
-router.post("/explain", protect, explainRisk);
+router.post("/explain", optionalProtect, explainRisk);
 
 // Risk assessment
-router.get("/risk", protect, getRiskAssessment);
+router.get("/risk", optionalProtect, getRiskAssessment);
 
 // Incident summary
 router.get("/summary", protect, authorize("ADMIN", "DISTRICT_OFFICER", "FIELD_OFFICER", "RESPONDER"), summarizeIncidents);
