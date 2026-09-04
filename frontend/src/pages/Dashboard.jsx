@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Fade,
+  Tooltip
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import HomeWorkOutlinedIcon from '@mui/icons-material/HomeWorkOutlined';
@@ -24,9 +25,11 @@ import WaterDropOutlinedIcon from '@mui/icons-material/WaterDropOutlined';
 
 import Boilerplate from '../layouts/Boilerplate';
 import { getDashboardStats } from '../services/api';
-import { getCurrentUser } from '../lib/auth';
+import { getCurrentUser, getUserRole } from '../lib/auth';
 import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext } from '../context/LocationContext';
+import AdminOnlyModal from '../components/AdminOnlyModal';
+import EmergencyContactsModal from '../components/EmergencyContactsModal';
 
 // Mini SVG Sparkline Component
 function MiniSparkline({ color, points = '0,18 12,12 24,19 36,9 48,15 60,6 72,11' }) {
@@ -221,6 +224,12 @@ export default function Dashboard() {
   const { isDark } = useThemeMode();
   const { location } = useLocationContext();
   const user = getCurrentUser() || { name: 'Admin User', role: 'ADMIN' };
+  const role = getUserRole();
+  const isAdmin = ["ADMIN", "ADMINISTRATOR"].includes(role);
+
+  const [openAdminModal, setOpenAdminModal] = useState(false);
+  const [adminFeatureName, setAdminFeatureName] = useState('');
+  const [openEmergencyModal, setOpenEmergencyModal] = useState(false);
 
   const [stats, setStats] = useState(null);
   const [currentTime, setCurrentTime] = useState('');
@@ -1124,7 +1133,7 @@ export default function Dashboard() {
               {/* Action 2: Emergency Contacts */}
               <Paper
                 elevation={0}
-                onClick={() => navigate('/vulnerable-habitations')}
+                onClick={() => setOpenEmergencyModal(true)}
                 sx={{
                   p: 1.6,
                   borderRadius: '12px',
@@ -1163,45 +1172,63 @@ export default function Dashboard() {
               </Paper>
 
               {/* Action 3: Shelter Capacity */}
-              <Paper
-                elevation={0}
-                onClick={() => navigate('/carrying-capacity')}
-                sx={{
-                  p: 1.6,
-                  borderRadius: '12px',
-                  bgcolor: cardBg,
-                  border: cardBorder,
-                  boxShadow: cardShadow,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.4,
-                  cursor: 'pointer',
-                  transition: 'all 0.18s ease',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    borderColor: '#0d9488',
-                    boxShadow: '0 4px 14px rgba(13,148,136,0.12)',
-                  },
-                }}
-              >
-                <Box
+              <Tooltip title={!isAdmin ? "Only for Admin uses" : ""} arrow placement="top">
+                <Paper
+                  elevation={0}
+                  onClick={(e) => {
+                    if (!isAdmin) {
+                      e.preventDefault();
+                      setAdminFeatureName('Shelter Capacity & Intake Logistics');
+                      setOpenAdminModal(true);
+                    } else {
+                      navigate('/carrying-capacity');
+                    }
+                  }}
                   sx={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(13,148,136,0.18)' : '#ccfbf1',
+                    p: 1.6,
+                    borderRadius: '12px',
+                    bgcolor: cardBg,
+                    border: cardBorder,
+                    boxShadow: cardShadow,
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
+                    gap: 1.4,
+                    cursor: 'pointer',
+                    transition: 'all 0.18s ease',
+                    position: 'relative',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      borderColor: '#0d9488',
+                      boxShadow: '0 4px 14px rgba(13,148,136,0.12)',
+                    },
                   }}
                 >
-                  <HomeWorkOutlinedIcon sx={{ color: '#0d9488', fontSize: 20 }} />
-                </Box>
-                <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: textPrimary }}>
-                  Shelter Capacity
-                </Typography>
-              </Paper>
+                  <Box
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: '8px',
+                      bgcolor: isDark ? 'rgba(13,148,136,0.18)' : '#ccfbf1',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <HomeWorkOutlinedIcon sx={{ color: '#0d9488', fontSize: 20 }} />
+                  </Box>
+                  <Box display="flex" alignItems="center" gap={0.8}>
+                    <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: textPrimary }}>
+                      Shelter Capacity
+                    </Typography>
+                    {!isAdmin && (
+                      <span style={{ fontSize: '0.6rem', fontWeight: 800, padding: '1px 5px', borderRadius: 4, background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>
+                        ADMIN
+                      </span>
+                    )}
+                  </Box>
+                </Paper>
+              </Tooltip>
 
               {/* Action 4: Early Warnings */}
               <Paper
@@ -1245,49 +1272,80 @@ export default function Dashboard() {
               </Paper>
 
               {/* Action 5: What If? Simulation */}
-              <Paper
-                elevation={0}
-                onClick={() => navigate('/simulation')}
-                sx={{
-                  p: 1.6,
-                  borderRadius: '12px',
-                  bgcolor: cardBg,
-                  border: cardBorder,
-                  boxShadow: cardShadow,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.4,
-                  cursor: 'pointer',
-                  transition: 'all 0.18s ease',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    borderColor: '#9333ea',
-                    boxShadow: '0 4px 14px rgba(147,51,234,0.12)',
-                  },
-                }}
-              >
-                <Box
+              <Tooltip title={!isAdmin ? "Only for Admin uses" : ""} arrow placement="top">
+                <Paper
+                  elevation={0}
+                  onClick={(e) => {
+                    if (!isAdmin) {
+                      e.preventDefault();
+                      setAdminFeatureName('"What-If?" Disaster Simulation');
+                      setOpenAdminModal(true);
+                    } else {
+                      navigate('/simulation');
+                    }
+                  }}
                   sx={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(147,51,234,0.18)' : '#f3e8ff',
+                    p: 1.6,
+                    borderRadius: '12px',
+                    bgcolor: cardBg,
+                    border: cardBorder,
+                    boxShadow: cardShadow,
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
+                    gap: 1.4,
+                    cursor: 'pointer',
+                    transition: 'all 0.18s ease',
+                    position: 'relative',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      borderColor: '#9333ea',
+                      boxShadow: '0 4px 14px rgba(147,51,234,0.12)',
+                    },
                   }}
                 >
-                  <ScienceOutlinedIcon sx={{ color: '#9333ea', fontSize: 20 }} />
-                </Box>
-                <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: textPrimary }}>
-                  What If? Simulation
-                </Typography>
-              </Paper>
+                  <Box
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: '8px',
+                      bgcolor: isDark ? 'rgba(147,51,234,0.18)' : '#f3e8ff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <ScienceOutlinedIcon sx={{ color: '#9333ea', fontSize: 20 }} />
+                  </Box>
+                  <Box display="flex" alignItems="center" gap={0.8}>
+                    <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: textPrimary }}>
+                      What If? Simulation
+                    </Typography>
+                    {!isAdmin && (
+                      <span style={{ fontSize: '0.6rem', fontWeight: 800, padding: '1px 5px', borderRadius: 4, background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>
+                        ADMIN
+                      </span>
+                    )}
+                  </Box>
+                </Paper>
+              </Tooltip>
             </Box>
           </Box>
         </Box>
       </Fade>
+
+      {/* Admin Only Modal Popup */}
+      <AdminOnlyModal
+        open={openAdminModal}
+        onClose={() => setOpenAdminModal(false)}
+        featureName={adminFeatureName}
+      />
+
+      {/* Emergency Contacts Modal Popup */}
+      <EmergencyContactsModal
+        open={openEmergencyModal}
+        onClose={() => setOpenEmergencyModal(false)}
+      />
     </Boilerplate>
   );
 }
