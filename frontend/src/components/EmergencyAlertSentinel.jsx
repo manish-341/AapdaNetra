@@ -141,6 +141,17 @@ export default function EmergencyAlertSentinel() {
     };
   }, []);
 
+  // Listen for siren stop event to automatically sync sirenPlaying state
+  useEffect(() => {
+    const handleSirenStopped = () => {
+      setSirenPlaying(false);
+    };
+    window.addEventListener('emergency-siren-stopped', handleSirenStopped);
+    return () => {
+      window.removeEventListener('emergency-siren-stopped', handleSirenStopped);
+    };
+  }, []);
+
   // Poll alerts and automatically trigger alarm when a critical emergency occurs
   useEffect(() => {
     let isMounted = true;
@@ -189,9 +200,9 @@ export default function EmergencyAlertSentinel() {
           if (!isAcknowledged && lastSoundedAlertIdRef.current !== alertId) {
             lastSoundedAlertIdRef.current = alertId;
 
-            // 1. Play Emergency Siren automatically
-            if (notifConfig.audioSiren !== false) {
-              playEmergencySiren(16000);
+            // 1. Play Emergency Siren automatically for 7 SECONDS ONLY on CRITICAL severity alerts
+            if (notifConfig.audioSiren !== false && matchingCritical.severity === 'CRITICAL') {
+              playEmergencySiren(7000);
               setSirenPlaying(true);
             }
 
@@ -274,7 +285,7 @@ export default function EmergencyAlertSentinel() {
   };
 
   const handleReTriggerAlarm = () => {
-    playEmergencySiren(16000);
+    playEmergencySiren(7000);
     setSirenPlaying(true);
   };
 
@@ -375,7 +386,7 @@ export default function EmergencyAlertSentinel() {
                   '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.3)' }
                 }}
               >
-                Sound Siren
+                Sound Siren (7s)
               </Button>
             )}
 
@@ -611,7 +622,7 @@ export default function EmergencyAlertSentinel() {
                   startIcon={<Volume2 size={15} />}
                   sx={{ fontWeight: 800, textTransform: 'none', borderRadius: 2 }}
                 >
-                  Test Alarm Siren
+                  Test Alarm Siren (7s)
                 </Button>
               )}
 

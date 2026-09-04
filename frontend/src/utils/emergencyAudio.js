@@ -119,10 +119,10 @@ if (typeof window !== 'undefined') {
 
 /**
  * Play high-priority Civil Defense Emergency Siren
- * @param {number} durationMs - Auto-stop duration in milliseconds (default: 12000ms)
+ * @param {number} durationMs - Auto-stop duration in milliseconds (default: 7000ms - 7 seconds)
  * @returns {boolean} true if audio playback was initiated
  */
-export function playEmergencySiren(durationMs = 12000) {
+export function playEmergencySiren(durationMs = 7000) {
   if (typeof window === 'undefined') return false;
 
   try {
@@ -191,7 +191,7 @@ export function playEmergencySiren(durationMs = 12000) {
       });
     }
 
-    // Auto-stop after specified duration
+    // Auto-stop after specified duration (7 seconds default)
     if (durationMs > 0) {
       autoStopTimer = setTimeout(() => {
         stopEmergencySiren();
@@ -207,7 +207,7 @@ export function playEmergencySiren(durationMs = 12000) {
 }
 
 // Arm immediate start on the very next user gesture if autoplay was deferred
-function armImmediateInteractionSiren(durationMs) {
+function armImmediateInteractionSiren(durationMs = 7000) {
   if (pendingTriggerRegistered || typeof window === 'undefined') return;
   pendingTriggerRegistered = true;
 
@@ -272,6 +272,9 @@ function stopEmergencySirenInternal(resetState = true) {
 
   if (resetState) {
     isPlaying = false;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('emergency-siren-stopped'));
+    }
   }
 }
 
