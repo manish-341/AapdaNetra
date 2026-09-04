@@ -12,6 +12,9 @@ const { apiLimiter } = require("./middleware/rateLimiter");
 
 const app = express();
 
+// Trust reverse proxy headers (Render, Heroku, Cloudflare)
+app.set("trust proxy", 1);
+
 // Connect MongoDB
 connectDB();
 
