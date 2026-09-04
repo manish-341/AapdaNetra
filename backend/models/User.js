@@ -63,6 +63,11 @@ const userSchema = new mongoose.Schema(
       type: String
     },
 
+    receiveAlerts: {
+      type: Boolean,
+      default: true
+    },
+
     isActive: {
       type: Boolean,
       default: true

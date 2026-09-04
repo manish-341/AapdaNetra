@@ -53,11 +53,10 @@ const validateRegister = [
     body("name").trim().isLength({ min: 2, max: 100 }).withMessage("Name must be 2-100 characters"),
     body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
     body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
-    body("phone").optional().isMobilePhone().withMessage("Invalid phone number"),
-    body("role").optional().isIn(["ADMIN", "DISTRICT_OFFICER", "FIELD_OFFICER", "RESPONDER", "CITIZEN"])
-        .withMessage("Invalid role"),
+    body("phone").optional({ checkFalsy: true }).isMobilePhone().withMessage("Invalid phone number"),
     body("district").optional().trim().isLength({ max: 100 }),
     body("state").optional().trim().isLength({ max: 100 }),
+    body("receiveAlerts").optional().isBoolean(),
     validate
 ];
 

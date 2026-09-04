@@ -13,7 +13,7 @@ const generateToken = (id, role) => {
 // Register
 const register = async (req, res) => {
     try {
-        const { name, email, password, phone, role, district, state } = req.body;
+        const { name, email, password, phone, district, state, receiveAlerts } = req.body;
 
         const existingUser = await User.findOne({ email });
         if (existingUser) {
@@ -26,14 +26,16 @@ const register = async (req, res) => {
         const salt = await bcrypt.genSalt(12);
         const hashedPassword = await bcrypt.hash(password, salt);
 
+        // Security: Public registration is strictly constrained to CITIZEN role
         const user = await User.create({
             name,
             email,
             password: hashedPassword,
             phone,
-            role: role || "CITIZEN",
+            role: "CITIZEN",
             district,
-            state
+            state,
+            receiveAlerts: receiveAlerts !== false
         });
 
         const { resolveDistrictCoordinates, ensureDistrictProvisioned } = require("../services/districtProvisioner");
@@ -52,6 +54,7 @@ const register = async (req, res) => {
                 role: user.role,
                 district: user.district,
                 state: user.state,
+                receiveAlerts: user.receiveAlerts,
                 coordinates: { latitude: coords.lat, longitude: coords.lng },
                 token
             }
