@@ -90,7 +90,9 @@ const Sidebar = () => {
           System
         </div>
         
-        <NavLink to="/reports" className="nav-item"><FileText size={17} /> System Reports</NavLink>
+        {isAdmin && (
+          <NavLink to="/reports" className="nav-item"><FileText size={17} /> System Reports</NavLink>
+        )}
         <NavLink to="/settings" className="nav-item"><Settings size={17} /> Settings</NavLink>
       </nav>
     </aside>

@@ -65,7 +65,7 @@ export default function AppRoutes() {
       <Route path="/relocation-planning" element={<RequireAdmin><RelocationPlan /></RequireAdmin>} />
       <Route path="/user-management" element={<RequireAdmin><UserManage /></RequireAdmin>} />
 
-      <Route path="/reports" element={<RequireAuth><Reports /></RequireAuth>} />
+      <Route path="/reports" element={<RequireAdmin><Reports /></RequireAdmin>} />
       <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
 
       <Route path="/" element={<Navigate to={isAuthenticated() ? "/dashboard" : "/login"} replace />} />
