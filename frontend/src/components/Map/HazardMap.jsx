@@ -62,9 +62,9 @@ function ChangeMapView({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
     if (center && Array.isArray(center) && center.length === 2 && !isNaN(center[0]) && !isNaN(center[1])) {
-      map.flyTo(center, zoom || 11, { duration: 1.5 });
+      map.setView(center, zoom || 11, { animate: true });
     }
-  }, [center, zoom, map]);
+  }, [center?.[0], center?.[1], zoom, map]);
   return null;
 }
 
@@ -252,7 +252,7 @@ const HazardMap = forwardRef(({ visibleCategories, activeFilter = 'ALL', onReset
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [location?.district, location?.lat, location?.lng, location?.name]);
 
   // ---- Dynamic Layer & Category Filtering ---------------------------------
   const FILTER_TITLES = {

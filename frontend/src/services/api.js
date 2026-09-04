@@ -56,7 +56,7 @@ export const resolveCitizenReport = (id) => API.put(`/reports/citizen/${id}/reso
 export const getDashboardStats = (params = {}) => API.get("/intelligence/dashboard", { params });
 export const getWeather = (lat, lon) => API.get(`/intelligence/weather?latitude=${lat}&longitude=${lon}`);
 export const getForecast = (lat, lon, indicator = "FLOOD_RISK") => API.get(`/intelligence/forecast?latitude=${lat}&longitude=${lon}&indicator=${indicator}`);
-export const getShelterRecommendation = (lat, lon) => API.get(`/intelligence/shelters/recommend?latitude=${lat}&longitude=${lon}`);
+export const getShelterRecommendation = (lat, lon, district = "") => API.get(`/intelligence/shelters/recommend?latitude=${lat}&longitude=${lon}${district ? `&district=${encodeURIComponent(district)}` : ''}`);
 export const getEvacuationPlan = (data) => API.post("/intelligence/evacuation", data);
 export const getEvacuationRoutes = () => API.get("/intelligence/evacuation-routes");
 export const runSimulation = (data) => API.post("/intelligence/simulation", data);

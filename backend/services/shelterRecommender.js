@@ -7,9 +7,9 @@ const HazardZone = require("../models/HazardZone");
  * disaster risk around shelter, accessibility, facilities, estimated travel time
  */
 const recommendShelters = async (lat, lon, options = {}) => {
-    const { maxDistance = 30000, limit = 5, requiredFacilities = [] } = options;
+    const { maxDistance = 35000, limit = 5, requiredFacilities = [], district = "" } = options;
 
-    // Find nearby shelters that aren't closed
+    // 1. Find nearby shelters using geospatial index
     let shelters = await Shelter.find({
         status: { $ne: "CLOSED" },
         location: {
@@ -20,10 +20,31 @@ const recommendShelters = async (lat, lon, options = {}) => {
         }
     }).limit(20).lean();
 
+    // 2. If no shelters within maxDistance, check by district if district name is provided
+    if (shelters.length === 0 && district) {
+        shelters = await Shelter.find({
+            status: { $ne: "CLOSED" },
+            district: { $regex: new RegExp(district.trim(), "i") }
+        }).limit(10).lean();
+    }
+
+    // 3. If still empty, expand search radius up to 150 km
     if (shelters.length === 0) {
-        // Fallback: get any available shelters
+        shelters = await Shelter.find({
+            status: { $ne: "CLOSED" },
+            location: {
+                $near: {
+                    $geometry: { type: "Point", coordinates: [lon, lat] },
+                    $maxDistance: 150000
+                }
+            }
+        }).limit(10).lean();
+    }
+
+    // 4. Final fallback
+    if (shelters.length === 0) {
         shelters = await Shelter.find({ status: { $ne: "CLOSED" } })
-            .limit(10).lean();
+            .limit(5).lean();
     }
 
     // Score each shelter

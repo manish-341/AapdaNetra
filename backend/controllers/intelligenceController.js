@@ -39,11 +39,11 @@ const getEvacuation = async (req, res) => {
 // Smart shelter recommendation
 const getShelterRecommendation = async (req, res) => {
     try {
-        const { latitude, longitude } = req.query;
+        const { latitude, longitude, district } = req.query;
         if (!latitude || !longitude) {
             return res.status(400).json({ success: false, message: "Latitude and longitude required" });
         }
-        const result = await recommendShelters(parseFloat(latitude), parseFloat(longitude));
+        const result = await recommendShelters(parseFloat(latitude), parseFloat(longitude), { district });
         res.status(200).json({ success: true, data: result });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

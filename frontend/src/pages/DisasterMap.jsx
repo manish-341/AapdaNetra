@@ -37,10 +37,12 @@ export default function DisasterMap() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
+    const targetDistrict = location.district || (location.name ? location.name.split('(')[0].trim() : '');
     Promise.all([
       getAlerts(),
       getCitizenReports(),
-      getShelterRecommendation(location.lat, location.lng),
+      getShelterRecommendation(location.lat, location.lng, targetDistrict),
       getShelters()
     ]).then(([alertRes, reportRes, shelterRes, sheltersListRes]) => {
       setAlerts(alertRes.data?.data || []);
@@ -49,7 +51,7 @@ export default function DisasterMap() {
       setShelters(sheltersListRes.data?.data || []);
     }).catch(console.error)
       .finally(() => setLoading(false));
-  }, [location.lat, location.lng]);
+  }, [location.lat, location.lng, location.district, location.name]);
 
   const locationFilteredAlerts = alerts.filter((a) => isItemInActiveLocation(a, location));
   const displayedAlerts = locationFilteredAlerts.filter((a) => {
