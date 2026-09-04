@@ -27,6 +27,7 @@ import HomeWorkOutlinedIcon from '@mui/icons-material/HomeWorkOutlined';
 import Boilerplate from '../layouts/Boilerplate';
 import { runSimulation } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
+import { useLocationContext } from '../context/LocationContext';
 
 const SCENARIOS = [
   { id: 'heavy_rainfall', label: 'Rainfall Inundation Surge (+10% to +100%)' },
@@ -36,15 +37,58 @@ const SCENARIOS = [
   { id: 'landslide_rainfall', label: 'Sustained Slope Saturation Precipitation' }
 ];
 
-const PRESET_ZONES = [
-  { id: 'YAMUNA', name: 'Yamuna Floodplain Sector R-12', lat: 28.6139, lon: 77.2090 },
-  { id: 'NALA', name: 'Nala Colony & Yamuna Vihar', lat: 28.6517, lon: 77.2219 },
-  { id: 'ASOLA', name: 'Asola Wildlife Ridge', lat: 28.5200, lon: 77.1800 }
-];
+const REGIONAL_ZONES_MAP = {
+  'delhi': [
+    { id: 'YAMUNA', name: 'Yamuna Floodplain Sector R-12', lat: 28.6139, lon: 77.2090 },
+    { id: 'NALA', name: 'Nala Colony & Yamuna Vihar', lat: 28.6517, lon: 77.2219 },
+    { id: 'ASOLA', name: 'Asola Wildlife Ridge', lat: 28.5200, lon: 77.1800 }
+  ],
+  'patna': [
+    { id: 'GANGA', name: 'Ganga Floodplain & Digha Ghat', lat: 25.6320, lon: 85.1050 },
+    { id: 'KANKARBAGH', name: 'Kankarbagh Low Basin', lat: 25.5900, lon: 85.1550 },
+    { id: 'RAJENDRA', name: 'Rajendra Nagar Siphon', lat: 25.6020, lon: 85.1680 }
+  ],
+  'vindhya': [
+    { id: 'BICHIA', name: 'Bichia River Confluence', lat: 24.5362, lon: 81.3038 },
+    { id: 'TONS', name: 'Tons River Basin', lat: 24.6200, lon: 81.3500 },
+    { id: 'HUZUR', name: 'Huzur Lowlands Basin', lat: 24.5100, lon: 81.2800 }
+  ],
+  'rewa': [
+    { id: 'BICHIA', name: 'Bichia River Confluence', lat: 24.5362, lon: 81.3038 },
+    { id: 'TONS', name: 'Tons River Basin', lat: 24.6200, lon: 81.3500 },
+    { id: 'HUZUR', name: 'Huzur Lowlands Basin', lat: 24.5100, lon: 81.2800 }
+  ],
+  'mumbai': [
+    { id: 'MITHI', name: 'Mithi River Channel', lat: 19.0760, lon: 72.8777 },
+    { id: 'KURLA', name: 'Kurla Low Basin', lat: 19.0680, lon: 72.8890 },
+    { id: 'HINDMATA', name: 'Hindmata Siphon Hotspot', lat: 19.0120, lon: 72.8420 }
+  ]
+};
+
+function getZonesForLocation(loc) {
+  const query = (loc?.id || loc?.district || loc?.name || '').toLowerCase().trim();
+  for (const [key, zones] of Object.entries(REGIONAL_ZONES_MAP)) {
+    if (query.includes(key)) return zones;
+  }
+  const baseLat = loc?.lat || 28.6139;
+  const baseLon = loc?.lng || loc?.lon || 77.2090;
+  const locName = loc?.name?.split('(')[0]?.trim() || loc?.district || 'Regional';
+  return [
+    { id: 'ZONE_1', name: `${locName} Riverfront Low Basin`, lat: baseLat + 0.012, lon: baseLon + 0.008 },
+    { id: 'ZONE_2', name: `${locName} Central Siphon Corridor`, lat: baseLat - 0.015, lon: baseLon + 0.012 },
+    { id: 'ZONE_3', name: `${locName} Elevated Ridge Sector`, lat: baseLat - 0.025, lon: baseLon - 0.018 }
+  ];
+}
 
 export default function Simulation() {
   const { isDark } = useThemeMode();
-  const [selectedZone, setSelectedZone] = useState(PRESET_ZONES[0]);
+  const { location } = useLocationContext();
+  const availableZones = React.useMemo(() => getZonesForLocation(location), [location?.id, location?.district, location?.name]);
+  const [selectedZone, setSelectedZone] = useState(availableZones[0]);
+
+  React.useEffect(() => {
+    setSelectedZone(availableZones[0]);
+  }, [availableZones]);
   const [scenario, setScenario] = useState('heavy_rainfall');
   const [adjustmentPercent, setAdjustmentPercent] = useState(30);
   const [loading, setLoading] = useState(false);
@@ -126,13 +170,13 @@ export default function Simulation() {
                   TARGET GEOGRAPHIC SECTOR:
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {PRESET_ZONES.map((z) => (
+                  {availableZones.map((z) => (
                     <Chip
                       key={z.id}
                       label={z.name.split(' ')[0]}
                       onClick={() => setSelectedZone(z)}
-                      color={selectedZone.id === z.id ? 'primary' : 'default'}
-                      variant={selectedZone.id === z.id ? 'filled' : 'outlined'}
+                      color={selectedZone?.id === z.id ? 'primary' : 'default'}
+                      variant={selectedZone?.id === z.id ? 'filled' : 'outlined'}
                       size="small"
                       sx={{ fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer' }}
                     />

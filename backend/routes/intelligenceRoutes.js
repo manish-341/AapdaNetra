@@ -1,6 +1,6 @@
 const express = require("express");
 const { simulate, getEvacuation, getShelterRecommendation, getWeather, getForecast, getDashboardStats, getEvacuationCorridors, changeDistrict } = require("../controllers/intelligenceController");
-const { protect, authorize } = require("../middleware/authMiddleware");
+const { protect, optionalProtect, authorize } = require("../middleware/authMiddleware");
 const { validateSimulation } = require("../middleware/validators");
 const { aiLimiter } = require("../middleware/rateLimiter");
 
@@ -13,10 +13,10 @@ router.post("/set-district", changeDistrict);
 router.get("/dashboard", protect, getDashboardStats);
 
 // Weather
-router.get("/weather", protect, getWeather);
+router.get("/weather", optionalProtect, getWeather);
 
 // Forecast
-router.get("/forecast", protect, getForecast);
+router.get("/forecast", optionalProtect, getForecast);
 
 // Shelter recommendation
 router.get("/shelters/recommend", protect, getShelterRecommendation);
