@@ -12,7 +12,9 @@ import {
   Alert,
   IconButton,
   Tabs,
-  Tab
+  Tab,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import {
   AlertTriangle,
@@ -28,7 +30,8 @@ import {
   ShieldCheck,
   ChevronRight,
   Layers,
-  Sparkles
+  Sparkles,
+  Search
 } from 'lucide-react';
 import { getAlerts, dispatchEmergencyAlert } from '../services/api';
 import { playEmergencySiren, stopEmergencySiren, isSirenActive } from '../utils/emergencyAudio';
@@ -48,11 +51,13 @@ export default function EmergencyAlertSentinel() {
 
   const [alerts, setAlerts] = useState([]);
   const [activeCriticalAlert, setActiveCriticalAlert] = useState(null);
+  const [activeAreaAlert, setActiveAreaAlert] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [toastPopupOpen, setToastPopupOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [sirenPlaying, setSirenPlaying] = useState(false);
-  const [activeTab, setActiveTab] = useState(0); // 0: Local Jurisdiction (Default), 1: All National
+  const [activeTab, setActiveTab] = useState(0); // 0: Area-Wise Search & Briefing, 1: National Overview
+  const [areaSearchQuery, setAreaSearchQuery] = useState('');
 
   const lastSoundedAlertIdRef = useRef(null);
   const currentUser = getCurrentUser() || {};
@@ -104,17 +109,14 @@ export default function EmergencyAlertSentinel() {
         const rank = { CRITICAL: 4, HIGH: 3, WARNING: 2, INFO: 1 };
         localAlerts.sort((a, b) => (rank[b.severity] || 0) - (rank[a.severity] || 0));
 
-        // 2. Identify local critical alert (if any)
+        // 2. Primary most important alert for the searched area
+        const primaryAreaAlert = localAlerts[0] || null;
+
+        // 3. Civil defense critical check (for acoustic siren and red civil defense banner)
         const localCriticalAlert = localAlerts.find((a) => isTrueCriticalAlert(a)) || null;
 
-        // 3. Identify top national critical alert across all regions (if any)
-        const nationalCriticalAlert = alertsList.find((a) => a.isActive !== false && isTrueCriticalAlert(a)) || null;
-
-        // 4. Featured alert for the real-time popup toast: prioritize local, or show top national critical alert
-        const topCritical = localCriticalAlert || nationalCriticalAlert || null;
-
-        if (topCritical) {
-          const alertId = topCritical._id || topCritical.id || topCritical.title;
+        if (primaryAreaAlert && (primaryAreaAlert.severity === 'CRITICAL' || primaryAreaAlert.severity === 'HIGH')) {
+          const alertId = primaryAreaAlert._id || primaryAreaAlert.id || primaryAreaAlert.title;
 
           let acknowledgedIds = [];
           try {
@@ -122,19 +124,18 @@ export default function EmergencyAlertSentinel() {
           } catch {}
 
           const isAcknowledged = acknowledgedIds.includes(alertId);
-          setActiveCriticalAlert(topCritical);
+          setActiveAreaAlert(primaryAreaAlert);
 
-          // Show floating Alert Popup Toast across all regions (when modal is closed)
+          // Show floating Alert Popup Toast STRICTLY for the area the user is searching / viewing
           if (!isAcknowledged && !modalOpen) {
             setToastPopupOpen(true);
           }
 
           // STRICT CIVIL DEFENSE SIREN RULE:
-          // Siren rings automatically for 7 seconds ONLY IF the user is in the affected district!
-          // If the critical alert is in another region, the toast popup informs them visually, but siren stays silent!
-          const isLocallyCritical = !!localCriticalAlert;
+          // Siren rings automatically for 7 seconds ONLY IF the situation is a genuine CRITICAL emergency in this area (e.g. Bhopal)
+          const isLocallyCriticalCivilDefense = !!localCriticalAlert;
 
-          if (isLocallyCritical && !isAcknowledged && lastSoundedAlertIdRef.current !== alertId) {
+          if (isLocallyCriticalCivilDefense && !isAcknowledged && lastSoundedAlertIdRef.current !== alertId) {
             lastSoundedAlertIdRef.current = alertId;
 
             if (notifConfig.audioSiren !== false) {
@@ -171,13 +172,16 @@ export default function EmergencyAlertSentinel() {
             }
           }
 
-          if (isLocallyCritical) {
+          if (isLocallyCriticalCivilDefense) {
+            setActiveCriticalAlert(localCriticalAlert);
             setBannerDismissed(false);
           } else {
-            setBannerDismissed(true); // Don't show local red flashing banner if emergency is in another state
+            setActiveCriticalAlert(null);
+            setBannerDismissed(true);
           }
         } else {
-          // When no critical alerts are active, silence any siren immediately and do NOT show critical banner or toast
+          // If no critical or high alert in this searched area:
+          setActiveAreaAlert(null);
           setActiveCriticalAlert(null);
           setBannerDismissed(true);
           setToastPopupOpen(false);
@@ -257,6 +261,29 @@ export default function EmergencyAlertSentinel() {
       .map(([region, alert]) => ({ region, alert }))
       .sort((a, b) => (rankMap[b.alert.severity] || 0) - (rankMap[a.alert.severity] || 0));
   }, [alerts]);
+
+  // Alerts filtered strictly according to what area is being searched / viewed
+  const displayedAreaAlerts = React.useMemo(() => {
+    if (!areaSearchQuery.trim()) {
+      return districtAlerts;
+    }
+    if (areaSearchQuery === '__ALL__') {
+      return [...alerts]
+        .filter((a) => a.isActive !== false)
+        .sort((a, b) => (rank[b.severity] || 0) - (rank[a.severity] || 0));
+    }
+    const q = areaSearchQuery.trim().toLowerCase();
+    return alerts
+      .filter((a) => {
+        if (a.isActive === false) return false;
+        const title = (a.title || '').toLowerCase();
+        const msg = (a.message || a.description || '').toLowerCase();
+        const dist = (a.district || '').toLowerCase();
+        const region = getAlertRegionName(a).toLowerCase();
+        return title.includes(q) || msg.includes(q) || dist.includes(q) || region.includes(q);
+      })
+      .sort((a, b) => (rank[b.severity] || 0) - (rank[a.severity] || 0));
+  }, [alerts, areaSearchQuery, districtAlerts]);
 
   return (
     <>
@@ -358,135 +385,145 @@ export default function EmergencyAlertSentinel() {
         </Box>
       )}
 
-      {/* 2. REAL-TIME FLOATING ALERT POPUP TOAST (Shown ONLY when a true CRITICAL situation is active AND modal is closed) */}
-      {toastPopupOpen && activeCriticalAlert && !modalOpen && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 76,
-            right: 20,
-            zIndex: 9999,
-            width: { xs: 'calc(100vw - 40px)', sm: 390 },
-            bgcolor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)',
-            backdropFilter: 'blur(16px)',
-            border: '2px solid #ef4444',
-            borderRadius: 3.5,
-            boxShadow: '0 20px 40px rgba(239, 68, 68, 0.35)',
-            p: 2,
-            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-            animation: 'slideInRight 0.4s ease-out'
-          }}
-        >
-          <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={1.5} mb={1}>
-            <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-              <Box
-                sx={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 2,
-                  bgcolor: 'rgba(239, 68, 68, 0.18)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ef4444'
-                }}
-              >
-                <AlertTriangle size={18} />
-              </Box>
-              <Chip
-                label={getAlertRegionName(activeCriticalAlert)}
-                size="small"
-                sx={{
-                  bgcolor: '#ef4444',
-                  color: '#ffffff',
-                  fontWeight: 900,
-                  fontSize: '0.68rem',
-                  height: 22
-                }}
-              />
-              <Chip
-                label="CRITICAL EMERGENCY"
-                size="small"
-                variant="outlined"
-                sx={{
-                  borderColor: '#ef4444',
-                  color: '#ef4444',
-                  fontWeight: 800,
-                  fontSize: '0.62rem',
-                  height: 20
-                }}
-              />
-            </Box>
+      {/* 2. REAL-TIME FLOATING ALERT POPUP TOAST (Shown strictly for the searched / active area) */}
+      {toastPopupOpen && activeAreaAlert && !modalOpen && (() => {
+        const isCrit = isTrueCriticalAlert(activeAreaAlert);
+        const isHigh = activeAreaAlert.severity === 'HIGH';
+        const themeColor = isCrit ? '#ef4444' : isHigh ? '#f97316' : '#0284c7';
+        const sevLabel = isCrit ? 'CRITICAL EMERGENCY' : isHigh ? 'HIGH ALERT' : 'AREA ADVISORY';
+        const areaName = location?.name || location?.district || getAlertRegionName(activeAreaAlert);
 
-            <IconButton
-              size="small"
-              onClick={() => setToastPopupOpen(false)}
-              sx={{ color: 'text.secondary', p: 0.5 }}
-            >
-              <X size={16} />
-            </IconButton>
-          </Box>
-
-          <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.primary', mb: 0.5, lineHeight: 1.3 }}>
-            {activeCriticalAlert.title}
-          </Typography>
-
-          <Typography
-            variant="caption"
+        return (
+          <Box
             sx={{
-              color: 'text.secondary',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              mb: 1.5,
-              lineHeight: 1.4
+              position: 'fixed',
+              top: 76,
+              right: 20,
+              zIndex: 9999,
+              width: { xs: 'calc(100vw - 40px)', sm: 400 },
+              bgcolor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)',
+              backdropFilter: 'blur(16px)',
+              border: `2px solid ${themeColor}`,
+              borderRadius: 3.5,
+              boxShadow: isCrit
+                ? '0 20px 40px rgba(239, 68, 68, 0.35)'
+                : '0 15px 35px rgba(249, 115, 22, 0.25)',
+              p: 2,
+              transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              animation: 'slideInRight 0.4s ease-out'
             }}
           >
-            {activeCriticalAlert.message || activeCriticalAlert.description}
-          </Typography>
+            <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={1.5} mb={1}>
+              <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                <Box
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 2,
+                    bgcolor: isCrit ? 'rgba(239, 68, 68, 0.18)' : 'rgba(249, 115, 22, 0.18)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: themeColor
+                  }}
+                >
+                  <AlertTriangle size={18} />
+                </Box>
+                <Chip
+                  label={areaName}
+                  size="small"
+                  sx={{
+                    bgcolor: themeColor,
+                    color: '#ffffff',
+                    fontWeight: 900,
+                    fontSize: '0.68rem',
+                    height: 22
+                  }}
+                />
+                <Chip
+                  label={sevLabel}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    borderColor: themeColor,
+                    color: themeColor,
+                    fontWeight: 800,
+                    fontSize: '0.62rem',
+                    height: 20
+                  }}
+                />
+              </Box>
 
-          <Box display="flex" alignItems="center" justifyContent="space-between" gap={1} pt={1} borderTop="1px solid var(--border-color)">
-            {sirenPlaying && (
-              <Button
+              <IconButton
                 size="small"
-                variant="outlined"
-                color="error"
-                onClick={handleSilenceOnly}
-                startIcon={<VolumeX size={13} />}
-                sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', py: 0.3, px: 1, borderRadius: 1.5 }}
+                onClick={() => setToastPopupOpen(false)}
+                sx={{ color: 'text.secondary', p: 0.5 }}
               >
-                Mute
-              </Button>
-            )}
+                <X size={16} />
+              </IconButton>
+            </Box>
 
-            <Button
-              size="small"
-              variant="contained"
-              onClick={() => {
-                setToastPopupOpen(false);
-                setActiveTab(0);
-                setModalOpen(true);
-              }}
-              endIcon={<ChevronRight size={14} />}
+            <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.primary', mb: 0.5, lineHeight: 1.3 }}>
+              {activeAreaAlert.title}
+            </Typography>
+
+            <Typography
+              variant="caption"
               sx={{
-                bgcolor: '#ef4444',
-                color: '#ffffff',
-                fontSize: '0.72rem',
-                fontWeight: 800,
-                textTransform: 'none',
-                py: 0.4,
-                px: 1.5,
-                borderRadius: 2,
-                ml: 'auto',
-                '&:hover': { bgcolor: '#dc2626' }
+                color: 'text.secondary',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                mb: 1.5,
+                lineHeight: 1.4
               }}
             >
-              View All Regional Advisories
-            </Button>
+              {activeAreaAlert.message || activeAreaAlert.description}
+            </Typography>
+
+            <Box display="flex" alignItems="center" justifyContent="space-between" gap={1} pt={1} borderTop="1px solid var(--border-color)">
+              {sirenPlaying && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  onClick={handleSilenceOnly}
+                  startIcon={<VolumeX size={13} />}
+                  sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', py: 0.3, px: 1, borderRadius: 1.5 }}
+                >
+                  Mute
+                </Button>
+              )}
+
+              <Button
+                size="small"
+                variant="contained"
+                onClick={() => {
+                  setToastPopupOpen(false);
+                  setActiveTab(0);
+                  setModalOpen(true);
+                }}
+                endIcon={<ChevronRight size={14} />}
+                sx={{
+                  bgcolor: themeColor,
+                  color: '#ffffff',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  textTransform: 'none',
+                  py: 0.4,
+                  px: 1.5,
+                  borderRadius: 2,
+                  ml: 'auto',
+                  '&:hover': { bgcolor: themeColor }
+                }}
+              >
+                View {areaName} Advisories
+              </Button>
+            </Box>
           </Box>
-        </Box>
-      )}
+        );
+      })()}
 
       {/* 3. CLEAN, FOCUSED ALERT CENTER MODAL (Highlights ONLY the most important alert so it never looks messy) */}
       <Dialog
@@ -568,7 +605,7 @@ export default function EmergencyAlertSentinel() {
             </Box>
           </Box>
 
-          {/* Clean Segmented Tabs (All Regions vs Active Jurisdiction) */}
+          {/* Clean Segmented Tabs (Area-Wise Search vs All Monitored Regions) */}
           <Box sx={{ mt: 2, borderBottom: '1px solid var(--border-color)' }}>
             <Tabs
               value={activeTab}
@@ -585,15 +622,264 @@ export default function EmergencyAlertSentinel() {
                 }
               }}
             >
-              <Tab label={`All Regions — Important (${regionalImportantAlerts.length})`} />
-              <Tab label={`My Jurisdiction: ${location?.district || location?.name || 'Local'} (${districtAlerts.length})`} />
+              <Tab label={`Area-Wise Alerts (${displayedAreaAlerts.length})`} />
+              <Tab label={`All Monitored Regions Overview (${regionalImportantAlerts.length})`} />
             </Tabs>
           </Box>
         </DialogTitle>
 
         <DialogContent sx={{ p: 2.5, pt: 1.5, maxHeight: '60vh', overflowY: 'auto' }}>
           {activeTab === 0 ? (
-            /* TAB 0: ALL REGIONS (CURATED SINGLE MOST IMPORTANT ALERT PER REGION) */
+            /* TAB 0: AREA-WISE SEARCH & FILTERED ALERTS */
+            <Box display="flex" flexDirection="column" gap={1.8}>
+              {/* Interactive Area Search & Quick Filters */}
+              <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', border: '1px solid var(--border-color)' }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search alerts area-wise (e.g. Delhi, Mumbai, Bhopal, Noida, Dehradun)..."
+                  value={areaSearchQuery}
+                  onChange={(e) => setAreaSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search size={16} color="#64748b" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: areaSearchQuery ? (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setAreaSearchQuery('')}>
+                          <X size={14} />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : null,
+                    sx: {
+                      borderRadius: 2,
+                      fontSize: '0.82rem',
+                      bgcolor: isDark ? '#0f172a' : '#ffffff'
+                    }
+                  }}
+                />
+
+                {/* Quick Area Chips */}
+                <Box display="flex" alignItems="center" gap={0.8} mt={1.2} flexWrap="wrap">
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, fontSize: '0.68rem' }}>
+                    Quick Select:
+                  </Typography>
+                  <Chip
+                    label={`📍 Current: ${location?.name || location?.district || 'My Area'}`}
+                    size="small"
+                    onClick={() => setAreaSearchQuery('')}
+                    color={!areaSearchQuery ? 'primary' : 'default'}
+                    variant={!areaSearchQuery ? 'filled' : 'outlined'}
+                    sx={{ fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer', height: 22 }}
+                  />
+                  {['Delhi', 'Bhopal', 'Mumbai', 'Noida', 'Dehradun'].map((city) => (
+                    <Chip
+                      key={city}
+                      label={city}
+                      size="small"
+                      onClick={() => setAreaSearchQuery(city)}
+                      color={areaSearchQuery.toLowerCase() === city.toLowerCase() ? 'primary' : 'default'}
+                      variant={areaSearchQuery.toLowerCase() === city.toLowerCase() ? 'filled' : 'outlined'}
+                      sx={{ fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer', height: 22 }}
+                    />
+                  ))}
+                  <Chip
+                    label="🌐 All Areas"
+                    size="small"
+                    onClick={() => setAreaSearchQuery('__ALL__')}
+                    color={areaSearchQuery === '__ALL__' ? 'secondary' : 'default'}
+                    variant={areaSearchQuery === '__ALL__' ? 'filled' : 'outlined'}
+                    sx={{ fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer', height: 22 }}
+                  />
+                </Box>
+
+                {/* Area scope indicator */}
+                <Box display="flex" alignItems="center" justifyContent="space-between" mt={1} pt={0.8} borderTop="1px dashed var(--border-color)">
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.72rem' }}>
+                    {areaSearchQuery === '__ALL__' ? (
+                      <>Displaying <strong>all active alerts</strong> nationwide ({displayedAreaAlerts.length})</>
+                    ) : areaSearchQuery ? (
+                      <>Searching alerts for area: <strong>"{areaSearchQuery}"</strong> ({displayedAreaAlerts.length} {displayedAreaAlerts.length === 1 ? 'alert' : 'alerts'})</>
+                    ) : (
+                      <>Showing alerts for searched area: <strong>{location?.name || location?.district}</strong> ({displayedAreaAlerts.length})</>
+                    )}
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Area Alerts List */}
+              {displayedAreaAlerts.length > 0 ? (
+                displayedAreaAlerts.map((item) => {
+                  const alertRegion = getAlertRegionName(item);
+                  const isTrulyCritical = isTrueCriticalAlert(item);
+                  const effectiveSev = isTrulyCritical
+                    ? 'CRITICAL'
+                    : item.severity === 'CRITICAL'
+                    ? 'WARNING'
+                    : item.severity || 'INFO';
+                  const isHigh = effectiveSev === 'HIGH';
+                  const isCrit = effectiveSev === 'CRITICAL';
+                  const themeColor = isCrit ? '#ef4444' : isHigh ? '#f97316' : '#0284c7';
+                  const bgTint = isDark
+                    ? isCrit
+                      ? 'rgba(239, 68, 68, 0.12)'
+                      : isHigh
+                      ? 'rgba(249, 115, 22, 0.1)'
+                      : 'rgba(2, 132, 199, 0.08)'
+                    : isCrit
+                    ? '#fef2f2'
+                    : isHigh
+                    ? '#fff7ed'
+                    : '#f0f9ff';
+
+                  const isCurrentDistrict = alertMatchesLocation(item, location);
+
+                  return (
+                    <Box
+                      key={item._id || item.id || item.title}
+                      sx={{
+                        p: 2.2,
+                        borderRadius: 3,
+                        bgcolor: bgTint,
+                        border: '1.5px solid',
+                        borderColor: isCrit ? '#ef4444' : themeColor,
+                        boxShadow: isCrit ? '0 8px 25px rgba(239, 68, 68, 0.22)' : 'none',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          transform: 'translateY(-1px)',
+                          boxShadow: isCrit
+                            ? '0 12px 30px rgba(239, 68, 68, 0.32)'
+                            : '0 8px 20px rgba(0,0,0,0.06)'
+                        }
+                      }}
+                    >
+                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={1} flexWrap="wrap" gap={1}>
+                        <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                          <Chip
+                            label={`📍 ${alertRegion}`}
+                            size="small"
+                            sx={{
+                              bgcolor: themeColor,
+                              color: '#fff',
+                              fontWeight: 900,
+                              fontSize: '0.68rem',
+                              height: 22
+                            }}
+                          />
+                          <Chip
+                            label={effectiveSev}
+                            size="small"
+                            variant={isCrit ? 'filled' : 'outlined'}
+                            sx={{
+                              borderColor: themeColor,
+                              bgcolor: isCrit ? '#ef4444' : 'transparent',
+                              color: isCrit ? '#fff' : themeColor,
+                              fontWeight: 800,
+                              fontSize: '0.65rem',
+                              height: 22
+                            }}
+                          />
+                          <Chip
+                            label={item.hazardType || 'HAZARD'}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontWeight: 600, fontSize: '0.62rem', height: 22 }}
+                          />
+                        </Box>
+
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                          {new Date(item.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Typography>
+                      </Box>
+
+                      <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.primary', mb: 0.6, fontSize: '0.9rem' }}>
+                        {item.title}
+                      </Typography>
+
+                      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5, lineHeight: 1.45, fontSize: '0.82rem' }}>
+                        {item.message || item.description}
+                      </Typography>
+
+                      <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} pt={1} borderTop="1px solid var(--border-color)">
+                        {item.affectedRadius && (
+                          <Typography variant="caption" sx={{ color: 'text.muted' }}>
+                            📍 Radius: <strong>{item.affectedRadius} km</strong>
+                          </Typography>
+                        )}
+
+                        <Box display="flex" alignItems="center" gap={1} ml="auto">
+                          {!isCurrentDistrict && (
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={() => {
+                                const districtOnly = alertRegion.split('(')[0].trim();
+                                switchLocation(districtOnly);
+                                setModalOpen(false);
+                              }}
+                              sx={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                textTransform: 'none',
+                                py: 0.3,
+                                px: 1,
+                                color: 'text.secondary',
+                                '&:hover': { color: 'text.primary' }
+                              }}
+                            >
+                              Set as Active Area
+                            </Button>
+                          )}
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => {
+                              setModalOpen(false);
+                              navigate('/disaster-map');
+                            }}
+                            startIcon={<MapPin size={13} />}
+                            sx={{
+                              bgcolor: themeColor,
+                              color: '#fff',
+                              fontWeight: 700,
+                              fontSize: '0.72rem',
+                              textTransform: 'none',
+                              py: 0.3,
+                              px: 1.5,
+                              borderRadius: 2,
+                              '&:hover': { bgcolor: themeColor }
+                            }}
+                          >
+                            View Threat Map
+                          </Button>
+                        </Box>
+                      </Box>
+                    </Box>
+                  );
+                })
+              ) : (
+                <Box sx={{ p: 4, textAlign: 'center', borderRadius: 3, border: '1px dashed var(--border-color)' }}>
+                  <CheckCircle2 size={36} color="#10b981" style={{ margin: '0 auto 8px auto' }} />
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.primary' }}>
+                    All Clear in {areaSearchQuery || location?.name || location?.district}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    No active disaster alerts or critical warnings are in effect for this searched area.
+                  </Typography>
+                </Box>
+              )}
+
+              {/* EMERGENCY PROTOCOL FOOTER HELPLINES */}
+              <Box sx={{ mt: 1, p: 1.5, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f1f5f9', border: '1px solid var(--border-color)' }}>
+                <Typography variant="caption" fontWeight={700} sx={{ color: 'text.secondary', display: 'block', textAlign: 'center' }}>
+                  Emergency Helplines: NDRF: <strong>1070</strong> | Police/Ambulance: <strong>112</strong> | State Relief: <strong>1077</strong>
+                </Typography>
+              </Box>
+            </Box>
+          ) : (
+            /* TAB 1: ALL MONITORED REGIONS OVERVIEW (1 PER REGION, CURATED & CLEAN) */
             <Box display="flex" flexDirection="column" gap={1.8}>
               {regionalImportantAlerts.length > 0 ? (
                 regionalImportantAlerts.map(({ region, alert: item }) => {
@@ -758,192 +1044,6 @@ export default function EmergencyAlertSentinel() {
                 </Typography>
               </Box>
             </Box>
-          ) : (
-            /* TAB 1: LOCAL JURISDICTION */
-            <>
-              {primaryDistrictAlert ? (
-                <>
-                  {/* FEATURED: SINGLE MOST IMPORTANT ALERT FOR LOCAL DISTRICT */}
-                  {(() => {
-                    const isTrulyCritical = isTrueCriticalAlert(primaryDistrictAlert);
-                    const effectiveSev = isTrulyCritical
-                      ? 'CRITICAL'
-                      : primaryDistrictAlert.severity === 'CRITICAL'
-                      ? 'WARNING'
-                      : primaryDistrictAlert.severity || 'INFO';
-                    const isHigh = effectiveSev === 'HIGH';
-                    const isCrit = effectiveSev === 'CRITICAL';
-                    const themeColor = isCrit ? '#ef4444' : isHigh ? '#f97316' : '#0284c7';
-                    const bgTint = isDark
-                      ? isCrit
-                        ? 'rgba(239, 68, 68, 0.12)'
-                        : isHigh
-                        ? 'rgba(249, 115, 22, 0.1)'
-                        : 'rgba(2, 132, 199, 0.1)'
-                      : isCrit
-                      ? '#fef2f2'
-                      : isHigh
-                      ? '#fff7ed'
-                      : '#f0f9ff';
-
-                    return (
-                      <Box
-                        sx={{
-                          p: 2.2,
-                          borderRadius: 3,
-                          bgcolor: bgTint,
-                          border: '1.5px solid',
-                          borderColor: themeColor,
-                          mb: 2
-                        }}
-                      >
-                        <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <Chip
-                              label={`MOST IMPORTANT: ${effectiveSev}`}
-                              size="small"
-                              sx={{
-                                bgcolor: themeColor,
-                                color: '#fff',
-                                fontWeight: 900,
-                                fontSize: '0.68rem',
-                                height: 22
-                              }}
-                            />
-                            <Chip
-                              label={primaryDistrictAlert.hazardType || 'HAZARD'}
-                              size="small"
-                              variant="outlined"
-                              sx={{ fontWeight: 700, fontSize: '0.65rem', height: 22 }}
-                            />
-                          </Box>
-
-                          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                            {new Date(primaryDistrictAlert.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </Typography>
-                        </Box>
-
-                        <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.primary', mb: 0.8 }}>
-                          {primaryDistrictAlert.title}
-                        </Typography>
-
-                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5, lineHeight: 1.5 }}>
-                          {primaryDistrictAlert.message || primaryDistrictAlert.description}
-                        </Typography>
-
-                        {primaryDistrictAlert.affectedRadius && (
-                          <Typography variant="caption" sx={{ color: 'text.muted', display: 'block', mb: 1.5 }}>
-                            📍 Threat Radius: <strong>{primaryDistrictAlert.affectedRadius} km</strong> around monitored zone.
-                          </Typography>
-                        )}
-
-                        <Button
-                          size="small"
-                          variant="contained"
-                          onClick={() => {
-                            setModalOpen(false);
-                            navigate('/disaster-map');
-                          }}
-                          startIcon={<MapPin size={14} />}
-                          sx={{
-                            bgcolor: themeColor,
-                            color: '#fff',
-                            fontWeight: 700,
-                            fontSize: '0.75rem',
-                            textTransform: 'none',
-                            borderRadius: 2,
-                            '&:hover': {
-                              bgcolor: themeColor
-                            }
-                          }}
-                        >
-                          View Safe Routes on Threat Map
-                        </Button>
-                      </Box>
-                    );
-                  })()}
-
-                  {/* SECONDARY LOCAL ADVISORIES (MAX 2 ITEMS TO PREVENT CLUTTER) */}
-                  {secondaryDistrictAlerts.length > 0 && (
-                    <>
-                      <Typography variant="caption" fontWeight={800} sx={{ color: 'text.muted', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', mb: 1 }}>
-                        Secondary Regional Advisories ({secondaryDistrictAlerts.length})
-                      </Typography>
-
-                      <Box display="flex" flexDirection="column" gap={1}>
-                        {secondaryDistrictAlerts.map((subAlert) => (
-                          <Box
-                            key={subAlert._id || subAlert.id}
-                            sx={{
-                              p: 1.5,
-                              borderRadius: 2.5,
-                              bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc',
-                              border: '1px solid var(--border-color)',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              gap: 1.5
-                            }}
-                          >
-                            <Box>
-                              <Box display="flex" alignItems="center" gap={1} mb={0.3}>
-                                <Chip
-                                  label={subAlert.severity || 'ADVISORY'}
-                                  size="small"
-                                  sx={{
-                                    bgcolor: subAlert.severity === 'HIGH' ? '#f97316' : '#eab308',
-                                    color: '#fff',
-                                    fontSize: '0.62rem',
-                                    fontWeight: 800,
-                                    height: 18
-                                  }}
-                                />
-                                <Typography variant="body2" fontWeight={700} sx={{ color: 'text.primary' }}>
-                                  {subAlert.title}
-                                </Typography>
-                              </Box>
-                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                {subAlert.message || subAlert.description}
-                              </Typography>
-                            </Box>
-
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => {
-                                setModalOpen(false);
-                                navigate('/disaster-map');
-                              }}
-                              sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', borderRadius: 1.5, whiteSpace: 'nowrap' }}
-                            >
-                              Map
-                            </Button>
-                          </Box>
-                        ))}
-                      </Box>
-                    </>
-                  )}
-                </>
-              ) : (
-                /* ALL CLEAR STATE FOR LOCAL DISTRICT */
-                <Box sx={{ p: 4, textAlign: 'center', borderRadius: 3, border: '1px dashed var(--border-color)' }}>
-                  <CheckCircle2 size={36} color="#10b981" style={{ margin: '0 auto 8px auto' }} />
-                  <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.primary' }}>
-                    All Clear in {location?.name || location?.district}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    No active disaster alerts or critical warnings are in effect for your selected jurisdiction.
-                  </Typography>
-                </Box>
-              )}
-
-              {/* EMERGENCY PROTOCOL FOOTER HELPLINES */}
-              <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f1f5f9', border: '1px solid var(--border-color)' }}>
-                <Typography variant="caption" fontWeight={700} sx={{ color: 'text.secondary', display: 'block', textAlign: 'center' }}>
-                  Emergency Helplines: NDRF: <strong>1070</strong> | Police/Ambulance: <strong>112</strong> | State Relief: <strong>1077</strong>
-                </Typography>
-              </Box>
-            </>
           )}
         </DialogContent>
 
