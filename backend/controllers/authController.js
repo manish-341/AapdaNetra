@@ -560,6 +560,89 @@ const googleDirectLogin = async (req, res) => {
     }
 };
 
+// Exchange Google OAuth code (supports frontend direct callback e.g. http://localhost:5173/auth/callback)
+const googleExchangeCode = async (req, res) => {
+    try {
+        const { code, redirectUri, role } = req.body;
+        if (!code) {
+            return res.status(400).json({ success: false, message: "Missing authorization code" });
+        }
+        const clientId = process.env.GOOGLE_CLIENT_ID;
+        const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+        const callbackUrl = redirectUri || process.env.GOOGLE_CALLBACK_URL || "http://localhost:5173/auth/callback";
+
+        const tokenResponse = await axios.post(
+            "https://oauth2.googleapis.com/token",
+            new URLSearchParams({
+                code: String(code),
+                client_id: clientId,
+                client_secret: clientSecret,
+                redirect_uri: callbackUrl,
+                grant_type: "authorization_code"
+            }).toString(),
+            {
+                headers: { "Content-Type": "application/x-www-form-urlencoded" }
+            }
+        );
+
+        const { access_token } = tokenResponse.data;
+        if (!access_token) throw new Error("No access token returned by Google");
+
+        const userInfoResponse = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
+            headers: { Authorization: `Bearer ${access_token}` }
+        });
+
+        const { sub, email, name, picture } = userInfoResponse.data;
+        if (!email || !sub) throw new Error("Missing profile info from Google");
+
+        const normalizedEmail = email.toLowerCase().trim();
+        let user = await User.findOne({
+            $or: [{ googleId: sub }, { email: normalizedEmail }]
+        });
+
+        const requestedRole = role || "CITIZEN";
+        if (user) {
+            if (!user.googleId) user.googleId = sub;
+            if (!user.avatar && picture) user.avatar = picture;
+            await user.save();
+        } else {
+            user = await User.create({
+                name: name || normalizedEmail.split("@")[0],
+                email: normalizedEmail,
+                googleId: sub,
+                authProvider: "google",
+                avatar: picture || "",
+                role: requestedRole,
+                district: "Central Delhi",
+                state: "Delhi",
+                isActive: true
+            });
+        }
+
+        const token = generateToken(user._id, user.role);
+        return res.json({
+            success: true,
+            data: {
+                token,
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                district: user.district,
+                state: user.state,
+                avatar: user.avatar,
+                authProvider: "google"
+            }
+        });
+    } catch (err) {
+        console.error("googleExchangeCode error:", err.response?.data || err.message);
+        return res.status(500).json({
+            success: false,
+            message: err.response?.data?.error_description || err.message || "Failed to exchange Google OAuth code"
+        });
+    }
+};
+
 module.exports = {
     register,
     login,
@@ -570,5 +653,6 @@ module.exports = {
     deleteUser,
     googleAuth,
     googleCallback,
+    googleExchangeCode,
     googleDirectLogin
 };

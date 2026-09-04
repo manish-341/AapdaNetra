@@ -9,6 +9,7 @@ const {
     deleteUser,
     googleAuth,
     googleCallback,
+    googleExchangeCode,
     googleDirectLogin
 } = require("../controllers/authController");
 const { protect, authorize } = require("../middleware/authMiddleware");
@@ -24,6 +25,7 @@ router.post("/login", authLimiter, validateLogin, login);
 // Google OAuth 2.0 routes
 router.get("/google", googleAuth);
 router.get("/google/callback", googleCallback);
+router.post("/google/exchange", googleExchangeCode);
 router.post("/google-direct", googleDirectLogin);
 
 // Protected routes

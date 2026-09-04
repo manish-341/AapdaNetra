@@ -16,6 +16,7 @@ export default function AuthCallback() {
   useEffect(() => {
     const token = searchParams.get('token');
     const userRaw = searchParams.get('user');
+    const code = searchParams.get('code');
     const errorParam = searchParams.get('error');
 
     if (errorParam) {
@@ -24,35 +25,66 @@ export default function AuthCallback() {
       return;
     }
 
-    if (!token) {
-      setStatus('error');
-      setErrorMessage('No authentication credentials returned from Google OAuth.');
+    // Flow 1: Backend completed exchange and redirected with JWT token
+    if (token) {
+      try {
+        let user = null;
+        if (userRaw) {
+          user = JSON.parse(decodeURIComponent(userRaw));
+        } else {
+          user = { email: 'google.user@aapdanetra.in', role: 'CITIZEN' };
+        }
+
+        setAuthToken(token, user, true);
+        setStatus('success');
+
+        const timer = setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 600);
+
+        return () => clearTimeout(timer);
+      } catch (err) {
+        console.error('Failed to parse Google OAuth user data:', err);
+        setStatus('error');
+        setErrorMessage('Failed to parse authenticated session payload.');
+        return;
+      }
+    }
+
+    // Flow 2: Google redirected directly to frontend with auth code
+    if (code) {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+      fetch(`${apiBase}/auth/google/exchange`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          redirectUri: window.location.origin + '/auth/callback'
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data?.token) {
+            const { token: jwtToken, ...user } = data.data;
+            setAuthToken(jwtToken, user, true);
+            setStatus('success');
+            setTimeout(() => {
+              navigate('/dashboard', { replace: true });
+            }, 600);
+          } else {
+            setStatus('error');
+            setErrorMessage(data.message || 'Google authentication exchange failed.');
+          }
+        })
+        .catch(err => {
+          setStatus('error');
+          setErrorMessage(err.message || 'Network error during Google authentication.');
+        });
       return;
     }
 
-    try {
-      let user = null;
-      if (userRaw) {
-        user = JSON.parse(decodeURIComponent(userRaw));
-      } else {
-        user = { email: 'google.user@aapdanetra.in', role: 'CITIZEN' };
-      }
-
-      // Store authenticated session
-      setAuthToken(token, user, true);
-      setStatus('success');
-
-      // Brief smooth transition to dashboard
-      const timer = setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 700);
-
-      return () => clearTimeout(timer);
-    } catch (err) {
-      console.error('Failed to parse Google OAuth user data:', err);
-      setStatus('error');
-      setErrorMessage('Failed to parse authenticated session payload.');
-    }
+    setStatus('error');
+    setErrorMessage('No authentication credentials or authorization code returned from Google.');
   }, [searchParams, navigate]);
 
   const pageBg = isDark ? '#080c14' : '#f8fafc';
