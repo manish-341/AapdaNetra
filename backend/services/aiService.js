@@ -168,6 +168,8 @@ function detectLanguage(text, requestedLang) {
     return "en";
 }
 
+let lastOpenAiQuotaError = 0;
+
 /**
  * AI Emergency Assistant (for citizens) with Multilingual & Real-time Navigation
  */
@@ -175,7 +177,8 @@ const chatWithAssistant = async (message, lat, lon, language = "auto", district 
     // 1. Always gather nearest real hospitals and shelters
     const facilities = await getNearestEmergencyFacilities(lat, lon, district);
 
-    if (!openai) {
+    // If no OpenAI or quota was exceeded recently (within 5 mins), use the instant intelligent engine
+    if (!openai || (Date.now() - lastOpenAiQuotaError < 300000)) {
         return await getFallbackResponse(message, lat, lon, language, district, facilities);
     }
 
@@ -211,290 +214,730 @@ const chatWithAssistant = async (message, lat, lon, language = "auto", district 
             source: "AapdaNetra Live AI Emergency Assistant"
         };
     } catch (error) {
-        console.error("AI Assistant error:", error.message);
+        if (error.status === 429 || error.message?.includes("quota") || error.message?.includes("429")) {
+            lastOpenAiQuotaError = Date.now();
+        }
+        console.error("AI Assistant fallback activated:", error.message);
         return await getFallbackResponse(message, lat, lon, language, district, facilities);
     }
 };
 
 /**
- * Multi-lingual Real-Time Emergency Navigation Response Generator
+ * Comprehensive Multi-lingual Disaster Intelligence & Navigation Engine
+ * Directly resolves specific citizen queries across 20+ disaster domains even when external LLM APIs are offline.
  */
 async function getFallbackResponse(message, lat, lon, language = "auto", district = "", preloadedFacilities = null) {
-    const lower = (message || "").toLowerCase();
+    const lower = (message || "").toLowerCase().trim();
     const facilities = preloadedFacilities || await getNearestEmergencyFacilities(lat, lon, district);
     const resolvedLang = detectLanguage(message, language);
-    const locName = district || (facilities.hospitals[0]?.district) || "Your Area";
+    const locName = district || (facilities.hospitals[0]?.district) || "Your Location";
 
-    let context = {};
+    // 1. Live Context Retrieval from Database
+    let activeAlerts = [];
+    let activeShelters = [];
+    let hazardZonesCount = 0;
     try {
-        if (lat && lon) {
-            context = await gatherContext(lat, lon);
-        }
+        const filter = district ? {
+            $or: [
+                { district: new RegExp(district.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i") },
+                { state: new RegExp(district.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i") }
+            ]
+        } : {};
+
+        [activeAlerts, activeShelters, hazardZonesCount] = await Promise.all([
+            Alert.find({ isActive: true, ...filter }).sort({ createdAt: -1 }).limit(3).lean().catch(() => []),
+            Shelter.find({ status: { $ne: "CLOSED" }, ...filter }).limit(5).lean().catch(() => []),
+            HazardZone.countDocuments(filter).catch(() => 0)
+        ]);
     } catch (e) {
-        console.warn("Context gathering in fallback skipped:", e.message);
+        console.warn("Error retrieving live database context for AI Assistant:", e.message);
     }
 
-    const isEarthquake = /earthquake|bhookamp|bhuichal|tremor|jhatke|कंपन|भूकंप|ভূমিকম্প/.test(lower);
-    const isHospital = /hospital|doctor|ambulance|chot|injured|aspataal|ilaj|अस्पताल|চিকিৎসালয়|হাসপাতাল/.test(lower);
-    const isShelter = /shelter|relief centre|relief center|kaha jaun|kaha jaye|where to go|pass me|paas me|ashray|sharan|রাহত কেন্দ্ৰ|আশ্ৰয়/.test(lower);
-    const isFlood = /flood|baadh|water|drown|overflow|bann|बाढ़|বানপানী/.test(lower);
-    const isFire = /fire|wildfire|smoke|flame|aag|आग|জুই/.test(lower);
+    // 2. Multi-Domain Intent Classification
+    const isKit = /kit|checklist|survival|bag|bagpack|essential|supplies|72\s*hour|सामग्री|किट|প্রয়োজনীয়/.test(lower);
+    const isFirstAid = /first\s*aid|cpr|bleed|wound|fracture|burn|unconscious|choking|snake|bite|stoppage|पट्टी|प्राथमिक\s*उपचार|घाव|हड्डी|डस|বেণ্ডেজ/.test(lower);
+    const isCyclone = /cyclone|toofan|storm|typhoon|wind|gust|चक्रवात|तूफान|आंधी|ঘূর্ণিঝড়/.test(lower);
+    const isLandslide = /landslide|mudslide|rockfall|slope|hill\s*collapse|भूस्खलन|पहाड़|ভূমিধ্বস/.test(lower);
+    const isFlood = /flood|water|inundat|overflow|drown|baadh|baad|बाढ़|जलभराव|বানপানী/.test(lower);
+    const isEarthquake = /earthquake|tremor|quake|shak|bhookamp|bhuichal|भूकंप|कंपन|ভূমিকম্প/.test(lower);
+    const isFire = /fire|wildfire|smoke|flame|burn|blaze|aag|आग|धुआं|अग्नि|জুই/.test(lower);
+    const isGasLeak = /gas|lpg|cylinder|leak|chemical|smell|toxic|ammonia|fumes|गैस|रिसाव|বিষাক্ত/.test(lower);
+    const isHeatwave = /heat|heatwave|loo|sunstroke|temperature|dehydration|ors|लू|गर्मी|উত্তাপ/.test(lower);
+    const isTsunami = /tsunami|coastal\s*wave|sea\s*retreat|सुनामी|সুনামি/.test(lower);
+    const isWaterFood = /water\s*purif|clean\s*water|boil|drink|food\s*safe|contamination|पीने\s*का\s*पानी|उबाल|বিশুদ্ধ\s*পানী/.test(lower);
+    const isHospital = /hospital|doctor|ambulance|trauma|clinic|icu|bed|chot|injured|aspataal|ilaj|अस्पताल|डॉक्टर|চিকিৎসালয়|হাসপাতাল/.test(lower);
+    const isShelter = /shelter|relief\s*cent|camp|where\s*to\s*go|kaha\s*jaun|kaha\s*jaye|pass\s*me|paas\s*me|ashray|sharan|आश्रय|राहत|আশ্ৰয়/.test(lower);
+    const isAlertsStatus = /alert|warning|threat|status|situation|condition|is\s*it\s*safe|live\s*update|what\s*happened|चेतावनी|अलर्ट|स्थिति|खतरा|সতৰ্কবাৰ্তা/.test(lower);
+    const isHelplines = /helpline|contact|phone|number|dial|call|control\s*room|ndma|police|हेल्पलाइन|नंबर|फोन|নম্বৰ/.test(lower);
+    const isFamilyPets = /family|child|baby|elderly|pet|animal|dog|cat|livestock|परिवार|बच्चे|बुजुर्ग|पशु/.test(lower);
+    const isReportIncident = /report|citizen\s*report|how\s*to\s*report|submit\s*incident|रिपोर्ट|शिकायत/.test(lower);
 
     let scenario = "GENERAL";
-    if (isEarthquake) scenario = "EARTHQUAKE";
-    else if (isHospital) scenario = "HOSPITAL";
-    else if (isShelter) scenario = "SHELTER";
-    else if (isFlood) scenario = "FLOOD";
-    else if (isFire) scenario = "FIRE";
+    let showHospitals = true;
+    let showShelters = true;
 
-    let response = "";
-
-    // 1. Format Hospitals Section
-    const formatHospitals = (lang) => {
+    // 3. Format Emergency Facility Helpers
+    const formatHospitalsList = (lang) => {
         if (!facilities.hospitals || facilities.hospitals.length === 0) return "";
         const title = {
-            hi: "🏥 **निकटतम 24x7 आपातकालीन ट्रॉमा अस्पताल (Verified Hospitals):**",
+            hi: "🏥 **निकटतम सत्यापित 24x7 आपातकालीन अस्पताल (Verified Hospitals):**",
             hinglish: "🏥 **NEARBY 24x7 EMERGENCY TRAUMA HOSPITALS (VERIFIED):**",
-            as: "🏥 **ওচৰৰ ২৪x৭ জৰুৰীকালীন চিকিৎসালয় (Verified Hospitals):**",
-            bn: "🏥 **নিকটবর্তী ২৪x৭ জরুরি হাসপাতাল (Verified Hospitals):**",
+            as: "🏥 **ওচৰৰ ২৪x৭ জৰুৰীকালীন চিকিৎসালয়:**",
+            bn: "🏥 **নিকটবর্তী ২৪x৭ জরুরি হাসপাতাল:**",
             en: "🏥 **VERIFIED 24x7 EMERGENCY TRAUMA HOSPITALS NEARBY:**"
         }[lang] || "🏥 **VERIFIED 24x7 EMERGENCY TRAUMA HOSPITALS NEARBY:**";
 
         const items = facilities.hospitals.slice(0, 3).map(h => {
             if (lang === "hi") {
-                return `• **${h.name}** (${h.address})\n  - दूरी व समय: **${h.distanceKm} km** (लगभग **${h.durationMins} मिनट**)\n  - आपातकालीन फ़ोन: **${h.emergencyContact}** | एम्बुलेंस: **${h.tollFree}**\n  - ट्रॉमा सुविधाएं: ${h.facilities?.slice(0, 3).join(", ") || "Emergency ICU"}`;
+                return `• **${h.name}** (${h.address})\n  - दूरी व अनुमानित समय: **${h.distanceKm} km** (~**${h.durationMins} मिनट**)\n  - आपातकालीन फ़ोन: **${h.emergencyContact}** | एम्बुलेंस: **${h.tollFree}**\n  - सुविधाएं: ${h.facilities?.slice(0, 3).join(", ") || "Emergency Trauma, ICU"}`;
             } else if (lang === "hinglish") {
-                return `• **${h.name}** (${h.address})\n  - Distance & Time: **${h.distanceKm} km** (~**${h.durationMins} mins**)\n  - Emergency Helpline: **${h.emergencyContact}** | Ambulance: **${h.tollFree}**\n  - Facilities: ${h.facilities?.slice(0, 3).join(", ") || "24x7 Trauma Unit"}`;
-            } else if (lang === "as") {
-                return `• **${h.name}** (${h.address})\n  - দূৰত্ব আৰু সময়: **${h.distanceKm} km** (~**${h.durationMins} মিনিট**)\n  - জৰুৰীকালীন নম্বৰ: **${h.emergencyContact}** | এম্বুলেন্স: **${h.tollFree}**\n  - সুবিধা: ${h.facilities?.slice(0, 3).join(", ") || "24x7 Emergency"}`;
+                return `• **${h.name}** (${h.address})\n  - Distance & Driving Time: **${h.distanceKm} km** (~**${h.durationMins} mins**)\n  - Emergency Line: **${h.emergencyContact}** | Ambulance: **${h.tollFree}**\n  - Trauma Facilities: ${h.facilities?.slice(0, 3).join(", ") || "24x7 Emergency ICU"}`;
             } else {
-                return `• **${h.name}** (${h.address})\n  - Distance & Driving Time: **${h.distanceKm} km** (~**${h.durationMins} mins** via main arterial roads)\n  - 24/7 Emergency Line: **${h.emergencyContact}** | Ambulance: **${h.tollFree}**\n  - Key Facilities: ${h.facilities?.slice(0, 3).join(", ") || "Level-1 Trauma, ICU, Blood Bank"}`;
+                return `• **${h.name}** (${h.address})\n  - Distance & ETA: **${h.distanceKm} km** (~**${h.durationMins} mins**)\n  - 24/7 Emergency Helpline: **${h.emergencyContact}** | Ambulance: **${h.tollFree}**\n  - Facilities: ${h.facilities?.slice(0, 3).join(", ") || "Level-1 Trauma, ICU, 24x7 Emergency"}`;
             }
         }).join("\n\n");
 
         return `${title}\n\n${items}`;
     };
 
-    // 2. Format Shelters Section
-    const formatShelters = (lang) => {
+    const formatSheltersList = (lang) => {
         if (!facilities.shelters || facilities.shelters.length === 0) return "";
         const title = {
-            hi: "⛺ **निकटतम सक्रिय राहत केंद्र एवं आश्रय स्थल (Live Shelters):**",
-            hinglish: "⛺ **NEARBY ACTIVE RELIEF SHELTERS & BEDS (LIVE):**",
-            as: "⛺ **ওচৰৰ সক্ৰিয় আশ্ৰয় কেন্দ্ৰ আৰু খালী বিচনা:**",
-            bn: "⛺ **নিকটবর্তী সক্রিয় ত্রাণ কেন্দ্র ও উপলব্ধ বিছানা:**",
-            en: "⛺ **NEARBY DESIGNATED RELIEF SHELTERS & AVAILABLE CAPACITY:**"
-        }[lang] || "⛺ **NEARBY DESIGNATED RELIEF SHELTERS & AVAILABLE CAPACITY:**";
+            hi: "⛺ **सक्रिय राहत केंद्र एवं उपलब्ध बिस्तर (Designated Relief Shelters):**",
+            hinglish: "⛺ **ACTIVE RELIEF SHELTERS & BED VACANCIES (LIVE):**",
+            as: "⛺ **সক্ৰিয় আশ্ৰয় কেন্দ্ৰ আৰু উপলব্ধ বিচনা:**",
+            bn: "⛺ **সক্রিয় ত্রাণ কেন্দ্র ও খালি বিছানা:**",
+            en: "⛺ **DESIGNATED RELIEF SHELTERS & AVAILABLE CAPACITY:**"
+        }[lang] || "⛺ **DESIGNATED RELIEF SHELTERS & AVAILABLE CAPACITY:**";
 
         const items = facilities.shelters.slice(0, 3).map(s => {
             const available = s.availableBeds !== undefined ? s.availableBeds : Math.max(0, s.capacity - s.currentOccupancy);
             if (lang === "hi") {
-                return `• **${s.name}** (${s.address || s.district})\n  - उपलब्ध बिस्तर: **${available} खाली बेड** (कुल क्षमता: ${s.capacity})\n  - दूरी व समय: **${s.distanceKm} km** (~**${s.durationMins} मिनट**)\n  - सुविधाएं: ${s.facilities?.join(", ") || "Water, Food, Medical"} | संपर्क: **${s.contactNumber}**`;
+                return `• **${s.name}** (${s.address || s.district})\n  - उपलब्ध क्षमता: **${available} खाली बेड** (कुल क्षमता: ${s.capacity})\n  - दूरी: **${s.distanceKm} km** (~**${s.durationMins} मिनट**) | स्थिति: **${s.status}**\n  - सुविधाएं: ${s.facilities?.join(", ") || "Water, Food, Medical"} | संपर्क: **${s.contactNumber}**`;
             } else if (lang === "hinglish") {
-                return `• **${s.name}** (${s.address || s.district})\n  - Available Capacity: **${available} Open Beds** (Total: ${s.capacity})\n  - Distance & Time: **${s.distanceKm} km** (~**${s.durationMins} mins**)\n  - Facilities: ${s.facilities?.join(", ") || "Food, Water, Medical"} | Contact: **${s.contactNumber}**`;
-            } else if (lang === "as") {
-                return `• **${s.name}** (${s.address || s.district})\n  - খালী বিচনা: **${available} খন** (মুঠ ক্ষমতা: ${s.capacity})\n  - দূৰত্ব: **${s.distanceKm} km** (~**${s.durationMins} মিনিট**)\n  - সুবিধা: ${s.facilities?.join(", ") || "Water, Food, Medical"} | যোগাযোগ: **${s.contactNumber}**`;
+                return `• **${s.name}** (${s.address || s.district})\n  - Available Intake: **${available} Open Beds** (Total: ${s.capacity})\n  - Distance: **${s.distanceKm} km** (~**${s.durationMins} mins**)\n  - Facilities: ${s.facilities?.join(", ") || "Food, Water, Medical Aid"} | Contact: **${s.contactNumber}**`;
             } else {
-                return `• **${s.name}** (${s.address || s.district})\n  - Available Intake: **${available} Open Beds** (Capacity: ${s.capacity} | Status: ${s.status})\n  - Distance: **${s.distanceKm} km** (~**${s.durationMins} mins**)\n  - Facilities: ${s.facilities?.join(", ") || "Potable Water, Warm Meals, Medical Triage, Power Backup"} | Contact: **${s.contactNumber}**`;
+                return `• **${s.name}** (${s.address || s.district})\n  - Intake Capacity: **${available} Open Beds** (Total Capacity: ${s.capacity} | Status: ${s.status})\n  - Distance & ETA: **${s.distanceKm} km** (~**${s.durationMins} mins**)\n  - Facilities: ${s.facilities?.join(", ") || "Potable Water, Food, Medical, Power Backup"} | Contact: **${s.contactNumber}**`;
             }
         }).join("\n\n");
 
         return `${title}\n\n${items}`;
     };
 
-    // 3. Emergency Helplines Section
-    const formatHelplines = (lang) => {
-        if (lang === "hi") {
-            return `📞 **24x7 राष्ट्रीय व राज्य आपातकालीन हेल्पलाइन:**\n• राष्ट्रीय आपातकालीन नंबर: **112**\n• एम्बुलेंस (Ambulance): **108 / 102**\n• आपदा नियंत्रण कक्ष (NDMA/SDMA): **1078 / 1070**\n• अग्निशमन (Fire): **101** | पुलिस: **100**`;
-        } else if (lang === "hinglish") {
-            return `📞 **24x7 EMERGENCY DISPATCH HELPLINES:**\n• National Emergency: **112**\n• Ambulance Services: **108 / 102**\n• Disaster Helpline (NDMA/SDMA): **1078 / 1070**\n• Fire Brigade: **101** | Police: **100**`;
-        } else if (lang === "as") {
-            return `📞 **২৪x৭ জৰুৰীকালীন হেল্পলাইন নম্বৰ:**\n• ৰাষ্ট্ৰীয় জৰুৰীকালীন নম্বৰ: **112**\n• এম্বুলেন্স: **108 / 102**\n• দুৰ্যোগ নিয়ন্ট্ৰণ কক্ষ (ASDMA/NDMA): **1078 / 1070**\n• অগ্নিনিৰ্বাপক: **101** | আৰক্ষী: **100**`;
+    const formatHelplinesList = (lang) => {
+        if (lang === "hi" || lang === "hinglish") {
+            return `📞 **24x7 राष्ट्रीय व राज्य आपातकालीन नंबर (Direct Helplines):**\n• राष्ट्रीय आपातकालीन एकीकृत नंबर: **112**\n• एम्बुलेंस / मेडिकल इमरजेंसी: **108 / 102**\n• राष्ट्रीय आपदा प्रबंधन (NDMA): **1078**\n• राज्य आपदा नियंत्रण कक्ष (SDMA): **1070**\n• अग्निशमन दल (Fire): **101** | पुलिस: **100**\n• महिला सुरक्षा: **1091** | बाल सहायता: **1098**`;
         } else {
-            return `📞 **24/7 NATIONAL & REGIONAL EMERGENCY HELPLINES:**\n• Unified National Emergency Line: **112**\n• Ambulance Dispatch: **108 / 102**\n• NDMA / State EOC Helpline: **1078 / 1070**\n• Fire & Rescue Service: **101** | Police: **100**`;
+            return `📞 **24/7 NATIONAL & DISASTER EMERGENCY HELPLINES:**\n• Unified National Emergency Line: **112**\n• Ambulance Services: **108 / 102**\n• NDMA Disaster Management Helpline: **1078**\n• State Disaster Operations Center (SDMA): **1070**\n• Fire & Rescue Service: **101** | Police: **100**\n• Women Helpline: **1091** | Childline: **1098**`;
         }
     };
 
-    // Construct Contextual Response Based on Intent & Language
-    if (isEarthquake) {
-        if (resolvedLang === "hi") {
-            response = `### 🏚️ भूकंप आपातकालीन सुरक्षा एवं लाइव नेविगेशन गाइड (${locName})
+    let response = "";
 
-🚨 **तत्काल जीवन-रक्षा निर्देश (Drop, Cover & Hold On):**
-1. **झुकें, ढकें और पकड़ें (Drop, Cover, Hold):** तुरंत किसी मजबूत मेज या डेस्क के नीचे बैठें। सिर और गर्दन को दोनों हाथों से सुरक्षित रखें।
-2. **खतरनाक चीजों से दूर रहें:** खिड़कियों, शीशे, भारी अलमारियों और झूमरों से दूर रहें। लिफ्ट का उपयोग कदापि न करें।
-3. **झटके रुकने पर:** सीढ़ियों का उपयोग करके तुरंत खुले मैदान में निकलें। बिजली के खंभों और जर्जर इमारतों से दूर रहें।
-4. **घायलों के लिए:** यदि कोई घायल है तो तुरंत नीचे दिए गए निकटतम 24x7 आपातकालीन अस्पताल पर जाएं।
+    // 4. Intent-Specific Intelligent Response Generation
+    if (isKit) {
+        scenario = "EMERGENCY_KIT";
+        showHospitals = false;
+        showShelters = true;
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### 🎒 72-घंटे की जीवन-रक्षक आपदा किट चेकलिस्ट (72-Hour Emergency Survival Kit)
 
-${formatHospitals("hi")}
+आपदा के समय पहले 72 घंटे सबसे महत्वपूर्ण होते हैं जब बाहरी सहायता पहुँचने में समय लग सकता है। अपनी किट में निम्नलिखित वस्तुएँ तैयार रखें:
 
-${formatShelters("hi")}
+1. **पीने का पानी (Water Supply):**
+   • प्रति व्यक्ति **3 लीटर पानी प्रतिदिन** (कम से कम 3 दिन का कोटा = 9 लीटर प्रति व्यक्ति)।
+   • पानी शुद्ध करने वाली क्लोरीन गोलियां या पोर्टेबल वाटर फिल्टर।
 
-${formatHelplines("hi")}`;
-        } else if (resolvedLang === "hinglish") {
-            response = `### 🏚️ EARTHQUAKE EMERGENCY: IMMEDIATE SAFETY & LIVE NAVIGATION (${locName})
+2. **गैर-खराब होने वाला भोजन (Non-Perishable Food):**
+   • बिस्कुट, सूखे मेवे (ड्राई फ्रूट्स), भुना चना, डिब्बाबंद भोजन और एनर्जी बार।
+   • बच्चों के लिए बेबी फ़ूड और दूध पाउडर।
 
-🚨 **Immediate Life-Saving Rules (Drop, Cover & Hold On):**
-1. **Drop, Cover & Hold On:** Turant kisi majboot table ya desk ke niche baith jayein. Apne sir aur neck ko dono haathon se protect karein.
-2. **Stay Safe:** Glass windows, heavy furniture aur electrical poles se door rahein. Lift ka use bilkul na karein.
-3. **Jhatke rukne ke baad:** Seedhiyon (stairs) se bahar open ground ya paas ke safe relief shelter me shift ho jayein.
-4. **Medical Emergency:** Agar koi injured hai, to turant neeche diye gaye nearest 24x7 Emergency Hospital me contact karein.
+3. **प्राथमिक चिकित्सा एवं दवाइयां (First Aid & Medicines):**
+   • जीवन रक्षक आवश्यक दवाइयों का **7-दिन का स्टॉक** (बीपी, शुगर, इनहेलर आदि)।
+   • एंटीसेप्टिक लिक्विड, बैंडेज, ओआरएस (ORS), पैरासिटामोल, दर्दनिवारक और थर्मामीटर।
 
-${formatHospitals("hinglish")}
+4. **उपकरण एवं प्रकाश (Tools & Light):**
+   • एलईडी टॉर्च (LED Flashlight) और अतिरिक्त बैटरियां।
+   • मोबाइल पावर बैंक (फुल चार्ज), माचिस/लाइटर (वॉटरप्रूफ डिब्बे में)।
+   • सीटी (Whistle) — मलबे या संकट में बचाव दल को संकेत देने हेतु।
+   • स्विस नाइफ / मल्टीटूल और डस्ट मास्क (N95 Masks)।
 
-${formatShelters("hinglish")}
+5. **महत्वपूर्ण दस्तावेज़ एवं नकदी (Documents & Cash):**
+   • आधार कार्ड, पासपोर्ट, बैंक पासबुक, बीमा और संपत्ति के कागजात (वॉटरप्रूफ ज़िप-लॉक पाउच में)।
+   • नकदी (Cash) छोटे नोटों में (एटीएम और ऑनलाइन पेमेंट आपदा में बंद हो सकते हैं)।
 
-${formatHelplines("hinglish")}`;
-        } else if (resolvedLang === "as") {
-            response = `### 🏚️ ভূমিকম্প জৰুৰীকালীন সুৰক্ষা আৰু লাইভ নেভিগেচন (${locName})
+${formatSheltersList(resolvedLang)}
 
-🚨 **তৎক্ষণাৎ সুৰক্ষা নিৰ্দেশনা (Drop, Cover & Hold On):**
-১. **মজবুত আশ্ৰয় লওক:** লগে লগে কোনো মজবুত মেজৰ তলত সোমাই মূৰ আৰু ডিঙি সুৰক্ষিত কৰক।
-২. **দূৰত থাকক:** খিৰিকী, বিজুলীৰ তাঁৰ আৰু ওখ দেৱালৰ পৰা আঁতৰি থাকক। লিফ্ট কেতিয়াও ব্যৱহাৰ নকৰিব।
-৩. **কঁপনি শেষ হ'লে:** চিৰিৰে বাহিৰৰ মুকলি ঠাইলৈ ওলাই যাওক আৰু ওচৰৰ আশ্ৰয় কেন্দ্ৰলৈ যাওক।
-
-${formatHospitals("as")}
-
-${formatShelters("as")}
-
-${formatHelplines("as")}`;
+${formatHelplinesList(resolvedLang)}`;
         } else {
-            response = `### 🏚️ EARTHQUAKE EMERGENCY: IMMEDIATE SAFETY & LIVE NAVIGATION (${locName})
+            response = `### 🎒 72-HOUR DISASTER SURVIVAL KIT CHECKLIST (${locName})
 
-🚨 **Immediate Life-Saving Directives (Drop, Cover & Hold On):**
-1. **Drop, Cover, and Hold On:** Drop onto your hands and knees under a sturdy table or desk. Shield your head and torso.
-2. **Clear Hazards:** Stay clear of windows, exterior walls, masonry chimneys, and dangling lighting fixtures. Never use elevators.
-3. **After Shaking Ceases:** Evacuate via stairs to an open park or designated safe zone. Do not enter structurally compromised buildings.
-4. **Casualty Triage:** For trauma or medical injuries, proceed directly to the verified Level-1 Emergency Centers below.
+During disasters, external municipal aid can take up to 72 hours to reach all zones. Pack these essentials in a portable, water-resistant backpack:
 
-${formatHospitals("en")}
+1. **Drinking Water (Hydration Priority):**
+   • Minimum **3 liters per person per day** (9 liters per person for 72 hours).
+   • Water purification tablets (chlorine/aquatabs) or life-straw filters.
 
-${formatShelters("en")}
+2. **Non-Perishable Food:**
+   • High-calorie, ready-to-eat dry foods: energy bars, dried fruits, nuts, crackers, canned meats/beans.
+   • Manual can opener, disposable utensils, infant formula if applicable.
 
-${formatHelplines("en")}`;
+3. **Medical & First Aid Essentials:**
+   • Complete first aid kit (sterile gauze, adhesive bandages, antiseptic wipes, burn cream).
+   • **7-day minimum supply** of critical daily prescription medications (insulin, BP, heart pills).
+   • Oral Rehydration Salts (ORS) packets and basic OTC pain relievers/fever medication.
+
+4. **Tools, Communication & Light:**
+   • High-intensity LED flashlight with extra alkaline batteries.
+   • High-capacity portable USB power bank (fully charged).
+   • **Emergency loud whistle** (essential for signaling search & rescue teams through rubble/fog).
+   • Multi-tool knife, N95 particulate dust masks, waterproof matches.
+
+5. **Crucial Documents & Emergency Cash:**
+   • Sealed waterproof pouch containing government IDs (Aadhaar/Passport), insurance policies, land titles, and medical records.
+   • Cash in small denominations (₹100, ₹200, ₹500) as digital payments and ATMs go offline during power grid failures.
+
+${formatSheltersList("en")}
+
+${formatHelplinesList("en")}`;
         }
-    } else if (isHospital) {
-        if (resolvedLang === "hi") {
-            response = `### 🏥 निकटतम 24x7 आपातकालीन ट्रॉमा अस्पताल एवं नेविगेशन (${locName})
+    } else if (isFirstAid) {
+        scenario = "FIRST_AID";
+        showHospitals = true;
+        showShelters = false;
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### 🩹 तत्काल प्राथमिक चिकित्सा एवं आपातकालीन जीवन-रक्षा निर्देश (First Aid & Trauma Care)
 
-आपके वर्तमान स्थान के आधार पर सत्यापित आपातकालीन अस्पताल और ट्रॉमा केंद्र:
+यदि कोई व्यक्ति घायल या संकट में है, तो तत्काल इन चरणों का पालन करें:
 
-${formatHospitals("hi")}
+1. **गंभीर रक्तस्राव (Severe Bleeding):**
+   • घाव पर तुरंत साफ कपड़ा या बाँझ गॉज रखकर **हथेलियों से सीधा दबाव (Direct Pressure)** बनाएं।
+   • घायल अंग को हृदय के स्तर से ऊपर उठाएं। कपड़े को हटाएं नहीं, उसके ऊपर और कपड़ा जोड़ते जाएं।
 
-${formatShelters("hi")}
+2. **सीपीआर (CPR — जब सांस और नब्ज न चल रही हो):**
+   • व्यक्ति को सपाट फर्श पर पीठ के बल लिटाएं।
+   • छाती के बीच में दोनों हाथ रखकर **100-120 बार प्रति मिनट** की गति से कम से कम 2 इंच गहरा दबाव दें (30 बार छाती दबाएं + 2 बार मुंह से सांस दें)।
 
-${formatHelplines("hi")}`;
-        } else if (resolvedLang === "hinglish") {
-            response = `### 🏥 NEARBY 24x7 EMERGENCY HOSPITALS & LIVE NAVIGATION (${locName})
+3. **जलने पर (Burns Management):**
+   • जले हुए स्थान पर तुरंत **10 से 15 मिनट तक ठंडा नल का बहता पानी** डालें।
+   • बर्फ या मक्खन कभी न लगाएं। छाले न फोड़ें। साफ सूखे कपड़े से ढकें।
 
-Aapke current location ke hisaab se nearest verified hospitals aur emergency trauma centers:
+4. **हड्डी टूटने (Fractures):**
+   • टूटे हुए अंग को हिलाएं नहीं। लकड़ी की पट्टी या मुड़े हुए अखबार से अंग को स्थिर (Splint) करें।
 
-${formatHospitals("hinglish")}
+5. **सर्पदंश (Snakebite Protocol):**
+   • पीड़ित को शांत रखें और स्थिर रखें। जहर चूसने या चीरा लगाने की गलती न करें।
+   • अंग को हृदय के नीचे रखें और तुरंत नीचे दिए गए अस्पताल पर एंटी-वेनम हेतु ले जाएं।
 
-${formatShelters("hinglish")}
+${formatHospitalsList(resolvedLang)}
 
-${formatHelplines("hinglish")}`;
+${formatHelplinesList(resolvedLang)}`;
         } else {
-            response = `### 🏥 VERIFIED EMERGENCY HOSPITALS & TRAUMA NAVIGATION (${locName})
+            response = `### 🩹 EMERGENCY FIRST AID & TRAUMA LIFE SUPPORT DIRECTIVES (${locName})
 
-Here are the nearest verified government medical colleges and 24/7 trauma emergency hospitals for your active location:
+Follow these certified emergency protocols immediately while ambulance dispatch is underway:
 
-${formatHospitals("en")}
+1. **Severe Arterial Bleeding:**
+   • Apply continuous, firm **direct pressure** on the wound using sterile gauze or clean cloth.
+   • Maintain pressure for at least 10 minutes without lifting. Elevate the wounded limb above heart level.
+   • If bleeding persists through clothing, add more layers without removing the underlying compress.
 
-${formatShelters("en")}
+2. **Cardiopulmonary Resuscitation (CPR):**
+   • Confirm unresponsiveness and absence of normal breathing.
+   • Place heel of your hand on the center of the chest. Push hard and fast at **100–120 compressions per minute** (approx. 2 inches deep).
+   • Deliver cycles of 30 chest compressions followed by 2 gentle rescue breaths.
 
-${formatHelplines("en")}`;
+3. **Burn Injuries:**
+   • Immediately flush thermal burns under cool, running water for **15 to 20 minutes**.
+   • **Never apply ice**, grease, toothpaste, or adhesive bandages directly on broken blisters. Cover with clean, sterile plastic wrap or cloth.
+
+4. **Suspected Fractures:**
+   • Immobilize the injured extremity in the exact position found. Do not attempt to realign deformed bones.
+   • Support using a rigid splint (cardboard, straight timber) padded with towels.
+
+5. **Snakebite Action:**
+   • Keep patient calm and motionless to slow venom dissemination.
+   • Do not tourniquet, do not cut, and do not suck venom. Transport immediately to the designated trauma facility below with anti-snake venom (ASV).
+
+${formatHospitalsList("en")}
+
+${formatHelplinesList("en")}`;
         }
-    } else if (isShelter) {
-        if (resolvedLang === "hi") {
-            response = `### ⛺ निकटतम सक्रिय राहत केंद्र एवं सुरक्षित आश्रय स्थल (${locName})
+    } else if (isCyclone) {
+        scenario = "CYCLONE";
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### 🌀 चक्रवात / तूफान आपातकालीन सुरक्षा प्रोटोकॉल (Cyclone Safety Action Plan)
 
-आपके क्षेत्र में वर्तमान में उपलब्ध बिस्तर एवं सुविधाएं:
+🚨 **चक्रवात चेतावनी के दौरान आवश्यक कदम (${locName}):**
 
-${formatShelters("hi")}
+1. **मजबूत आश्रय में रहें:**
+   • घर के सबसे मजबूत आंतरिक कमरे में रहें जहां कोई खिड़कियां न हों।
+   • खिड़कियों और दरवाजों को सुरक्षित रूप से बंद रखें। कांच की खिड़कियों पर टेप लगाएं ताकि वे टूटने पर बिखरें नहीं।
 
-${formatHospitals("hi")}
+2. **बिजली और गैस बंद करें:**
+   • तेज हवाएं शुरू होने से पहले मुख्य बिजली का स्विच (Main Switch) और एलपीजी गैस सिलेंडर वाल्व बंद कर दें।
 
-${formatHelplines("hi")}`;
-        } else if (resolvedLang === "hinglish") {
-            response = `### ⛺ NEARBY LIVE RELIEF SHELTERS & AVAILABLE BEDS (${locName})
+3. **कच्चे मकानों व तटीय क्षेत्रों से निकलें:**
+   • यदि आपका मकान कच्चा या टीन की छत वाला है, तो हवा की गति तेज होने से पहले पास के **पक्के राहत केंद्र** में स्थानांतरित हो जाएं।
 
-Aapke location ke pass designated relief shelters aur unke open beds:
+4. **बाहर न निकलें:**
+   • जब तूफान की 'आंख' (Eye of the storm) गुजरती है तो हवाएं शांत हो जाती हैं। इसे तूफान का अंत न समझें — विपरीत दिशा से अधिक तेज हवाएं तुरंत लौटेंगी।
 
-${formatShelters("hinglish")}
+${formatSheltersList(resolvedLang)}
 
-${formatHospitals("hinglish")}
+${formatHospitalsList(resolvedLang)}
 
-${formatHelplines("hinglish")}`;
+${formatHelplinesList(resolvedLang)}`;
         } else {
-            response = `### ⛺ DESIGNATED LIVE RELIEF SHELTERS & BED AVAILABILITY (${locName})
+            response = `### 🌀 CYCLONE & SEVERE STORM EMERGENCY DIRECTIVES (${locName})
 
-Real-time relief shelter capacity and open intake hubs in your operational sector:
+🚨 **IMD Verified Pre-Landfall & Active Cyclone Safety Rules:**
 
-${formatShelters("en")}
+1. **Secure Indoor Sanctuary:**
+   • Retreat to the smallest, strongest interior room on the ground floor (hallway, bathroom, reinforced closet) with no exterior glass windows.
+   • Secure and latch all doors, shutters, and storm panels. Tape glass panes with criss-cross heavy masking tape to avoid splintering.
 
-${formatHospitals("en")}
+2. **Disconnect Utilities:**
+   • Turn off main electrical circuit breakers and close the manual valve on your LPG gas cylinders before high gale winds peak.
+   • Unplug electronic appliances to protect against electrical surges and line strikes.
 
-${formatHelplines("en")}`;
+3. **Immediate Structural Evacuation:**
+   • If residing in low-lying riverine basins, temporary tin-shed dwellings, or mobile housing, evacuate to a designated reinforced concrete shelter immediately.
+
+4. **Beware the 'Eye of the Cyclone':**
+   • If wind and rain abruptly cease, stay inside. The eye of the storm is passing overhead and will be followed by equal or violent winds from the opposite direction.
+
+${formatSheltersList("en")}
+
+${formatHospitalsList("en")}
+
+${formatHelplinesList("en")}`;
+        }
+    } else if (isLandslide) {
+        scenario = "LANDSLIDE";
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### ⛰️ भूस्खलन सुरक्षा निर्देश एवं पूर्व चेतावनी संकेत (Landslide Safety Directive)
+
+🚨 **भूस्खलन के खतरे से बचाव के उपाय (${locName}):**
+
+1. **पूर्व चेतावनी संकेत पहचानें:**
+   • दीवारों, फर्श या सड़क में अचानक नई दरारें दिखाई देना।
+   • पेड़ों, टेलीफोन के खंभों या बाड़ों का एक ओर झुकना।
+   • पहाड़ी से मिट्टी व पत्थरों का गिरना या गंदे मटमैले पानी का तेज बहाव शुरू होना।
+   • जमीन के नीचे से तेज गड़गड़ाहट या पत्थरों के टकराने की आवाज आना।
+
+2. **तत्काल खाली करें:**
+   • यदि आप किसी ढलान (Slope) के नीचे या किनारे पर हैं, तो तुरंत ढलान के रास्ते से लंबवत (Perpendicular) सुरक्षित ऊंचे पठार पर जाएं।
+   • नदी घाटी या बरसाती नालों (Drainage gullies) के रास्ते में कदापि न रुकें।
+
+3. **मलबे के बहाव में फंसने पर:**
+   • यदि भागना संभव न हो, तो सिर को दोनों हाथों से ढककर गेंद की तरह गोल बैठ जाएं (Curl into a tight ball) ताकि सिर पर चोट न लगे।
+
+${formatSheltersList(resolvedLang)}
+
+${formatHospitalsList(resolvedLang)}
+
+${formatHelplinesList(resolvedLang)}`;
+        } else {
+            response = `### ⛰️ LANDSLIDE & DEBRIS FLOW EMERGENCY PROTOCOL (${locName})
+
+🚨 **Geological Hazard Safety Directives:**
+
+1. **Recognize Precursor Warning Signs:**
+   • Progressive widening of fissures/cracks across house foundations, plaster, or paved roadways.
+   • Telephone poles, retaining walls, or trees tilting downslope.
+   • Sudden muddying or drying up of natural hillside springs and drainage streams.
+   • Faint rumbling sounds that gradually increase in volume as debris accelerates.
+
+2. **Evacuation Maneuver:**
+   • Evacuate out of the path of debris flow perpendicular to the slope. Move to elevated, flat ground away from steep crests.
+   • Never seek shelter in river valleys, deep gorges, or natural culvert drainages where mudslides funnel.
+
+3. **Protection if Trapped:**
+   • If escape is impossible, curl into a tight ball and shield your skull with your forearms to guard vital organs against moving rockfall.
+
+${formatSheltersList("en")}
+
+${formatHospitalsList("en")}
+
+${formatHelplinesList("en")}`;
         }
     } else if (isFlood) {
-        if (resolvedLang === "hi") {
-            response = `### 🌊 बाढ़ सुरक्षा निर्देश एवं निकटतम ऊंचे राहत केंद्र (${locName})
+        scenario = "FLOOD";
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### 🌊 बाढ़ एवं जलभराव सुरक्षा निर्देश (Flood Safety & Inundation Protocol)
 
-1. **ऊंचे स्थानों पर जाएं:** निचले इलाकों और नदी तटबंधों से तुरंत दूर हो जाएं।
-2. **बिजली बंद करें:** मुख्य बिजली बोर्ड और एलपीजी गैस सिलेंडर बंद करें।
-3. **पानी में गाड़ी न चलाएं:** बाढ़ के बहते पानी में चलने या गाड़ी चलाने की कोशिश बिल्कुल न करें।
+🚨 **बाढ़ के दौरान जीवन-रक्षक सावधानियां (${locName}):**
 
-${formatShelters("hi")}
+1. **ऊंचे स्थानों पर शरण लें:**
+   • निचले इलाकों, नदी तटबंधों और जलभराव वाले रास्तों से तुरंत दूर हो जाएं।
+   • पक्के बहुमंजिला भवन की ऊपरी मंजिल या नामित राहत केंद्र में पहुंचें।
 
-${formatHospitals("hi")}
+2. **बिजली और गैस बंद करें:**
+   • पानी घर में घुसने से पहले मुख्य बिजली स्विच (Main MCB) और गैस सिलेंडर बंद कर दें। गीले हाथों या पानी में खड़े होकर बिजली के उपकरणों को न छुएं।
 
-${formatHelplines("hi")}`;
+3. **पानी में गाड़ी न चलाएं ("Turn Around, Don't Drown"):**
+   • मात्र 6 इंच गहरा बहता पानी आपको गिरा सकता है, और 1 से 2 फीट गहरा पानी आपकी कार या एसयूवी को बहा ले जा सकता है।
+
+4. **दूषित पानी से बचें:**
+   • बाढ़ का पानी सीवर और रसायनों से दूषित होता है। केवल उबला हुआ या सीलबंद पानी ही पिएं।
+
+${formatSheltersList(resolvedLang)}
+
+${formatHospitalsList(resolvedLang)}
+
+${formatHelplinesList(resolvedLang)}`;
         } else {
-            response = `### 🌊 FLOOD EVACUATION DIRECTIVE & ELEVATED RELIEF HUBS (${locName})
+            response = `### 🌊 FLOOD EVACUATION DIRECTIVE & FLOOD HAZARD ACTIONS (${locName})
 
-1. **Move to Higher Ground:** Evacuate low-lying river corridors immediately.
-2. **Turn Off Utilities:** Disconnect main electrical power switches and shut LPG valves.
-3. **Turn Around, Don't Drown:** Never drive or walk through moving water.
+🚨 **NDMA Verified Flood Safety Protocols:**
 
-${formatShelters("en")}
+1. **Immediate Vertical Evacuation:**
+   • Relocate immediately to higher elevations or verified elevated multi-story disaster shelters.
+   • Avoid low-lying river corridors, urban drainage underpasses, and embankment fringes.
 
-${formatHospitals("en")}
+2. **Disconnect Utilities:**
+   • Disconnect main circuit breakers and shut LPG gas cylinders before floodwaters enter living quarters.
+   • Never touch submerged electrical outlets, appliances, or downed overhead utility cables.
 
-${formatHelplines("en")}`;
+3. **Vehicle Safety ("Turn Around, Don't Drown"):**
+   • Just 6 inches of rapid water can sweep adults off their feet; 12–18 inches will float vehicles and stall engine intakes.
+   • If your vehicle is trapped in rising water, abandon it immediately and seek high ground.
+
+4. **Hydration Integrity:**
+   • Floodwaters carry raw sewage, chemical residue, and waterborne pathogens. Drink only boiled or chlorinated supplies.
+
+${formatSheltersList("en")}
+
+${formatHospitalsList("en")}
+
+${formatHelplinesList("en")}`;
+        }
+    } else if (isEarthquake) {
+        scenario = "EARTHQUAKE";
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### 🏚️ भूकंप आपातकालीन सुरक्षा निर्देश (Earthquake Immediate Directive)
+
+🚨 **झटके महसूस होने पर तत्काल कदम (Drop, Cover & Hold On) — ${locName}:**
+
+1. **झुकें, ढकें और पकड़ें (Drop, Cover, Hold):**
+   • **झुकें (Drop):** तुरंत फर्श पर घुटनों के बल बैठें।
+   • **ढकें (Cover):** किसी मजबूत मेज या डेस्क के नीचे जाएं और सिर व गर्दन को हाथों से ढकें।
+   • **पकड़ें (Hold):** जब तक झटके बंद न हों, मेज के पाए को मजबूती से पकड़े रहें।
+
+2. **खतरों से दूर रहें:**
+   • खिड़कियों, शीशों, भारी अलमारियों और पंखों से दूर रहें। **लिफ्ट का प्रयोग कभी न करें**।
+
+3. **झटके रुकने के बाद:**
+   • सीढ़ियों से शांतिपूर्वक बाहर खुले मैदान में निकलें। बिजली के खंभों, तारों और जर्जर इमारतों से दूर खड़े हों।
+
+4. **गैस और आग की जांच:**
+   • माचिस या मोमबत्ती न जलाएं (गैस रिसाव हो सकता है)। टॉर्च का प्रयोग करें।
+
+${formatHospitalsList(resolvedLang)}
+
+${formatSheltersList(resolvedLang)}
+
+${formatHelplinesList(resolvedLang)}`;
+        } else {
+            response = `### 🏚️ EARTHQUAKE SAFETY DIRECTIVE: IMMEDIATE PROTOCOL (${locName})
+
+🚨 **Drop, Cover, and Hold On Directives:**
+
+1. **Drop, Cover, Hold:**
+   • **Drop:** Drop onto your hands and knees. This position protects you from being knocked down and allows you to stay low.
+   • **Cover:** Crawl under a sturdy desk or table. Shield your head and neck with both arms.
+   • **Hold On:** Hold onto your shelter until shaking stops. Be prepared for aftershocks.
+
+2. **Interior Hazard Management:**
+   • Keep clear of glass windows, external brick walls, bookstacks, and suspended chandeliers.
+   • **Never use elevators** during an earthquake or aftershocks.
+
+3. **Post-Tremor Evacuation:**
+   • Once shaking subsides, exit via emergency fire stairwells to open parks or athletic fields clear of power conduits.
+   • Do not ignite matches, lighters, or open flames due to potential ruptured gas mains.
+
+${formatHospitalsList("en")}
+
+${formatSheltersList("en")}
+
+${formatHelplinesList("en")}`;
+        }
+    } else if (isFire) {
+        scenario = "FIRE";
+        showHospitals = true;
+        showShelters = false;
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### 🔥 आग एवं धुआं आपातकालीन सुरक्षा निर्देश (Fire Evacuation Protocol)
+
+🚨 **आग लगने पर तत्काल कदम (${locName}):**
+
+1. **धुआं होने पर नीचे रेंगें (Crawl Low under Smoke):**
+   • जहरीला धुआं और गर्म हवा ऊपर उठती है। फर्श के करीब ताजी हवा होती है — घुटनों के बल रेंगते हुए बाहर निकलें।
+   • मुंह और नाक को गीले रूमाल या कपड़े से ढकें।
+
+2. **दरवाजा छूकर जांचें:**
+   • बाहर निकलने से पहले दरवाजे के हैंडल को हाथ के पिछले हिस्से से छुएं। यदि यह गर्म लगे, तो दरवाजा न खोलें।
+
+3. **यदि कपड़ों में आग लगे (Stop, Drop & Roll):**
+   • भागें नहीं। तुरंत जमीन पर गिरें और जब तक आग न बुझे, फर्श पर लुढ़कें (Roll करें)।
+
+4. **अग्निशामक यंत्र का नियम (PASS):**
+   • **P**ull pin | **A**im at base of fire | **S**queeze handle | **S**weep side-to-side.
+
+${formatHospitalsList(resolvedLang)}
+
+${formatHelplinesList(resolvedLang)}`;
+        } else {
+            response = `### 🔥 FIRE ESCAPE & SMOKE INHALATION PROTOCOL (${locName})
+
+🚨 **Certified Fire Emergency Action:**
+
+1. **Crawl Low Under Toxic Smoke:**
+   • Heated toxic smoke rises to the ceiling. Cleaner air remains 12 to 24 inches above floor level. Crawl on hands and knees toward the nearest illuminated exit.
+   • Cover mouth and nose with a damp cloth to filter particulate matter.
+
+2. **Door Temperature Verification:**
+   • Test doors using the back of your hand before turning handles. If warm to the touch, do not open — escape through a secondary window or exterior fire ladder.
+
+3. **If Clothing Catches Fire (Stop, Drop & Roll):**
+   • Do not run (oxygen feeds flames). Immediately drop to the ground, cover face with hands, and roll back and forth until smothered.
+
+4. **Fire Extinguisher Protocol (P.A.S.S.):**
+   • **P**ull the safety pin.
+   • **A**im nozzle at the base of flames.
+   • **S**queeze trigger handle.
+   • **S**weep nozzle horizontally side-to-side.
+
+${formatHospitalsList("en")}
+
+${formatHelplinesList("en")}`;
+        }
+    } else if (isGasLeak) {
+        scenario = "GAS_LEAK";
+        showHospitals = true;
+        showShelters = false;
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### ⚠️ गैस रिसाव / रासायनिक आपातकाल (Gas Leak & Chemical Safety)
+
+🚨 **एलपीजी या जहरीली गैस की गंध आने पर क्या करें (${locName}):**
+
+1. **कोई भी बिजली का स्विच न छुएं:**
+   • बिजली का कोई भी स्विच (बल्ब, पंखा आदि) ऑन या ऑफ न करें। स्विच से निकली चिंगारी आग का कारण बन सकती है।
+   • माचिस, लाइटर, मोमबत्ती या मोबाइल फोन का प्रयोग रिसाव क्षेत्र में न करें।
+
+2. **खिड़कियां और दरवाजे तुरंत खोलें:**
+   • कमरे की सभी खिड़कियां और बाहरी दरवाजे खोलें ताकि ताजी हवा आ सके और गैस बाहर निकल जाए।
+
+3. **रेग्युलेटर बंद करें:**
+   • यदि सुरक्षित हो, तो गैस सिलेंडर का मुख्य नॉब/रेग्युलेटर तुरंत बंद कर दें।
+
+4. **तुरंत बाहर निकलें:**
+   • घर के सभी सदस्यों को लेकर खुले में हवा की विपरीत दिशा (Upwind) में जाएं और **112 / 101** पर कॉल करें।
+
+${formatHospitalsList(resolvedLang)}
+
+${formatHelplinesList(resolvedLang)}`;
+        } else {
+            response = `### ⚠️ HAZMAT / TOXIC GAS & LPG LEAK PROTOCOL (${locName})
+
+🚨 **Crucial Gas Leak Response Rules:**
+
+1. **Strict Ignition Ban:**
+   • **Do not operate any electrical switches** (neither ON nor OFF). Do not ring doorbells or plug/unplug cables. Static arcs ignite combustible vapors.
+   • Do not strike matches or use flashlights/lighters in the vicinity.
+
+2. **Ventilate Structure:**
+   • Open all perimeter windows and exterior doors wide to establish cross-ventilation.
+
+3. **Isolate Source:**
+   • If accessible safely, close the manual safety valve on the cylinder regulator.
+
+4. **Upwind Evacuation:**
+   • Evacuate all occupants outdoors immediately. Move upwind (into the wind) away from low depressions where heavy gases pool. Call **112 / 101**.
+
+${formatHospitalsList("en")}
+
+${formatHelplinesList("en")}`;
+        }
+    } else if (isAlertsStatus) {
+        scenario = "ALERTS_STATUS";
+        const alertsText = activeAlerts.length > 0
+            ? activeAlerts.map(a => `• **${a.title}** (${a.severity} • ${a.hazardType || 'DISASTER'})\n  ${a.message || a.description || 'Active advisory in effect.'}`).join("\n\n")
+            : (resolvedLang === "hi" ? "• वर्तमान में आपके जिले में कोई गंभीर आधिकारिक चेतावनी जारी नहीं है। स्थिति सामान्य रूप से निगरानी में है।" : "• No active emergency alerts currently recorded for this jurisdiction. Telemetry is normal.");
+
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### 📡 वर्तमान आपदा स्थिति एवं सक्रिय चेतावनियां (${locName})
+
+आपदानेत्र लाइव डेटाबेस से वर्तमान जिला स्थिति रिपोर्ट:
+
+${alertsText}
+
+📊 **ऑपरेशनल संसाधन:**
+• सक्रिय राहत केंद्र: **${activeShelters.length} आश्रय स्थल सक्रिय**
+• चिन्हित जोखिम क्षेत्र: **${hazardZonesCount} क्षेत्र निगरानी में**
+
+${formatSheltersList(resolvedLang)}
+
+${formatHospitalsList(resolvedLang)}
+
+${formatHelplinesList(resolvedLang)}`;
+        } else {
+            response = `### 📡 REAL-TIME SITUATION REPORT & ACTIVE ADVISORIES (${locName})
+
+Live intelligence pulled from AapdaNetra multi-agency database:
+
+${alertsText}
+
+📊 **Operational Telemetry:**
+• Active Operational Shelters: **${activeShelters.length} Shelters Ready**
+• Monitored Hazard Sectors: **${hazardZonesCount} Designated Risk Zones**
+
+${formatSheltersList("en")}
+
+${formatHospitalsList("en")}
+
+${formatHelplinesList("en")}`;
+        }
+    } else if (isHospital) {
+        scenario = "HOSPITAL";
+        showHospitals = true;
+        showShelters = false;
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### 🏥 24x7 आपातकालीन ट्रॉमा अस्पताल एवं एम्बुलेंस नेविगेशन (${locName})
+
+आपके स्थान के निकटतम सत्यापित सरकारी एवं मल्टी-स्पेशियलिटी अस्पताल जहाँ 24x7 इमरजेंसी वार्ड, आईसीयू एवं ब्लड बैंक उपलब्ध हैं:
+
+${formatHospitalsList(resolvedLang)}
+
+${formatHelplinesList(resolvedLang)}`;
+        } else {
+            response = `### 🏥 24/7 EMERGENCY HOSPITALS & TRAUMA NAVIGATION (${locName})
+
+Here are verified tertiary-care trauma hospitals, ICU facilities, and government medical institutions in your immediate sector:
+
+${formatHospitalsList("en")}
+
+${formatHelplinesList("en")}`;
+        }
+    } else if (isShelter) {
+        scenario = "SHELTER";
+        showHospitals = false;
+        showShelters = true;
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### ⛺ निकटतम सक्रिय राहत केंद्र एवं उपलब्ध बिस्तर (${locName})
+
+वर्तमान में सुरक्षित आश्रय, भोजन, पीने का पानी एवं प्राथमिक चिकित्सा हेतु खुले केंद्र:
+
+${formatSheltersList(resolvedLang)}
+
+${formatHelplinesList(resolvedLang)}`;
+        } else {
+            response = `### ⛺ DESIGNATED RELIEF SHELTERS & AVAILABLE BEDS (${locName})
+
+Verified municipal shelters with active open vacancies, warm meals, potable water, and medical triage:
+
+${formatSheltersList("en")}
+
+${formatHelplinesList("en")}`;
+        }
+    } else if (isHelplines) {
+        scenario = "HELPLINES";
+        showHospitals = true;
+        showShelters = false;
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### 📞 24x7 राष्ट्रीय व राज्य आपदा आपातकालीन हेल्पलाइन नंबर
+
+संकट के समय तुरंत इन नंबरों पर संपर्क करें:
+
+${formatHelplinesList(resolvedLang)}
+
+${formatHospitalsList(resolvedLang)}`;
+        } else {
+            response = `### 📞 24/7 NATIONAL & DISASTER DISPATCH HELPLINES
+
+Instant emergency assistance channels:
+
+${formatHelplinesList("en")}
+
+${formatHospitalsList("en")}`;
+        }
+    } else if (isWaterFood) {
+        scenario = "WATER_FOOD";
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### 💧 आपदा के दौरान शुद्ध पेयजल एवं सुरक्षित भोजन निर्देश (${locName})
+
+1. **पानी को उबालें (Boiling):**
+   • पानी को कम से कम **1 से 3 मिनट तक तेज उबालें**। यह जीवाणुओं और विषाणुओं को पूरी तरह समाप्त करता है।
+
+2. **क्लोरीन गोलियों का उपयोग:**
+   • यदि उबालना संभव न हो, तो प्रति 20 लीटर पानी में 1 क्लोरीन/हैलोजेन गोली (Halazone tablet) डालें और 30 मिनट प्रतीक्षा करें।
+
+3. **बाढ़ के पानी के संपर्क में आया भोजन:**
+   • बाढ़ के पानी से छूटे किसी भी फल, सब्जी, खुले अनाज या प्लास्टिक पैकेट को तुरंत फेंक दें।
+   • केवल सीलबंद धातु के डिब्बे (Canned food) का उपयोग करें, जिन्हें पहले साफ पानी से धोया गया हो।
+
+${formatSheltersList(resolvedLang)}
+
+${formatHelplinesList(resolvedLang)}`;
+        } else {
+            response = `### 💧 DISASTER WATER PURIFICATION & FOOD INTEGRITY DIRECTIVES (${locName})
+
+1. **Thermal Disinfection (Boiling):**
+   • Bring water to a **rolling boil for a full 1 to 3 minutes**. This neutralizes bacterial and viral contamination completely.
+
+2. **Chemical Halogenation:**
+   • If boiling is unfeasible, add certified chlorine purification tablets (Aquatabs / Halazone) per manufacturer dosage (typically 1 tablet per 20 liters) and wait 30 minutes before drinking.
+
+3. **Contaminated Food Protocols:**
+   • Discard all raw foods, fresh produce, or unsealed goods touched by floodwaters.
+   • Only consume factory-sealed canned supplies after disinfecting can exteriors.
+
+${formatSheltersList("en")}
+
+${formatHelplinesList("en")}`;
         }
     } else {
-        // General Safety Check & Default Assistance
-        if (resolvedLang === "hi") {
-            response = `### 🛡️ आपदानेत्र लाइव आपातकालीन सहायक (${locName})
+        // General Safety & Guidance
+        scenario = "GENERAL";
+        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+            response = `### 🛡️ आपदानेत्र लाइव आपातकालीन एवं आपदा सुरक्षा सहायक (${locName})
 
-नमस्ते! मैं आपदानेत्र लाइव एआई इमरजेंसी एवं नेविगेशन सहायक हूँ। मैं आपके क्षेत्र के वास्तविक आपातकालीन अस्पतालों, राहत केंद्रों और जीवन रक्षक आपदा निर्देशों में मदद कर सकता हूँ।
+नमस्ते! मैं आपदानेत्र एआई इमरजेंसी सहायक हूँ। मैं आपके क्षेत्र के वास्तविक आपातकालीन संसाधनों, अस्पतालों, आश्रय स्थलों एवं एनडीएमए (NDMA) प्रमाणित आपदा सुरक्षा प्रोटोकॉल से जुड़ा हुआ हूँ।
 
-${formatHospitals("hi")}
+💡 **आप मुझसे निम्नलिखित पूछ सकते हैं:**
+• 🎒 *72-घंटे की इमरजेंसी किट में क्या रखें?*
+• 🩹 *रक्तस्राव या सीपीआर (CPR) की प्राथमिक चिकित्सा कैसे करें?*
+• 🌊 *बाढ़ या जलभराव से सुरक्षा के निर्देश*
+• 🏚️ *भूकंप के झटके आने पर क्या करें?*
+• 🏥 *निकटतम 24x7 ट्रॉमा अस्पताल व एम्बुलेंस*
+• ⛺ *पास में खुला राहत केंद्र व खाली बिस्तर*
+• 📞 *राष्ट्रीय व राज्य आपातकालीन हेल्पलाइन नंबर*
 
-${formatShelters("hi")}
+${formatHospitalsList("hi")}
 
-${formatHelplines("hi")}`;
-        } else if (resolvedLang === "hinglish") {
-            response = `### 🛡️ AAPDANETRA LIVE EMERGENCY & NAVIGATION ASSISTANT (${locName})
+${formatSheltersList("hi")}
 
-Hello! Main AapdaNetra live AI emergency aur navigation assistant hoon. Main aapke area ke actual emergency hospitals, relief centres aur disaster protocols me live guidance de sakta hoon.
-
-${formatHospitals("hinglish")}
-
-${formatShelters("hinglish")}
-
-${formatHelplines("hinglish")}`;
+${formatHelplinesList("hi")}`;
         } else {
-            response = `### 🛡️ AAPDANETRA LIVE EMERGENCY & NAVIGATION COPILOT (${locName})
+            response = `### 🛡️ AAPDANETRA LIVE EMERGENCY & DISASTER INTELLIGENCE (${locName})
 
-Ready to assist. I am connected to AapdaNetra's real-time disaster geospatial telemetry, verified hospital trauma registry, and live municipal shelter database.
+Connected to AapdaNetra live geospatial telemetry, NDMA disaster directives, and verified district infrastructure.
 
-${formatHospitals("en")}
+💡 **Recommended Emergency Inquiries:**
+• 🎒 *72-Hour Survival Kit checklist & supplies*
+• 🩹 *First aid instructions for bleeding, CPR, burns, or fractures*
+• 🌊 *Flood evacuation & vehicle water safety*
+• 🏚️ *Earthquake Drop, Cover & Hold protocol*
+• 🏥 *Nearest 24/7 Level-1 trauma hospital & emergency contacts*
+• ⛺ *Active municipal shelters with verified open capacity*
+• 📞 *National emergency helpline numbers (112, 108, 1078)*
 
-${formatShelters("en")}
+${formatHospitalsList("en")}
 
-${formatHelplines("en")}`;
+${formatSheltersList("en")}
+
+${formatHelplinesList("en")}`;
         }
     }
 
@@ -503,15 +946,15 @@ ${formatHelplines("en")}`;
         actionableFacilities: {
             disasterScenario: scenario,
             locationName: locName,
-            hospitals: facilities.hospitals,
-            shelters: facilities.shelters
+            hospitals: showHospitals ? facilities.hospitals : [],
+            shelters: showShelters ? facilities.shelters : []
         },
         context: {
-            activeAlerts: context.stats?.activeAlertsCount || 0,
-            availableShelters: facilities.shelters.length,
+            activeAlerts: activeAlerts.length,
+            availableShelters: activeShelters.length,
             dataTimestamp: new Date().toISOString()
         },
-        source: "AapdaNetra Live AI Emergency Navigation System"
+        source: "AapdaNetra Live AI Emergency Assistant"
     };
 }
 

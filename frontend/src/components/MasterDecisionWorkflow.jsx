@@ -451,10 +451,10 @@ export default function MasterDecisionWorkflow({ onNavigateTab }) {
                   <Button
                     size="small"
                     variant="contained"
-                    onClick={() => onNavigateTab && onNavigateTab('/ai-copilot')}
+                    onClick={() => onNavigateTab && onNavigateTab('/ai-assistant')}
                     sx={{ fontSize: '0.72rem', fontWeight: 700, bgcolor: '#16a34a' }}
                   >
-                    Copilot Console &gt;
+                    AI Assistant &gt;
                   </Button>
                 )}
               </Box>

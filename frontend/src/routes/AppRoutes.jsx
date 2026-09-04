@@ -53,7 +53,7 @@ export default function AppRoutes() {
       <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
       <Route path="/disaster-map" element={<RequireAuth><DisasterMap /></RequireAuth>} />
       <Route path="/ai-assistant" element={<RequireAuth><AIAssistant /></RequireAuth>} />
-      <Route path="/ai-copilot" element={<RequireResponder><AICopilot /></RequireResponder>} />
+      <Route path="/ai-copilot" element={<Navigate to="/ai-assistant" replace />} />
       <Route path="/citizen-reports" element={<RequireAuth><CitizenReports /></RequireAuth>} />
       <Route path="/forecasts" element={<RequireAuth><Forecasts /></RequireAuth>} />
       <Route path="/risk-analysis" element={<RequireAuth><RiskAnalysis /></RequireAuth>} />

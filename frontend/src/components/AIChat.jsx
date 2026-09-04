@@ -274,7 +274,7 @@ function EmergencyFacilitiesCards({ facilities, isDark }) {
               variant="text"
               size="small"
               startIcon={<OpenInNewIcon />}
-              onClick={() => navigate('/map')}
+              onClick={() => navigate('/disaster-map')}
               sx={{
                 fontSize: '0.72rem',
                 fontWeight: 700,

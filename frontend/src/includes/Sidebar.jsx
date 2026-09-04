@@ -58,9 +58,6 @@ const Sidebar = () => {
         <NavLink to="/dashboard" className="nav-item"><LayoutDashboard size={17} /> Command Dashboard</NavLink>
         <NavLink to="/disaster-map" className="nav-item"><Map size={17} /> Live Disaster Map</NavLink>
         <NavLink to="/ai-assistant" className="nav-item"><Bot size={17} /> AI Emergency Assistant</NavLink>
-        {isResponder && (
-          <NavLink to="/ai-copilot" className="nav-item"><BrainCircuit size={17} /> Emergency Copilot</NavLink>
-        )}
 
         <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', margin: '0.85rem 0 0.25rem 0', paddingLeft: '0.5rem' }}>
           Analytics & Predictions
