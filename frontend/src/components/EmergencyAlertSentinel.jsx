@@ -19,7 +19,8 @@ import {
   X,
   MapPin,
   ExternalLink,
-  Radio
+  Radio,
+  BellRing
 } from 'lucide-react';
 import { getAlerts, dispatchEmergencyAlert } from '../services/api';
 import { playEmergencySiren, stopEmergencySiren, isSirenActive } from '../utils/emergencyAudio';
@@ -31,6 +32,73 @@ import { getCurrentUser } from '../lib/auth';
 const NOTIFICATIONS_STORAGE_KEY = 'aapdanetra_notifications_config';
 const ACKNOWLEDGED_ALERTS_KEY = 'an_acknowledged_critical_alerts';
 
+// Haversine distance in kilometers
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Geospatial and text intelligence matcher
+function alertMatchesLocation(alert, userLoc) {
+  if (!userLoc) return true;
+
+  const alertDistrict = (alert.district || '').trim().toLowerCase();
+  const alertTitle = (alert.title || '').toLowerCase();
+  const alertMsg = (alert.message || alert.description || '').toLowerCase();
+
+  const userDistrict = (userLoc.district || '').trim().toLowerCase();
+  const userName = (userLoc.name || '').toLowerCase();
+
+  // 1. Direct district match
+  if (alertDistrict && userDistrict && (alertDistrict.includes(userDistrict) || userDistrict.includes(alertDistrict))) {
+    return true;
+  }
+
+  // 2. Title & Message keyword inspection
+  if (userDistrict && (alertTitle.includes(userDistrict) || alertMsg.includes(userDistrict))) {
+    return true;
+  }
+
+  // Regional aliases (e.g. Bhopal, Delhi/Yamuna, Noida/Hindon, Mumbai, Dehradun)
+  if ((userDistrict.includes('delhi') || userName.includes('delhi')) &&
+      (alertTitle.includes('delhi') || alertTitle.includes('yamuna') || alertMsg.includes('delhi') || alertMsg.includes('yamuna'))) {
+    return true;
+  }
+  if ((userDistrict.includes('noida') || userDistrict.includes('gautam buddha') || userName.includes('noida')) &&
+      (alertTitle.includes('noida') || alertTitle.includes('hindon') || alertMsg.includes('noida') || alertMsg.includes('hindon'))) {
+    return true;
+  }
+  if ((userDistrict.includes('bhopal') || userName.includes('bhopal')) &&
+      (alertTitle.includes('bhopal') || alertMsg.includes('bhopal'))) {
+    return true;
+  }
+  if ((userDistrict.includes('mumbai') || userName.includes('mumbai')) &&
+      (alertTitle.includes('mumbai') || alertMsg.includes('mumbai'))) {
+    return true;
+  }
+  if ((userDistrict.includes('dehradun') || userName.includes('dehradun')) &&
+      (alertTitle.includes('dehradun') || alertMsg.includes('dehradun'))) {
+    return true;
+  }
+
+  // 3. Coordinate distance check
+  if (userLoc.lat && userLoc.lng && alert.location?.coordinates && alert.location.coordinates.length === 2) {
+    const [alertLng, alertLat] = alert.location.coordinates;
+    const dist = getDistanceKm(userLoc.lat, userLoc.lng, alertLat, alertLng);
+    const radius = alert.affectedRadius || 35; // default 35 km
+    if (dist <= radius) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export default function EmergencyAlertSentinel() {
   const { location } = useLocationContext();
   const { isDark } = useThemeMode();
@@ -38,15 +106,13 @@ export default function EmergencyAlertSentinel() {
   const [modalOpen, setModalOpen] = useState(false);
   const [sirenPlaying, setSirenPlaying] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  const autoAlarmTriggeredRef = useRef(false);
+  const lastSoundedAlertIdRef = useRef(null);
 
-  // Poll alerts and automatically trigger alarm when a critical emergency occurs
   useEffect(() => {
     let isMounted = true;
 
     const checkEmergencyAlerts = async () => {
       try {
-        // Read user notification preferences
         let notifConfig = { severityThreshold: 70, audioSiren: true, emailAlerts: true };
         try {
           const saved = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
@@ -56,54 +122,42 @@ export default function EmergencyAlertSentinel() {
         const res = await getAlerts();
         const alertsList = res.data?.data || [];
 
-        // Find critical alerts matching user's active district or general critical status
+        // Find active CRITICAL or HIGH alert matching user's current district
         const critical = alertsList.find((a) => {
           const isCriticalSeverity = a.severity === 'CRITICAL' || a.severity === 'HIGH';
-          const alertDist = (typeof a.location === 'string' ? a.location : a.location?.name || '').toLowerCase();
-          const currentDist = (location?.district || 'Delhi').toLowerCase();
-          const matchesLocation = !alertDist || alertDist.includes(currentDist) || currentDist.includes(alertDist);
-          return isCriticalSeverity && matchesLocation && a.isActive !== false;
+          const isCurrentActive = a.isActive !== false;
+          const matches = alertMatchesLocation(a, location);
+          return isCriticalSeverity && isCurrentActive && matches;
         });
 
         if (!isMounted) return;
 
         if (critical) {
-          // Check if this alert was already acknowledged by the user in this browser session
+          const alertId = critical._id || critical.id || critical.title;
+
+          // Check if acknowledged in this browser session
           let acknowledgedIds = [];
           try {
             acknowledgedIds = JSON.parse(sessionStorage.getItem(ACKNOWLEDGED_ALERTS_KEY) || '[]');
           } catch {}
 
-          const isNewAlert = !acknowledgedIds.includes(critical._id || critical.id || critical.title);
+          const isAcknowledged = acknowledgedIds.includes(alertId);
 
           setActiveCriticalAlert(critical);
 
-          // AUTOMATIC ALARM EXECUTION
-          if (isNewAlert && !autoAlarmTriggeredRef.current) {
-            autoAlarmTriggeredRef.current = true;
+          // If not acknowledged and not yet sounded for this specific alert
+          if (!isAcknowledged && lastSoundedAlertIdRef.current !== alertId) {
+            lastSoundedAlertIdRef.current = alertId;
 
-            // 1. Play Civil Defense Acoustic Disaster Siren automatically
+            // 1. Play Emergency Siren automatically
             if (notifConfig.audioSiren !== false) {
-              const started = playEmergencySiren(15000);
-              if (started) {
-                setSirenPlaying(true);
-              }
-              // Register one-shot listener so ANY first click anywhere on screen immediately starts the siren if blocked by browser
-              const startOnFirstGesture = () => {
-                playEmergencySiren(15000);
-                setSirenPlaying(true);
-                window.removeEventListener('click', startOnFirstGesture, true);
-                window.removeEventListener('keydown', startOnFirstGesture, true);
-                window.removeEventListener('touchstart', startOnFirstGesture, true);
-              };
-              window.addEventListener('click', startOnFirstGesture, true);
-              window.addEventListener('keydown', startOnFirstGesture, true);
-              window.addEventListener('touchstart', startOnFirstGesture, true);
+              playEmergencySiren(16000);
+              setSirenPlaying(true);
             }
 
             // 2. Trigger native OS / browser notification automatically
             const alertTitle = critical.title || 'Critical Disaster Alert';
-            const alertDesc = critical.description || `Immediate precautionary action required in ${location?.district || 'your area'}.`;
+            const alertDesc = critical.message || critical.description || `Immediate emergency action required in ${location?.district || 'your district'}.`;
 
             triggerDisasterNotification({
               title: alertTitle,
@@ -120,37 +174,42 @@ export default function EmergencyAlertSentinel() {
                   recipientName: user.name || 'Citizen User',
                   title: alertTitle,
                   hazardType: critical.hazardType || 'FLOOD',
-                  severity: 'CRITICAL',
-                  district: location?.district || 'Delhi NCR',
-                  state: location?.state || 'Delhi',
+                  severity: critical.severity || 'CRITICAL',
+                  district: location?.district || 'Active Zone',
+                  state: location?.state || 'India',
                   instructions: alertDesc
                 }).catch(() => {});
               }
             }
 
-            // 4. Automatically open emergency warning modal
+            // 4. Automatically present emergency advisory modal & banner
             setModalOpen(true);
             setBannerDismissed(false);
           }
         } else {
           setActiveCriticalAlert(null);
+          // If no critical alert exists for this area, silence any active siren
+          if (isSirenActive()) {
+            stopEmergencySiren();
+            setSirenPlaying(false);
+          }
         }
       } catch (err) {
-        console.warn('[Emergency Sentinel] Polling check:', err.message);
+        console.warn('[Emergency Sentinel] Alert polling check:', err.message);
       }
     };
 
-    // Immediate check
+    // Execute immediately on mount or whenever district changes
     checkEmergencyAlerts();
 
-    // Check continuously every 25 seconds
-    const interval = setInterval(checkEmergencyAlerts, 25000);
+    // Check continuously every 20 seconds
+    const interval = setInterval(checkEmergencyAlerts, 20000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [location?.district]);
+  }, [location?.district, location?.name]);
 
   const handleAcknowledgeAndSilence = () => {
     stopEmergencySiren();
@@ -174,11 +233,19 @@ export default function EmergencyAlertSentinel() {
     setSirenPlaying(false);
   };
 
+  const handleReTriggerAlarm = () => {
+    playEmergencySiren(16000);
+    setSirenPlaying(true);
+  };
+
   if (!activeCriticalAlert) return null;
+
+  const alertMessage = activeCriticalAlert.message || activeCriticalAlert.description ||
+    `Severe hydrological / disaster threshold breached in ${location?.district || 'your active telemetry zone'}. Immediate precautionary action recommended.`;
 
   return (
     <>
-      {/* 1. TOP FLASHING EMERGENCY BANNER */}
+      {/* 1. TOP PULSING EMERGENCY BANNER */}
       {!bannerDismissed && (
         <Box
           sx={{
@@ -186,47 +253,48 @@ export default function EmergencyAlertSentinel() {
             p: 1.5,
             px: 2.5,
             borderRadius: 3,
-            bgcolor: 'rgba(239, 68, 68, 0.92)',
-            backdropFilter: 'blur(10px)',
+            bgcolor: '#dc2626',
+            background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
             color: '#ffffff',
-            boxShadow: '0 10px 30px rgba(239, 68, 68, 0.35)',
+            boxShadow: '0 10px 30px rgba(220, 38, 38, 0.45)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: 1.5,
-            border: '1px solid rgba(255, 255, 255, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
             animation: 'pulse 2s infinite'
           }}
         >
           <Box display="flex" alignItems="center" gap={1.5}>
             <Box
               sx={{
-                width: 32,
-                height: 32,
+                width: 36,
+                height: 36,
                 borderRadius: '50%',
                 bgcolor: '#ffffff',
-                color: '#ef4444',
+                color: '#dc2626',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontWeight: 900
+                fontWeight: 900,
+                flexShrink: 0
               }}
             >
-              <AlertTriangle size={18} />
+              <AlertTriangle size={20} />
             </Box>
             <Box>
-              <Typography variant="body2" fontWeight={800} sx={{ letterSpacing: '0.02em', color: '#fff' }}>
-                🚨 CRITICAL EMERGENCY ACTIVE: {activeCriticalAlert.title || 'Disaster Surge Warning'}
+              <Typography variant="body2" fontWeight={900} sx={{ letterSpacing: '0.02em', color: '#fff' }}>
+                🚨 CRITICAL EMERGENCY ACTIVE: {activeCriticalAlert.title || 'Disaster Warning'}
               </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.9)', display: 'block' }}>
-                Region: <strong>{location?.name || 'Your District'}</strong> • Automatic acoustic siren & emergency alerts active.
+              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.95)', display: 'block', fontWeight: 600 }}>
+                Jurisdiction: <strong>{location?.name || location?.district || 'Your District'}</strong> • Automatic acoustic siren & emergency alerts active.
               </Typography>
             </Box>
           </Box>
 
           <Box display="flex" alignItems="center" gap={1}>
-            {sirenPlaying && (
+            {sirenPlaying ? (
               <Button
                 size="small"
                 variant="contained"
@@ -234,7 +302,7 @@ export default function EmergencyAlertSentinel() {
                 startIcon={<VolumeX size={15} />}
                 sx={{
                   bgcolor: '#ffffff',
-                  color: '#ef4444',
+                  color: '#dc2626',
                   fontWeight: 800,
                   fontSize: '0.75rem',
                   textTransform: 'none',
@@ -243,6 +311,25 @@ export default function EmergencyAlertSentinel() {
                 }}
               >
                 Mute Siren
+              </Button>
+            ) : (
+              <Button
+                size="small"
+                variant="contained"
+                onClick={handleReTriggerAlarm}
+                startIcon={<Volume2 size={15} />}
+                sx={{
+                  bgcolor: 'rgba(255, 255, 255, 0.2)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.75rem',
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  border: '1px solid rgba(255,255,255,0.4)',
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.3)' }
+                }}
+              >
+                Sound Siren
               </Button>
             )}
 
@@ -260,7 +347,7 @@ export default function EmergencyAlertSentinel() {
                 '&:hover': { bgcolor: 'rgba(255,255,255,0.15)', borderColor: '#ffffff' }
               }}
             >
-              View Shelters & Protocols
+              View Protocols & Shelters
             </Button>
 
             <IconButton
@@ -332,8 +419,7 @@ export default function EmergencyAlertSentinel() {
 
         <DialogContent sx={{ pt: 1.5 }}>
           <Alert severity="error" sx={{ mb: 2.5, borderRadius: 2, fontWeight: 600 }}>
-            {activeCriticalAlert.description ||
-              `Severe flood / disaster threshold breached in ${location?.district || 'your active telemetry zone'}. Immediate evacuation advisory is currently in effect.`}
+            {alertMessage}
           </Alert>
 
           <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', border: '1px solid var(--border-color)', mb: 2 }}>
@@ -368,7 +454,7 @@ export default function EmergencyAlertSentinel() {
         </DialogContent>
 
         <DialogActions sx={{ p: 2.5, pt: 0, gap: 1.5 }}>
-          {sirenPlaying && (
+          {sirenPlaying ? (
             <Button
               variant="outlined"
               color="error"
@@ -377,6 +463,16 @@ export default function EmergencyAlertSentinel() {
               sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
             >
               Silence Siren
+            </Button>
+          ) : (
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<Volume2 size={16} />}
+              onClick={handleReTriggerAlarm}
+              sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+            >
+              Play Siren
             </Button>
           )}
 
