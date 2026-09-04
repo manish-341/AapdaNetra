@@ -11,9 +11,13 @@ const Boilerplate = ({ children }) => {
 
   return (
     <div className="app-container">
-      <Sidebar />
+      <div className="no-print sidebar-container">
+        <Sidebar />
+      </div>
       <div className="main-content">
-        <Navbar />
+        <div className="no-print navbar-container">
+          <Navbar />
+        </div>
         <main
           style={{
             padding: '1.75rem 2rem',
@@ -27,11 +31,17 @@ const Boilerplate = ({ children }) => {
             transition: 'background 0.25s ease',
           }}
         >
-          <EmergencyAlertSentinel />
+          <div className="no-print">
+            <EmergencyAlertSentinel />
+          </div>
           {children}
-          <FloatingAIAssistant />
+          <div className="no-print">
+            <FloatingAIAssistant />
+          </div>
         </main>
-        <Footer />
+        <div className="no-print footer-container">
+          <Footer />
+        </div>
       </div>
     </div>
   );
