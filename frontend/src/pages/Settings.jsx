@@ -211,13 +211,7 @@ export default function Settings() {
   const handleTestEmergencyBroadcast = async () => {
     setDispatchingTest(true);
     try {
-      // 1. Sound Civil Defense acoustic disaster siren
-      if (notifConfig.audioSiren) {
-        playEmergencySiren(15000);
-        setSirenPlaying(true);
-      }
-
-      // 2. Trigger native OS / browser notification
+      // 1. Trigger native OS / browser notification
       await triggerDisasterNotification({
         title: 'CRITICAL DISASTER WARNING',
         body: `URGENT: Flood breach surge detected in ${location?.district || profileForm.district}! Evacuation advisory active.`,
@@ -686,11 +680,11 @@ export default function Settings() {
                   <Box display="flex" alignItems="center" gap={1.2} mb={1}>
                     <AlertTriangle size={20} color="#ef4444" />
                     <Typography variant="subtitle2" fontWeight={800} sx={{ color: '#ef4444' }}>
-                      Live Emergency Siren & Email Dispatch Simulation
+                      Emergency Email & Push Broadcast Diagnostic
                     </Typography>
                   </Box>
                   <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mb: 2 }}>
-                    Trigger an authentic emergency broadcast test. This sounds the acoustic Civil Defense disaster siren on your device, sends an OS push notification, and dispatches a critical alert bulletin to <strong>{currentUser?.email || 'your registered email'}</strong>.
+                    Validate emergency alert delivery. This dispatches an official critical situation email bulletin to <strong>{currentUser?.email || 'your registered email'}</strong> and triggers an OS notification. <em>(Note: The acoustic disaster siren triggers automatically for 7 seconds during verified critical emergencies).</em>
                   </Typography>
 
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
@@ -699,7 +693,7 @@ export default function Settings() {
                       color="error"
                       onClick={handleTestEmergencyBroadcast}
                       disabled={dispatchingTest}
-                      startIcon={dispatchingTest ? <CircularProgress size={16} color="inherit" /> : <Volume2 size={16} />}
+                      startIcon={dispatchingTest ? <CircularProgress size={16} color="inherit" /> : <AlertTriangle size={16} />}
                       sx={{
                         fontWeight: 800,
                         textTransform: 'none',
@@ -707,26 +701,8 @@ export default function Settings() {
                         borderRadius: 2
                       }}
                     >
-                      {dispatchingTest ? 'Dispatching...' : '🚨 Trigger Emergency Siren & Email Alert'}
+                      {dispatchingTest ? 'Dispatching...' : '🚨 Test Emergency Email Alert Broadcast'}
                     </Button>
-
-                    {sirenPlaying && (
-                      <Button
-                        variant="outlined"
-                        onClick={handleStopSiren}
-                        startIcon={<VolumeX size={16} />}
-                        sx={{
-                          borderColor: '#ef4444',
-                          color: '#ef4444',
-                          fontWeight: 700,
-                          textTransform: 'none',
-                          borderRadius: 2,
-                          '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.1)' }
-                        }}
-                      >
-                        Silence Siren
-                      </Button>
-                    )}
                   </Stack>
                 </Box>
               </Paper>

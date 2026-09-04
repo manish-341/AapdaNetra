@@ -284,11 +284,6 @@ export default function EmergencyAlertSentinel() {
     setSirenPlaying(false);
   };
 
-  const handleReTriggerAlarm = () => {
-    playEmergencySiren(7000);
-    setSirenPlaying(true);
-  };
-
   // Filtered alerts for the Modal
   const criticalAlerts = alerts.filter((a) => a.severity === 'CRITICAL' || a.severity === 'HIGH');
   const districtAlerts = alerts.filter((a) => alertMatchesLocation(a, location));
@@ -351,7 +346,7 @@ export default function EmergencyAlertSentinel() {
           </Box>
 
           <Box display="flex" alignItems="center" gap={1}>
-            {sirenPlaying ? (
+            {sirenPlaying && (
               <Button
                 size="small"
                 variant="contained"
@@ -368,25 +363,6 @@ export default function EmergencyAlertSentinel() {
                 }}
               >
                 Mute Siren
-              </Button>
-            ) : (
-              <Button
-                size="small"
-                variant="contained"
-                onClick={handleReTriggerAlarm}
-                startIcon={<Volume2 size={15} />}
-                sx={{
-                  bgcolor: 'rgba(255, 255, 255, 0.2)',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  fontSize: '0.75rem',
-                  textTransform: 'none',
-                  borderRadius: 2,
-                  border: '1px solid rgba(255,255,255,0.4)',
-                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.3)' }
-                }}
-              >
-                Sound Siren (7s)
               </Button>
             )}
 
@@ -603,7 +579,7 @@ export default function EmergencyAlertSentinel() {
             </Box>
 
             <Box display="flex" alignItems="center" gap={1}>
-              {sirenPlaying ? (
+              {sirenPlaying && (
                 <Button
                   size="small"
                   variant="outlined"
@@ -613,16 +589,6 @@ export default function EmergencyAlertSentinel() {
                   sx={{ fontWeight: 800, textTransform: 'none', borderRadius: 2 }}
                 >
                   Mute Siren
-                </Button>
-              ) : (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={handleReTriggerAlarm}
-                  startIcon={<Volume2 size={15} />}
-                  sx={{ fontWeight: 800, textTransform: 'none', borderRadius: 2 }}
-                >
-                  Test Alarm Siren (7s)
                 </Button>
               )}
 
