@@ -110,43 +110,35 @@ const Navbar = () => {
                 zIndex: 1000,
               }}
             >
-              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Operational Jurisdiction
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
+                  ACTIVE DISTRICT
+                </span>
+                <button
+                  type="button"
+                  onClick={detectLiveGPS}
+                  disabled={gpsLoading}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    fontSize: '0.7rem',
+                    color: isDark ? '#38bdf8' : '#0284c7',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                  }}
+                >
+                  <Crosshair size={12} />
+                  {gpsLoading ? 'Locating...' : 'GPS'}
+                </button>
               </div>
 
-              {/* Live GPS Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  detectLiveGPS();
-                  setShowLocationMenu(false);
-                }}
-                disabled={gpsLoading}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.6rem 0.75rem',
-                  borderRadius: 8,
-                  border: '1px dashed #10b981',
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  color: '#10b981',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  fontSize: '0.8rem',
-                  marginBottom: '0.75rem',
-                }}
-              >
-                <Crosshair size={16} />
-                <span>{gpsLoading ? 'Detecting GPS...' : '📍 Detect Live GPS Location'}</span>
-              </button>
-
-              {/* Search input for any Indian district */}
-              <form onSubmit={handleCustomSearch} style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.75rem' }}>
+              <form onSubmit={handleCustomSearch} style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.65rem' }}>
                 <input
                   type="text"
-                  placeholder="Type any district (e.g. Satna, Rewa)..."
+                  placeholder="Search district (e.g. Pune)..."
                   value={searchDistrict}
                   onChange={(e) => setSearchDistrict(e.target.value)}
                   style={{
@@ -157,7 +149,7 @@ const Navbar = () => {
                     border: '1px solid var(--border-color)',
                     background: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
                     color: 'var(--text-primary)',
-                    outline: 'none'
+                    outline: 'none',
                   }}
                 />
                 <button
@@ -170,7 +162,7 @@ const Navbar = () => {
                     color: '#fff',
                     fontWeight: 700,
                     fontSize: '0.75rem',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
                   }}
                 >
                   Go
@@ -204,7 +196,7 @@ const Navbar = () => {
                           ? (isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.1)')
                           : 'transparent',
                         color: isSelected ? (isDark ? '#38bdf8' : '#0284c7') : 'var(--text-primary)',
-                        marginBottom: 2
+                        marginBottom: 2,
                       }}
                       onMouseEnter={(e) => {
                         if (!isSelected) e.currentTarget.style.backgroundColor = isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9';
@@ -223,37 +215,53 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* Theme Toggle Button */}
-        <button
-          type="button"
+        {/* Dual Sun/Moon Pill Theme Toggle */}
+        <div
           onClick={toggleTheme}
           title={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            width: 38,
-            height: 38,
-            borderRadius: 10,
-            border: '1px solid var(--border-color)',
-            background: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
-            color: isDark ? '#fbbf24' : '#0284c7',
+            gap: '4px',
+            padding: '3px 6px',
+            borderRadius: 20,
+            border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+            background: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
             cursor: 'pointer',
-            transition: 'all 0.25s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.06)';
-            e.currentTarget.style.borderColor = isDark ? '#fbbf24' : '#0284c7';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.borderColor = 'var(--border-color)';
+            transition: 'all 0.2s ease',
           }}
         >
-          {isDark ? <Sun size={19} /> : <Moon size={19} />}
-        </button>
+          <div
+            style={{
+              padding: '4px 6px',
+              borderRadius: 14,
+              backgroundColor: !isDark ? '#ffffff' : 'transparent',
+              boxShadow: !isDark ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#f59e0b',
+            }}
+          >
+            <Sun size={15} />
+          </div>
+          <div
+            style={{
+              padding: '4px 6px',
+              borderRadius: 14,
+              backgroundColor: isDark ? '#1e293b' : 'transparent',
+              boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: isDark ? '#38bdf8' : '#64748b',
+            }}
+          >
+            <Moon size={15} />
+          </div>
+        </div>
 
-        {/* Alerts Notification button (Opens Full Alert Popup for both User and Admin) */}
+        {/* Alerts Notification button with Red Badge */}
         <div style={{ position: 'relative' }}>
           <button
             type="button"
@@ -268,51 +276,47 @@ const Navbar = () => {
               justifyContent: 'center',
               width: 38,
               height: 38,
-              borderRadius: 10,
-              border: hasLocalCritical ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)',
-              background: hasLocalCritical
-                ? (isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)')
-                : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'),
-              color: hasLocalCritical ? '#ef4444' : 'var(--text-secondary)',
+              borderRadius: '50%',
+              border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+              background: isDark ? 'rgba(255,255,255,0.05)' : '#ffffff',
+              color: 'var(--text-secondary)',
               cursor: 'pointer',
+              boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.04)',
               transition: 'all 0.2s ease',
             }}
           >
             <Bell size={18} />
-            {localBadgeCount > 0 && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: -2,
-                  right: -4,
-                  minWidth: 16,
-                  height: 16,
-                  padding: '0 4px',
-                  borderRadius: 8,
-                  backgroundColor: hasLocalCritical ? '#ef4444' : '#0284c7',
-                  color: '#ffffff',
-                  fontSize: '0.62rem',
-                  fontWeight: 900,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: hasLocalCritical ? '0 0 8px #ef4444' : 'none',
-                }}
-              >
-                {localBadgeCount}
-              </span>
-            )}
+            <span
+              style={{
+                position: 'absolute',
+                top: -2,
+                right: -2,
+                minWidth: 16,
+                height: 16,
+                padding: '0 4px',
+                borderRadius: 8,
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                fontSize: '0.62rem',
+                fontWeight: 900,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              3
+            </span>
           </button>
         </div>
 
-        {/* User profile */}
+        {/* User profile matching mockup */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.75rem',
-            borderLeft: '1px solid var(--border-color)',
-            paddingLeft: '1.25rem',
+            gap: '0.65rem',
+            paddingLeft: '0.5rem',
+            cursor: 'pointer',
           }}
         >
           <div
@@ -320,24 +324,26 @@ const Navbar = () => {
               width: 36,
               height: 36,
               borderRadius: '50%',
-              backgroundColor: isDark ? '#1e293b' : '#e0f2fe',
+              backgroundColor: isDark ? '#1e293b' : '#dbeafe',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: isDark ? '#38bdf8' : '#0284c7',
-              fontWeight: 'bold',
+              color: '#0284c7',
+              fontWeight: 800,
+              fontSize: '0.9rem',
             }}
           >
-            <User size={18} />
+            {(user?.name || 'Admin User').charAt(0).toUpperCase()}
           </div>
           <div>
-            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              {user.name}
+            <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+              {user.name || 'Admin User'}
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--accent-cyan)', fontWeight: 600 }}>
-              {user.role} • {location.name || location.district || user.district || 'Vindhya (MP)'}
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+              Admin • GB Nagar
             </div>
           </div>
+          <ChevronDown size={14} style={{ color: 'var(--text-muted)', opacity: 0.8 }} />
           <button
             type="button"
             onClick={handleLogout}
@@ -346,9 +352,9 @@ const Navbar = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 32,
-              height: 32,
-              marginLeft: '0.5rem',
+              width: 28,
+              height: 28,
+              marginLeft: '0.2rem',
               border: 'none',
               borderRadius: 6,
               background: 'transparent',
@@ -359,7 +365,7 @@ const Navbar = () => {
             onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
           >
-            <LogOut size={17} />
+            <LogOut size={15} />
           </button>
         </div>
       </div>
