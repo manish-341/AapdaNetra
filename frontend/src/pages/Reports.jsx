@@ -19,6 +19,7 @@ import {
   Alert,
   Chip,
   Divider,
+  Snackbar,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
@@ -54,7 +55,7 @@ const BLACKLISTED_COLUMNS = [
   'geometry', 'polygon', 'coordinates', 'bounds', 'password', 'hash', 'tokens', 'raw', 'features'
 ];
 
-// Preferred column orders per source key
+// Preferred column configurations per source key
 const COLUMN_CONFIG = {
   hazards: [
     { key: 'name', label: 'Zone / Area' },
@@ -63,7 +64,7 @@ const COLUMN_CONFIG = {
     { key: 'riskCategory', label: 'Risk Level' },
     { key: 'riskScore', label: 'Risk Score' },
     { key: 'severity', label: 'Severity' },
-    { key: 'status', label: 'Status' },
+    { key: 'status', label: 'Operational Status' },
   ],
   alerts: [
     { key: 'title', label: 'Alert Headline' },
@@ -80,7 +81,7 @@ const COLUMN_CONFIG = {
     { key: 'riskScore', label: 'Score (/100)' },
     { key: 'district', label: 'District' },
     { key: 'hazardType', label: 'Primary Threat' },
-    { key: 'status', label: 'Mitigation Status' },
+    { key: 'status', label: 'Operational Status' },
   ],
   relocations: [
     { key: 'title', label: 'Relocation Operation' },
@@ -100,8 +101,69 @@ const COLUMN_CONFIG = {
   ],
 };
 
-// Formats any cell value cleanly into human-readable text — NEVER outputs raw JSON brackets!
-const formatCell = (value, colKey = '') => {
+// Safe ASCII string cleaner for jsPDF to prevent blank pages or stream errors
+const toSafeAscii = (str) => {
+  if (!str) return '';
+  return String(str)
+    .replace(/[—–]/g, '-')
+    .replace(/[••]/g, '*')
+    .replace(/…/g, '...')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/°/g, ' deg ')
+    .replace(/[^\x00-\x7F]/g, '')
+    .trim();
+};
+
+// Helper to determine exact severity tier for any row (handles strings & numeric scores)
+const getRowSeverityTier = (row) => {
+  // Check explicit category strings first
+  const strVal = String(
+    row.riskCategory || row.riskLevel || (typeof row.severity === 'string' ? row.severity : '') || row.priority || ''
+  ).toUpperCase();
+
+  if (strVal === 'CRITICAL' || strVal === 'RED' || strVal.includes('CRIT') || strVal === 'URGENT') return 'CRITICAL';
+  if (strVal === 'HIGH' || strVal === 'ORANGE') return 'HIGH';
+  if (strVal === 'AMBER' || strVal === 'MODERATE' || strVal === 'MEDIUM' || strVal === 'WARNING') return 'MODERATE';
+  if (strVal === 'GREEN' || strVal === 'LOW' || strVal === 'INFO') return 'LOW';
+
+  // Fallback to numeric severity or riskScore
+  const numVal = Number(row.severity ?? row.riskScore);
+  if (!isNaN(numVal) && typeof row.severity === 'number') {
+    if (numVal >= 80) return 'CRITICAL';
+    if (numVal >= 60) return 'HIGH';
+    if (numVal >= 40) return 'MODERATE';
+    return 'LOW';
+  }
+
+  return 'LOW';
+};
+
+// Computes dynamic operational status when database field is undefined
+const getOperationalStatus = (row) => {
+  if (row.status && typeof row.status === 'string' && row.status.trim() !== '') {
+    return row.status;
+  }
+  const tier = getRowSeverityTier(row);
+  switch (tier) {
+    case 'CRITICAL':
+      return 'Evacuation Advisory';
+    case 'HIGH':
+      return 'High Vigilance';
+    case 'MODERATE':
+      return 'Active Monitoring';
+    case 'LOW':
+    default:
+      return 'Routine Surveillance';
+  }
+};
+
+// Formats cell values cleanly into human-readable text
+const formatCell = (value, colKey = '', row = {}) => {
+  if (colKey.toLowerCase() === 'status') {
+    return getOperationalStatus(row);
+  }
+
   if (value === null || value === undefined || value === '') return '—';
 
   // Booleans
@@ -143,9 +205,11 @@ const formatCell = (value, colKey = '') => {
     return 'Detailed Field';
   }
 
-  // Numbers (like scores or percentages)
+  // Numbers
   if (typeof value === 'number') {
-    if (colKey.toLowerCase().includes('score')) return `${Math.round(value)} / 100`;
+    if (colKey.toLowerCase().includes('score') || colKey.toLowerCase() === 'severity') {
+      return `${Math.round(value)} / 100`;
+    }
     if (colKey.toLowerCase().includes('radius')) return `${value} km`;
     return String(value);
   }
@@ -160,7 +224,7 @@ const escapeCsvValue = (val) => {
   return str;
 };
 
-// Computes executive insights from current dataset
+// Computes executive insights with accurate severity tallies
 function computeExecutiveInsights(rows, sourceKey, locationName) {
   const total = rows.length;
   let criticalCount = 0;
@@ -171,23 +235,17 @@ function computeExecutiveInsights(rows, sourceKey, locationName) {
   const hazardCounts = {};
 
   rows.forEach((row) => {
-    // Severity or risk category
-    const sev = String(
-      row.severity || row.riskCategory || row.riskLevel || row.priority || ''
-    ).toUpperCase();
-
-    if (sev === 'CRITICAL' || sev.includes('CRIT') || sev === 'URGENT') criticalCount++;
-    else if (sev === 'HIGH' || sev === 'RED') highCount++;
-    else if (sev === 'AMBER' || sev === 'MODERATE' || sev === 'MEDIUM' || sev === 'WARNING') moderateCount++;
+    const tier = getRowSeverityTier(row);
+    if (tier === 'CRITICAL') criticalCount++;
+    else if (tier === 'HIGH') highCount++;
+    else if (tier === 'MODERATE') moderateCount++;
     else lowCount++;
 
-    // District tallies
     const dist = row.district || row.state || locationName;
     if (dist && typeof dist === 'string') {
       districtCounts[dist] = (districtCounts[dist] || 0) + 1;
     }
 
-    // Hazard type tallies
     const haz = row.hazardType || row.type || row.observationType;
     if (haz && typeof haz === 'string') {
       hazardCounts[haz] = (hazardCounts[haz] || 0) + 1;
@@ -205,17 +263,17 @@ function computeExecutiveInsights(rows, sourceKey, locationName) {
 
   const operationalThreat =
     criticalCount > 0
-      ? 'CRITICAL THREAT — IMMEDIATE ACTION REQUIRED'
+      ? 'CRITICAL THREAT - IMMEDIATE ACTION REQUIRED'
       : highCount > 0
-      ? 'ELEVATED VIGILANCE — ACTIVE ADVISORY'
-      : 'STANDARD MONITORING — NORMAL READINESS';
+      ? 'ELEVATED VIGILANCE - ACTIVE ADVISORY'
+      : 'STANDARD MONITORING - NORMAL READINESS';
 
   const recommendations = [];
   if (criticalCount > 0) {
     recommendations.push(`Initiate immediate emergency coordination for ${criticalCount} critical incidents in ${topDistricts}.`);
   }
   if (highCount > 0) {
-    recommendations.push(`Pre-position relief resources & alert local field teams regarding high-risk ${topHazard}.`);
+    recommendations.push(`Pre-position relief resources and alert local field teams regarding high-risk ${topHazard}.`);
   }
   if (total > 0) {
     recommendations.push(`Continuous telemetry verification active across ${Object.keys(districtCounts).length || 1} administrative sectors.`);
@@ -234,7 +292,7 @@ function computeExecutiveInsights(rows, sourceKey, locationName) {
   };
 }
 
-// Generates an official National/State Disaster Management grade standalone PDF
+// Generates an official National/State Disaster Management grade standalone PDF (100% ASCII safe)
 function generateExecutivePDF(rows, source, insights, locationName, userName, columns) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -256,18 +314,18 @@ function generateExecutivePDF(rows, source, insights, locationName, userName, co
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('AAPDANETRA CRISIS RESPONSE & DISASTER INTELLIGENCE', marginL, 11);
+  doc.text(toSafeAscii('AAPDANETRA CRISIS RESPONSE & DISASTER INTELLIGENCE'), marginL, 11);
 
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(203, 213, 225);
   doc.text(
-    `OFFICIAL SITUATION REPORT (SITREP)  |  DOMAIN: ${source.label.toUpperCase()}  |  JURISDICTION: ${locationName.toUpperCase()}`,
+    toSafeAscii(`OFFICIAL SITUATION REPORT (SITREP) | DOMAIN: ${source.label.toUpperCase()} | JURISDICTION: ${locationName.toUpperCase()}`),
     marginL,
     18
   );
   doc.text(
-    `Generated: ${new Date().toLocaleString('en-IN')}  |  Authorized Officer: ${userName}  |  STATUS: RESTRICTED/OPERATIONAL`,
+    toSafeAscii(`Generated: ${new Date().toLocaleString('en-IN')} | Authorized Officer: ${userName} | STATUS: RESTRICTED/OPERATIONAL`),
     marginL,
     23
   );
@@ -309,19 +367,19 @@ function generateExecutivePDF(rows, source, insights, locationName, userName, co
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(9.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(`EXECUTIVE SUMMARY & SITUATION ASSESSMENT — ${insights.operationalThreat}`, marginL + 7, y + 6);
+  doc.text(toSafeAscii(`EXECUTIVE SUMMARY & SITUATION ASSESSMENT - ${insights.operationalThreat}`), marginL + 7, y + 6);
 
   // Metrics Bar
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(71, 85, 105);
   doc.text(
-    `Critical Threats: ${insights.criticalCount}    |    Elevated / High: ${insights.highCount}    |    Moderate: ${insights.moderateCount}    |    Normal / Low: ${insights.lowCount}`,
+    toSafeAscii(`Critical Threats: ${insights.criticalCount} | Elevated / High: ${insights.highCount} | Moderate: ${insights.moderateCount} | Normal / Low: ${insights.lowCount}`),
     marginL + 7,
     y + 12
   );
   doc.text(
-    `High-Impact Administrative Sectors: ${insights.topDistricts}    |    Primary Threat Vector: ${insights.topHazard}`,
+    toSafeAscii(`High-Impact Administrative Sectors: ${insights.topDistricts} | Primary Threat Vector: ${insights.topHazard}`),
     marginL + 7,
     y + 17
   );
@@ -329,13 +387,13 @@ function generateExecutivePDF(rows, source, insights, locationName, userName, co
   // Operational Actionable Recommendation
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
-  const recText = insights.recommendations[0] || 'Standard surveillance operational protocol maintained.';
+  const recText = toSafeAscii(insights.recommendations[0] || 'Standard surveillance operational protocol maintained.');
   doc.text(`ACTION DIRECTIVE: ${recText}`, marginL + 7, y + 22, { maxWidth: contentW - 14 });
 
   y += 30;
 
   // ── Data Table ──
-  const visibleCols = columns.slice(0, 6);
+  const visibleCols = columns.slice(0, 7);
   const colCount = visibleCols.length;
   const colW = contentW / colCount;
   const headerH = 7.5;
@@ -349,7 +407,7 @@ function generateExecutivePDF(rows, source, insights, locationName, userName, co
   doc.setFont('helvetica', 'bold');
 
   visibleCols.forEach((col, i) => {
-    doc.text(col.label, marginL + i * colW + 2.5, y + 5.2, { maxWidth: colW - 4 });
+    doc.text(toSafeAscii(col.label), marginL + i * colW + 2.5, y + 5.2, { maxWidth: colW - 4 });
   });
 
   y += headerH;
@@ -361,11 +419,10 @@ function generateExecutivePDF(rows, source, insights, locationName, userName, co
   for (let r = 0; r < maxRows; r++) {
     // Page overflow handler
     if (y + rowH > pageH - 14) {
-      // Page Footer
       doc.setFontSize(7);
       doc.setTextColor(148, 163, 184);
       doc.text(
-        `Page ${doc.getNumberOfPages()}  •  AAPDANETRA SITREP  •  CONFIDENTIAL & TIME-SENSITIVE`,
+        toSafeAscii(`Page ${doc.getNumberOfPages()} | AAPDANETRA SITREP | CONFIDENTIAL & TIME-SENSITIVE`),
         marginL,
         pageH - 5
       );
@@ -374,14 +431,13 @@ function generateExecutivePDF(rows, source, insights, locationName, userName, co
       doc.addPage();
       y = 12;
 
-      // Repeat Table Header
       doc.setFillColor(30, 41, 59);
       doc.rect(marginL, y, contentW, headerH, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
       visibleCols.forEach((col, i) => {
-        doc.text(col.label, marginL + i * colW + 2.5, y + 5.2, { maxWidth: colW - 4 });
+        doc.text(toSafeAscii(col.label), marginL + i * colW + 2.5, y + 5.2, { maxWidth: colW - 4 });
       });
       y += headerH;
       doc.setFont('helvetica', 'normal');
@@ -389,20 +445,17 @@ function generateExecutivePDF(rows, source, insights, locationName, userName, co
     }
 
     const row = rows[r];
-    const sev = String(
-      row.severity || row.riskCategory || row.riskLevel || row.priority || ''
-    ).toUpperCase();
-    const isCrit = sev === 'CRITICAL' || sev === 'RED' || sev === 'URGENT';
-    const isHigh = sev === 'HIGH';
+    const tier = getRowSeverityTier(row);
+    const isCrit = tier === 'CRITICAL';
+    const isHigh = tier === 'HIGH';
 
-    // Row Background
     if (isCrit) {
-      doc.setFillColor(254, 242, 242); // light red
+      doc.setFillColor(254, 242, 242);
       doc.rect(marginL, y, contentW, rowH, 'F');
       doc.setFillColor(239, 68, 68);
       doc.rect(marginL, y, 2, rowH, 'F');
     } else if (isHigh) {
-      doc.setFillColor(255, 247, 237); // light orange
+      doc.setFillColor(255, 247, 237);
       doc.rect(marginL, y, contentW, rowH, 'F');
       doc.setFillColor(249, 115, 22);
       doc.rect(marginL, y, 1.5, rowH, 'F');
@@ -411,32 +464,39 @@ function generateExecutivePDF(rows, source, insights, locationName, userName, co
       doc.rect(marginL, y, contentW, rowH, 'F');
     }
 
-    // Row text
     doc.setTextColor(isCrit ? 185 : 30, isCrit ? 28 : 41, isCrit ? 28 : 59);
     visibleCols.forEach((col, i) => {
-      const formatted = formatCell(row[col.key], col.key);
+      const rawVal = formatCell(row[col.key], col.key, row);
+      const formatted = toSafeAscii(rawVal);
       const maxChars = Math.floor(colW / 1.75);
       const cellText = formatted.length > maxChars ? formatted.slice(0, maxChars - 2) + '..' : formatted;
       doc.text(cellText, marginL + i * colW + 2.5, y + 4.7, { maxWidth: colW - 4 });
     });
 
-    // Sub-border
     doc.setDrawColor(226, 232, 240);
     doc.line(marginL, y + rowH, marginL + contentW, y + rowH);
     y += rowH;
   }
 
-  // Final Footer
   doc.setFontSize(7);
   doc.setTextColor(148, 163, 184);
   doc.text(
-    `Page ${doc.getNumberOfPages()}  •  AAPDANETRA SITUATION REPORT  •  CONFIDENTIAL & TIME-SENSITIVE`,
+    toSafeAscii(`Page ${doc.getNumberOfPages()} | AAPDANETRA SITUATION REPORT | CONFIDENTIAL & TIME-SENSITIVE`),
     marginL,
     pageH - 5
   );
   doc.text(`${new Date().toLocaleDateString('en-IN')}`, pageW - marginR - 25, pageH - 5);
 
-  doc.save(`AapdaNetra_Executive_SITREP_${source.key}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  const filename = `AapdaNetra_Executive_SITREP_${source.key}_${new Date().toISOString().slice(0, 10)}.pdf`;
+  doc.save(filename);
+
+  // Also open in new tab so user sees it immediately
+  try {
+    const blobUrl = doc.output('bloburl');
+    window.open(blobUrl, '_blank');
+  } catch (e) {
+    // Popup blocker fallback
+  }
 }
 
 export default function Reports() {
@@ -445,6 +505,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [successToast, setSuccessToast] = useState('');
   const { isDark } = useThemeMode();
   const { location } = useLocationContext();
   const user = getCurrentUser() || { name: 'Command Officer' };
@@ -480,7 +541,7 @@ export default function Reports() {
     if (!rows.length) return [];
     return Object.keys(rows[0])
       .filter((k) => !BLACKLISTED_COLUMNS.includes(k))
-      .slice(0, 6)
+      .slice(0, 7)
       .map((k) => ({
         key: k,
         label: k.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase()).trim(),
@@ -498,8 +559,10 @@ export default function Reports() {
     setGenerating(true);
     try {
       generateExecutivePDF(rows, source, insights, locationName, user?.name || 'Authorized Officer', visibleColumns);
+      setSuccessToast('Official PDF SITREP generated & downloaded successfully!');
     } catch (err) {
       console.error('Executive PDF Generation Error:', err);
+      setError('Failed to render PDF: ' + (err.message || 'Unknown error'));
     } finally {
       setGenerating(false);
     }
@@ -513,7 +576,7 @@ export default function Reports() {
     if (!rows.length) return;
     const header = visibleColumns.map((c) => c.label).join(',');
     const body = rows
-      .map((row) => visibleColumns.map((col) => escapeCsvValue(formatCell(row[col.key], col.key))).join(','))
+      .map((row) => visibleColumns.map((col) => escapeCsvValue(formatCell(row[col.key], col.key, row))).join(','))
       .join('\n');
     const csv = `${header}\n${body}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -525,10 +588,21 @@ export default function Reports() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    setSuccessToast('CSV export downloaded.');
   };
 
   const primaryText = isDark ? '#f8fafc' : '#0f172a';
   const secondaryText = isDark ? '#94a3b8' : '#64748b';
+
+  // Dynamic Theme Colors for the Report Container
+  const headerCardBg = isDark
+    ? 'linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%)'
+    : '#ffffff';
+  const headerCardBorder = isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0';
+  const headerCardText = isDark ? '#ffffff' : '#0f172a';
+  const headerCardSubtext = isDark ? '#94a3b8' : '#475569';
+  const kpiBoxBg = isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc';
+  const kpiBoxBorder = isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0';
 
   return (
     <Boilerplate>
@@ -610,34 +684,33 @@ export default function Reports() {
 
       {/* ── Printable Official Report Container ── */}
       <Box className="printable-report-area">
-        {/* Official Report Header Banner */}
+        {/* Official Report Header Banner — Light Mode & Dark Mode aware */}
         <Paper
           elevation={0}
           sx={{
-            p: { xs: 2, md: 3 },
+            p: { xs: 2.5, md: 3 },
             mb: 3,
             borderRadius: 3,
-            background: isDark
-              ? 'linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.85) 100%)'
-              : 'linear-gradient(145deg, #0f172a 0%, #1e293b 100%)',
-            color: '#ffffff',
-            border: isDark ? '1px solid rgba(255,255,255,0.1)' : 'none',
+            background: headerCardBg,
+            color: headerCardText,
+            border: headerCardBorder,
+            boxShadow: isDark ? 'none' : '0 4px 20px -2px rgba(0,0,0,0.05)',
           }}
         >
           <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2}>
             <Box>
               <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
-                <SecurityIcon sx={{ color: '#38bdf8', fontSize: 24 }} />
-                <Typography variant="overline" sx={{ letterSpacing: '0.12em', color: '#38bdf8', fontWeight: 800 }}>
+                <SecurityIcon sx={{ color: '#0284c7', fontSize: 24 }} />
+                <Typography variant="overline" sx={{ letterSpacing: '0.12em', color: isDark ? '#38bdf8' : '#0284c7', fontWeight: 800 }}>
                   AAPDANETRA DISASTER INTELLIGENCE & RESPONSE AGENCY
                 </Typography>
               </Stack>
-              <Typography variant="h5" fontWeight={800} sx={{ letterSpacing: '-0.02em' }}>
+              <Typography variant="h5" fontWeight={800} sx={{ letterSpacing: '-0.02em', color: headerCardText }}>
                 {source.label.toUpperCase()} — SITUATIONAL REPORT
               </Typography>
-              <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', mt: 0.5 }}>
-                Jurisdiction: <strong style={{ color: '#f8fafc' }}>{locationName}</strong> &nbsp;|&nbsp;
-                Authorized Officer: <strong style={{ color: '#f8fafc' }}>{user?.name || 'Officer On Duty'}</strong> &nbsp;|&nbsp;
+              <Typography variant="caption" sx={{ color: headerCardSubtext, display: 'block', mt: 0.5 }}>
+                Jurisdiction: <strong style={{ color: isDark ? '#f8fafc' : '#0f172a' }}>{locationName}</strong> &nbsp;|&nbsp;
+                Authorized Officer: <strong style={{ color: isDark ? '#f8fafc' : '#0f172a' }}>{user?.name || 'Officer On Duty'}</strong> &nbsp;|&nbsp;
                 Generated: {new Date().toLocaleString('en-IN')}
               </Typography>
             </Box>
@@ -651,59 +724,59 @@ export default function Reports() {
                   fontSize: '0.72rem',
                   bgcolor:
                     insights.criticalCount > 0
-                      ? 'rgba(239, 68, 68, 0.2)'
+                      ? 'rgba(239, 68, 68, 0.15)'
                       : insights.highCount > 0
-                      ? 'rgba(249, 115, 22, 0.2)'
-                      : 'rgba(34, 197, 94, 0.2)',
+                      ? 'rgba(249, 115, 22, 0.15)'
+                      : 'rgba(34, 197, 94, 0.15)',
                   color:
                     insights.criticalCount > 0
-                      ? '#f87171'
+                      ? '#ef4444'
                       : insights.highCount > 0
-                      ? '#fb923c'
-                      : '#4ade80',
+                      ? '#ea580c'
+                      : '#16a34a',
                   border: '1px solid currentColor',
                   mb: 1,
                 }}
               />
-              <Typography variant="body2" sx={{ color: '#cbd5e1', fontWeight: 600 }}>
-                Total Records Analyzed: <strong style={{ color: '#38bdf8', fontSize: '1.1rem' }}>{rows.length}</strong>
+              <Typography variant="body2" sx={{ color: headerCardSubtext, fontWeight: 600 }}>
+                Total Records Analyzed: <strong style={{ color: isDark ? '#38bdf8' : '#0284c7', fontSize: '1.1rem' }}>{rows.length}</strong>
               </Typography>
             </Box>
           </Box>
 
-          <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.12)' }} />
+          <Divider sx={{ my: 2, borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0' }} />
 
           {/* KPI Mini Badges */}
           <Box display="grid" gridTemplateColumns={{ xs: '1fr 1fr', sm: 'repeat(4, 1fr)' }} gap={2}>
-            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: kpiBoxBg, border: kpiBoxBorder }}>
+              <Typography variant="caption" sx={{ color: headerCardSubtext, fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem' }}>
                 Critical Threats
               </Typography>
-              <Typography variant="h6" fontWeight={800} sx={{ color: insights.criticalCount > 0 ? '#ef4444' : '#ffffff' }}>
+              <Typography variant="h6" fontWeight={800} sx={{ color: insights.criticalCount > 0 ? '#ef4444' : headerCardText }}>
                 {insights.criticalCount}
               </Typography>
             </Box>
 
-            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: kpiBoxBg, border: kpiBoxBorder }}>
+              <Typography variant="caption" sx={{ color: headerCardSubtext, fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem' }}>
                 High / Elevated
               </Typography>
-              <Typography variant="h6" fontWeight={800} sx={{ color: insights.highCount > 0 ? '#f97316' : '#ffffff' }}>
+              <Typography variant="h6" fontWeight={800} sx={{ color: insights.highCount > 0 ? '#f97316' : headerCardText }}>
                 {insights.highCount}
               </Typography>
             </Box>
 
-            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: kpiBoxBg, border: kpiBoxBorder }}>
+              <Typography variant="caption" sx={{ color: headerCardSubtext, fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem' }}>
                 Moderate / Amber
               </Typography>
-              <Typography variant="h6" fontWeight={800} sx={{ color: '#eab308' }}>
+              <Typography variant="h6" fontWeight={800} sx={{ color: insights.moderateCount > 0 ? '#eab308' : headerCardText }}>
                 {insights.moderateCount}
               </Typography>
             </Box>
 
-            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: kpiBoxBg, border: kpiBoxBorder }}>
+              <Typography variant="caption" sx={{ color: headerCardSubtext, fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem' }}>
                 Low / Normal
               </Typography>
               <Typography variant="h6" fontWeight={800} sx={{ color: '#22c55e' }}>
@@ -714,13 +787,32 @@ export default function Reports() {
 
           {/* Action Directives / Key Insights */}
           {insights.recommendations.length > 0 && (
-            <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, bgcolor: 'rgba(2, 132, 199, 0.12)', border: '1px solid rgba(2, 132, 199, 0.25)' }}>
-              <Typography variant="caption" sx={{ color: '#38bdf8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 0.8 }}>
+            <Box
+              sx={{
+                mt: 2,
+                p: 1.5,
+                borderRadius: 2,
+                bgcolor: isDark ? 'rgba(2, 132, 199, 0.12)' : '#f0f9ff',
+                border: isDark ? '1px solid rgba(2, 132, 199, 0.25)' : '1px solid #bae6fd',
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  color: isDark ? '#38bdf8' : '#0284c7',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.8,
+                }}
+              >
                 <WarningAmberIcon sx={{ fontSize: 16 }} />
                 Operational Action Directives & Key Insights
               </Typography>
               {insights.recommendations.map((rec, i) => (
-                <Typography key={i} variant="body2" sx={{ color: '#e2e8f0', mt: 0.4, fontSize: '0.78rem', fontWeight: 500 }}>
+                <Typography key={i} variant="body2" sx={{ color: isDark ? '#e2e8f0' : '#334155', mt: 0.4, fontSize: '0.78rem', fontWeight: 500 }}>
                   • {rec}
                 </Typography>
               ))}
@@ -743,6 +835,7 @@ export default function Reports() {
                 ? 'linear-gradient(145deg, rgba(17, 26, 46, 0.85) 0%, rgba(10, 16, 30, 0.92) 100%)'
                 : '#ffffff',
               border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0',
+              boxShadow: isDark ? 'none' : '0 4px 20px -2px rgba(0,0,0,0.04)',
             }}
           >
             <TableContainer sx={{ maxHeight: 600 }}>
@@ -783,11 +876,9 @@ export default function Reports() {
                     </TableRow>
                   ) : (
                     rows.map((row, idx) => {
-                      const sev = String(
-                        row.severity || row.riskCategory || row.riskLevel || row.priority || ''
-                      ).toUpperCase();
-                      const isCrit = sev === 'CRITICAL' || sev === 'RED' || sev === 'URGENT';
-                      const isHigh = sev === 'HIGH';
+                      const tier = getRowSeverityTier(row);
+                      const isCrit = tier === 'CRITICAL';
+                      const isHigh = tier === 'HIGH';
 
                       return (
                         <TableRow
@@ -812,18 +903,52 @@ export default function Reports() {
                           }}
                         >
                           {visibleColumns.map((col) => {
-                            const val = formatCell(row[col.key], col.key);
+                            const val = formatCell(row[col.key], col.key, row);
                             const isStatusCol =
                               col.key.toLowerCase().includes('severity') ||
                               col.key.toLowerCase().includes('level') ||
                               col.key.toLowerCase().includes('riskcategory') ||
-                              col.key.toLowerCase().includes('priority');
+                              col.key.toLowerCase().includes('priority') ||
+                              col.key.toLowerCase().includes('status');
+
+                            // Compute badge color dynamically
+                            let badgeColor = '#16a34a';
+                            let badgeBg = 'rgba(34, 197, 94, 0.15)';
+                            let badgeBorder = 'rgba(34, 197, 94, 0.4)';
+
+                            const upper = String(val).toUpperCase();
+                            if (
+                              upper.includes('CRITICAL') || upper.includes('RED') ||
+                              upper.includes('URGENT') || upper.includes('EVACUATION') ||
+                              (col.key === 'severity' && Number(row.severity) >= 80)
+                            ) {
+                              badgeColor = '#ef4444';
+                              badgeBg = 'rgba(239, 68, 68, 0.15)';
+                              badgeBorder = 'rgba(239, 68, 68, 0.4)';
+                            } else if (
+                              upper.includes('HIGH') || upper.includes('ORANGE') ||
+                              upper.includes('VIGILANCE') ||
+                              (col.key === 'severity' && Number(row.severity) >= 60)
+                            ) {
+                              badgeColor = '#ea580c';
+                              badgeBg = 'rgba(249, 115, 22, 0.15)';
+                              badgeBorder = 'rgba(249, 115, 22, 0.4)';
+                            } else if (
+                              upper.includes('AMBER') || upper.includes('MODERATE') ||
+                              upper.includes('MEDIUM') || upper.includes('WARNING') ||
+                              upper.includes('MONITORING') || upper.includes('SURVEILLANCE') ||
+                              (col.key === 'severity' && Number(row.severity) >= 40)
+                            ) {
+                              badgeColor = '#ca8a04';
+                              badgeBg = 'rgba(234, 179, 8, 0.15)';
+                              badgeBorder = 'rgba(234, 179, 8, 0.4)';
+                            }
 
                             return (
                               <TableCell
                                 key={col.key}
                                 sx={{
-                                  color: isCrit ? '#ef4444' : primaryText,
+                                  color: isCrit ? '#dc2626' : primaryText,
                                   fontSize: '0.8rem',
                                   py: 1.2,
                                   fontWeight: isCrit || col.key === 'name' || col.key === 'title' ? 700 : 500,
@@ -837,23 +962,9 @@ export default function Reports() {
                                     sx={{
                                       fontWeight: 800,
                                       fontSize: '0.68rem',
-                                      bgcolor:
-                                        val.toUpperCase() === 'CRITICAL' || val.toUpperCase() === 'RED' || val.toUpperCase() === 'URGENT'
-                                          ? 'rgba(239, 68, 68, 0.18)'
-                                          : val.toUpperCase() === 'HIGH'
-                                          ? 'rgba(249, 115, 22, 0.18)'
-                                          : val.toUpperCase() === 'AMBER' || val.toUpperCase() === 'MODERATE' || val.toUpperCase() === 'MEDIUM'
-                                          ? 'rgba(234, 179, 8, 0.18)'
-                                          : 'rgba(34, 197, 94, 0.15)',
-                                      color:
-                                        val.toUpperCase() === 'CRITICAL' || val.toUpperCase() === 'RED' || val.toUpperCase() === 'URGENT'
-                                          ? '#ef4444'
-                                          : val.toUpperCase() === 'HIGH'
-                                          ? '#f97316'
-                                          : val.toUpperCase() === 'AMBER' || val.toUpperCase() === 'MODERATE' || val.toUpperCase() === 'MEDIUM'
-                                          ? '#ca8a04'
-                                          : '#16a34a',
-                                      border: '1px solid currentColor',
+                                      bgcolor: badgeBg,
+                                      color: badgeColor,
+                                      border: `1px solid ${badgeBorder}`,
                                     }}
                                   />
                                 ) : (
@@ -872,6 +983,15 @@ export default function Reports() {
           </Paper>
         )}
       </Box>
+
+      {/* Success Notification Snackbar */}
+      <Snackbar
+        open={Boolean(successToast)}
+        autoHideDuration={4000}
+        onClose={() => setSuccessToast('')}
+        message={successToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Boilerplate>
   );
 }
