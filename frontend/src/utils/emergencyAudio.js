@@ -15,9 +15,38 @@ function getAudioContext() {
     }
   }
   if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
+    audioCtx.resume().catch(() => {});
   }
   return audioCtx;
+}
+
+// Automatically unlock AudioContext on the very first user interaction
+export function initAudioUnlock() {
+  if (typeof window === 'undefined') return;
+
+  const unlock = () => {
+    try {
+      const ctx = getAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().then(() => {
+          console.log('[AapdaNetra Audio] Emergency AudioContext unlocked for automated disaster alerts.');
+        });
+      }
+    } catch {}
+
+    window.removeEventListener('click', unlock, true);
+    window.removeEventListener('keydown', unlock, true);
+    window.removeEventListener('touchstart', unlock, true);
+  };
+
+  window.addEventListener('click', unlock, true);
+  window.addEventListener('keydown', unlock, true);
+  window.addEventListener('touchstart', unlock, true);
+}
+
+// Warm up immediately
+if (typeof window !== 'undefined') {
+  initAudioUnlock();
 }
 
 /**

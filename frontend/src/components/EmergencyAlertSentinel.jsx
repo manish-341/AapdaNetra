@@ -85,7 +85,20 @@ export default function EmergencyAlertSentinel() {
             // 1. Play Civil Defense Acoustic Disaster Siren automatically
             if (notifConfig.audioSiren !== false) {
               const started = playEmergencySiren(15000);
-              if (started) setSirenPlaying(true);
+              if (started) {
+                setSirenPlaying(true);
+              }
+              // Register one-shot listener so ANY first click anywhere on screen immediately starts the siren if blocked by browser
+              const startOnFirstGesture = () => {
+                playEmergencySiren(15000);
+                setSirenPlaying(true);
+                window.removeEventListener('click', startOnFirstGesture, true);
+                window.removeEventListener('keydown', startOnFirstGesture, true);
+                window.removeEventListener('touchstart', startOnFirstGesture, true);
+              };
+              window.addEventListener('click', startOnFirstGesture, true);
+              window.addEventListener('keydown', startOnFirstGesture, true);
+              window.addEventListener('touchstart', startOnFirstGesture, true);
             }
 
             // 2. Trigger native OS / browser notification automatically
