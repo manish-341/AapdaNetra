@@ -902,44 +902,76 @@ export default function Signup() {
                           }
                         }
                       }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          placeholder="Select or search your district"
-                          size="small"
-                          error={Boolean(fieldErrors.district)}
-                          helperText={fieldErrors.district}
-                          InputProps={{
-                            ...params.InputProps,
-                            startAdornment: (
-                              <>
-                                <InputAdornment position="start">
-                                  <MapPin size={17} color={isDark ? '#38bdf8' : '#0284c7'} />
-                                </InputAdornment>
-                                {params.InputProps.startAdornment}
-                              </>
-                            ),
-                          }}
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              backgroundColor: inputBg,
-                              borderRadius: 2,
-                              color: textPrimary,
-                              fontSize: '0.88rem',
-                              '& fieldset': { borderColor: borderColor },
-                              '&:hover fieldset': { borderColor: isDark ? '#38bdf8' : '#0284c7' },
-                              '&.Mui-focused fieldset': {
-                                borderColor: isDark ? '#38bdf8' : '#0284c7',
-                                borderWidth: '1.5px',
-                              },
+                      renderInput={(params) => {
+                        const existingStartAdornment = params?.slotProps?.input?.startAdornment || params?.InputProps?.startAdornment;
+                        const commonSx = {
+                          '& .MuiOutlinedInput-root': {
+                            backgroundColor: inputBg,
+                            borderRadius: 2,
+                            color: textPrimary,
+                            fontSize: '0.88rem',
+                            '& fieldset': { borderColor: borderColor },
+                            '&:hover fieldset': { borderColor: isDark ? '#38bdf8' : '#0284c7' },
+                            '&.Mui-focused fieldset': {
+                              borderColor: isDark ? '#38bdf8' : '#0284c7',
+                              borderWidth: '1.5px',
                             },
-                            '& .MuiFormHelperText-root': {
-                              marginLeft: 0.5,
-                              fontSize: '0.75rem',
-                            }
-                          }}
-                        />
-                      )}
+                          },
+                          '& .MuiFormHelperText-root': {
+                            marginLeft: 0.5,
+                            fontSize: '0.75rem',
+                          }
+                        };
+
+                        if (params?.slotProps?.input) {
+                          return (
+                            <TextField
+                              {...params}
+                              placeholder="Select or search your district"
+                              size="small"
+                              error={Boolean(fieldErrors.district)}
+                              helperText={fieldErrors.district}
+                              slotProps={{
+                                ...params.slotProps,
+                                input: {
+                                  ...params.slotProps.input,
+                                  startAdornment: (
+                                    <>
+                                      <InputAdornment position="start">
+                                        <MapPin size={17} color={isDark ? '#38bdf8' : '#0284c7'} />
+                                      </InputAdornment>
+                                      {existingStartAdornment}
+                                    </>
+                                  ),
+                                },
+                              }}
+                              sx={commonSx}
+                            />
+                          );
+                        }
+
+                        return (
+                          <TextField
+                            {...params}
+                            placeholder="Select or search your district"
+                            size="small"
+                            error={Boolean(fieldErrors.district)}
+                            helperText={fieldErrors.district}
+                            InputProps={{
+                              ...(params?.InputProps || {}),
+                              startAdornment: (
+                                <>
+                                  <InputAdornment position="start">
+                                    <MapPin size={17} color={isDark ? '#38bdf8' : '#0284c7'} />
+                                  </InputAdornment>
+                                  {existingStartAdornment}
+                                </>
+                              ),
+                            }}
+                            sx={commonSx}
+                          />
+                        );
+                      }}
                     />
 
                     {/* Auto-populated State (Read-only) */}
