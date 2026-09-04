@@ -1,0 +1,37 @@
+{
+  "system": {
+    "title": "GoI National Habitat Risk & Relocation Management System",
+    "subtitle": "Hazard-Based Red Zone Identification, Carrying Capacity Assessment & Relocation Planning",
+    "department": "Government of India | Ministry of Home Affairs | National Disaster Management Division",
+    "user": "District Officer - Delhi",
+    "supportEmail": "helpdesk@ndma.gov.in"
+  },
+  "stats": [
+    { "title": "Red Zones Identified", "value": "37", "change": "6", "trend": "up", "subtext": "from last month" },
+    { "title": "Vulnerable Habitations", "value": "214", "change": "18", "trend": "up", "subtext": "from last month" },
+    { "title": "Population at Risk", "value": "18,460", "change": "2,340", "trend": "up", "subtext": "from last month" },
+    { "title": "Relocations in Progress", "value": "42", "change": "5", "trend": "up", "subtext": "from last month" }
+  ],
+  "chartData": [
+    { "name": "Critical", "value": 58, "percentage": 27, "color": "#d32f2f" },
+    { "name": "High", "value": 76, "percentage": 36, "color": "#ed6c02" },
+    { "name": "Moderate", "value": 80, "percentage": 37, "color": "#0288d1" }
+  ],
+  "alerts": [
+    { "id": 1, "date": "14 Aug", "message": "Riverbank zone R-12 crossed critical threshold", "type": "Critical" },
+    { "id": 2, "date": "12 Aug", "message": "New habitation cluster detected near L-4", "type": "High" },
+    { "id": 3, "date": "09 Aug", "message": "Relocation batch #18 completed", "type": "Info" }
+  ],
+  "vulnerableHabitations": [
+    { "rank": 1, "cluster": "Kunda Basti, Ward 7", "details": "Flood plain R-12 • Kutcha structures", "score": 92, "level": "Critical", "population": 312 },
+    { "rank": 2, "cluster": "Nala Colony", "details": "Landslide zone L-4 • Semi-pucca structures", "score": 87, "level": "Critical", "population": 198 },
+    { "rank": 3, "cluster": "Ghat Para", "details": "Riverbank erosion zone • Kutcha structures", "score": 64, "level": "High", "population": 140 },
+    { "rank": 4, "cluster": "Station Road Settlement", "details": "Moderate seismic zone • Pucca structures", "score": 38, "level": "Moderate", "population": 85 }
+  ],
+  "relocationPlans": [
+    { "id": "RP-2025-20", "source": "R-12 (Flood Plain)", "target": "S-04 (Proposed Safe Zone)", "population": 620, "relocated": 420, "status": "In Progress", "progress": 68 },
+    { "id": "RP-2025-19", "source": "L-4 (Landslide Zone)", "target": "S-02 (Hill Top Colony)", "population": 480, "relocated": 480, "status": "Completed", "progress": 100 },
+    { "id": "RP-2025-18", "source": "E-03 (Riverbank Erosion)", "target": "S-01 (New Township)", "population": 320, "relocated": 320, "status": "Completed", "progress": 100 },
+    { "id": "RP-2025-17", "source": "R-15 (Flood Plain)", "target": "S-05 (Green Valley)", "population": 550, "relocated": 300, "status": "In Progress", "progress": 55 }
+  ]
+}

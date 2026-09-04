@@ -1,0 +1,35 @@
+{
+  "model": "landslide",
+  "best": "RandomForest",
+  "features": [
+    "slope_angle_deg",
+    "rainfall_mm",
+    "soil_moisture_pct",
+    "elevation_m",
+    "vegetation_cover_pct",
+    "seismic_activity",
+    "drainage_proximity_km",
+    "soil_type_score",
+    "land_use_score",
+    "rainfall_duration_h",
+    "previous_slides"
+  ],
+  "results": {
+    "RandomForest": {
+      "accuracy": 0.817,
+      "precision": 0.8357,
+      "recall": 0.898,
+      "f1": 0.8657,
+      "roc_auc": 0.8697,
+      "train_time_s": 0.356
+    },
+    "XGBoost": {
+      "accuracy": 0.795,
+      "precision": 0.8266,
+      "recall": 0.8706,
+      "f1": 0.848,
+      "roc_auc": 0.857,
+      "train_time_s": 0.41
+    }
+  }
+}

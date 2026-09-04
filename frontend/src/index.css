@@ -1,0 +1,123 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  --bg-primary: #090d16;
+  --bg-secondary: #0f172a;
+  --bg-tertiary: #1e293b;
+  --bg-card: rgba(17, 24, 39, 0.85);
+  --bg-card-hover: rgba(30, 41, 59, 0.95);
+  --border-color: rgba(255, 255, 255, 0.09);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --navbar-bg: #0e1626;
+  --navbar-border: rgba(255, 255, 255, 0.08);
+
+  --sidebar-bg: #0b1120;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --sidebar-item-hover: rgba(56, 189, 248, 0.08);
+  --sidebar-item-active: rgba(56, 189, 248, 0.14);
+  --sidebar-text: #cbd5e1;
+
+  --card-bg-gradient: linear-gradient(145deg, rgba(17, 26, 46, 0.85) 0%, rgba(10, 16, 30, 0.92) 100%);
+  --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  --card-shadow-hover: 0 16px 36px -4px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.1);
+
+  --accent-cyan: #38bdf8;
+  --accent-blue: #3b82f6;
+  --accent-indigo: #6366f1;
+
+  /* Severity colors */
+  --color-critical: #ef4444;
+  --color-high: #f97316;
+  --color-medium: #eab308;
+  --color-low: #22c55e;
+
+  --sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+
+  color-scheme: dark;
+  font-family: var(--sans);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-theme="light"] {
+  --bg-primary: #f4f6fb;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --bg-card-hover: #ffffff;
+  --border-color: rgba(226, 232, 240, 0.9);
+  --border-subtle: rgba(241, 245, 249, 0.9);
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+
+  --navbar-bg: #ffffff;
+  --navbar-border: #e2e8f0;
+
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #e2e8f0;
+  --sidebar-item-hover: rgba(2, 132, 199, 0.08);
+  --sidebar-item-active: rgba(2, 132, 199, 0.12);
+  --sidebar-text: #334155;
+
+  --card-bg-gradient: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+  --card-shadow-hover: 0 12px 28px -4px rgba(0, 0, 0, 0.09), 0 0 15px rgba(2, 132, 199, 0.12);
+
+  --accent-cyan: #0284c7;
+  --accent-blue: #2563eb;
+  --accent-indigo: #4f46e5;
+
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-cyan);
+}
+
+/* Pulse animation for active risks */
+@keyframes pulse-red {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.pulse-critical {
+  animation: pulse-red 2s infinite;
+}
