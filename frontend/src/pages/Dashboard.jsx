@@ -45,12 +45,13 @@ function MiniSparkline({ color, points = '0,18 12,12 24,19 36,9 48,15 60,6 72,11
 }
 
 // Pixel-perfect SVG Donut Chart that NEVER collapses
-function RiskDonutChart({ isDark }) {
+function RiskDonutChart({ isDark, total = 322, low = 184, med = 84, high = 54 }) {
   const r = 48;
   const c = 2 * Math.PI * r; // ~301.59
-  const greenLen = c * 0.57; // ~171.9
-  const amberLen = c * 0.26; // ~78.4
-  const redLen = c * 0.17;   // ~51.3
+  const sum = (low + med + high) || total || 1;
+  const greenLen = c * (low / sum);
+  const amberLen = c * (med / sum);
+  const redLen = c * (high / sum);
 
   return (
     <Box sx={{ position: 'relative', width: 140, height: 140, flexShrink: 0 }}>
@@ -65,7 +66,7 @@ function RiskDonutChart({ isDark }) {
             stroke={isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9'}
             strokeWidth="16"
           />
-          {/* Green Segment (57%) */}
+          {/* Green Segment (Low Risk) */}
           <circle
             cx="70"
             cy="70"
@@ -76,7 +77,7 @@ function RiskDonutChart({ isDark }) {
             strokeDasharray={`${greenLen} ${c}`}
             strokeDashoffset="0"
           />
-          {/* Amber Segment (26%) */}
+          {/* Amber Segment (Medium Risk) */}
           <circle
             cx="70"
             cy="70"
@@ -87,7 +88,7 @@ function RiskDonutChart({ isDark }) {
             strokeDasharray={`${amberLen} ${c}`}
             strokeDashoffset={-greenLen}
           />
-          {/* Red Segment (17%) */}
+          {/* Red Segment (High Risk) */}
           <circle
             cx="70"
             cy="70"
@@ -109,7 +110,7 @@ function RiskDonutChart({ isDark }) {
           fontWeight="800"
           fontFamily="inherit"
         >
-          322
+          {total}
         </text>
         <text
           x="70"
@@ -245,24 +246,46 @@ export default function Dashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    getDashboardStats()
+    const targetDistrict = location?.district || (location?.name ? location.name.split('(')[0].trim() : '');
+    const targetState = location?.state || '';
+
+    getDashboardStats({ district: targetDistrict, state: targetState })
       .then((res) => {
         if (!cancelled && res?.data?.data) {
           setStats(res.data.data);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn('Failed to load localized dashboard stats:', err);
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [location?.district, location?.name, location?.state]);
 
-  const activeAlertsCount = stats?.activeAlerts ?? 11;
-  const criticalAlertsCount = stats?.criticalAlerts ?? 1;
-  const sheltersReady = stats?.sheltersOperational ?? 18;
-  const totalShelters = stats?.totalShelters ?? 20;
-  const populationAtRisk = stats?.populationAtRisk ?? 62730;
-  const reportsCount = stats?.reports24h ?? 9;
+  const activeAlertsCount = stats?.alerts?.total ?? stats?.activeAlerts ?? 11;
+  const criticalAlertsCount = stats?.alerts?.critical ?? stats?.criticalAlerts ?? 1;
+  const sheltersReady = stats?.shelters?.available ?? stats?.sheltersOperational ?? 18;
+  const totalShelters = stats?.shelters?.total ?? stats?.totalShelters ?? 20;
+  const shelterOccupied = stats?.shelters?.occupied ?? stats?.telemetry?.occupiedShelterCount ?? 1740;
+  const shelterReadyPercent = totalShelters > 0 ? Math.round((sheltersReady / totalShelters) * 100) : 88;
+  const populationAtRisk = stats?.populationAtRisk ?? 83730;
+  const reportsCount = stats?.reports?.last24h ?? stats?.reports24h ?? 9;
+  const verifiedReportsCount = stats?.reports?.verified ?? 4;
+
+  const riverName = stats?.telemetry?.riverName || 'River Basin Gauge';
+  const riverLevel = stats?.telemetry?.riverLevel || '142.50m';
+  const riverTrend = stats?.telemetry?.riverTrend || '(+0.18m)';
+  const riverStatus = stats?.telemetry?.riverStatus || 'Normal';
+  const isRiverCritical = riverStatus === 'Critical' || riverStatus === 'Warning' || riverStatus === 'Danger';
+  const activeSectors = stats?.telemetry?.activeSectors ?? 6;
+  const criticalSectors = stats?.telemetry?.criticalSectors ?? 2;
+  const rainfall = stats?.telemetry?.rainfall || '68.4mm (Heavy)';
+
+  const totalHazardZones = stats?.hazards?.total || 322;
+  const highRiskZones = stats?.hazards?.critical || Math.round(totalHazardZones * 0.17) || 72;
+  const medRiskZones = Math.round((totalHazardZones - highRiskZones) * 0.38) || 148;
+  const lowRiskZones = Math.max(0, totalHazardZones - highRiskZones - medRiskZones) || 320;
 
   const cardBg = isDark ? '#111827' : '#ffffff';
   const cardBorder = isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #f1f5f9';
@@ -271,32 +294,52 @@ export default function Dashboard() {
   const textSecondary = isDark ? '#9ca3af' : '#64748b';
   const textMuted = isDark ? '#6b7280' : '#94a3b8';
 
-  const recentAlerts = [
-    {
-      id: 'alert-1',
-      title: 'High Flood Risk',
-      subtitle: 'Yamuna river water level rising',
-      time: '2h ago',
-      icon: <WarningAmberIcon sx={{ color: '#ef4444', fontSize: 20 }} />,
-      iconBg: '#fee2e2',
-    },
-    {
-      id: 'alert-2',
-      title: 'Heavy Rainfall Forecast',
-      subtitle: 'Next 24 hours',
-      time: '4h ago',
-      icon: <ThunderstormOutlinedIcon sx={{ color: '#f97316', fontSize: 20 }} />,
-      iconBg: '#ffedd5',
-    },
-    {
-      id: 'alert-3',
-      title: 'Low-Lying Areas Advisory',
-      subtitle: 'Avoid unnecessary travel',
-      time: '6h ago',
-      icon: <InfoOutlinedIcon sx={{ color: '#3b82f6', fontSize: 20 }} />,
-      iconBg: '#dbeafe',
-    },
-  ];
+  const recentAlerts = (stats?.recentAlerts && stats.recentAlerts.length > 0)
+    ? stats.recentAlerts.map((alert) => {
+        let icon = <WarningAmberIcon sx={{ color: '#ef4444', fontSize: 20 }} />;
+        let iconBg = isDark ? 'rgba(239,68,68,0.2)' : '#fee2e2';
+        if (alert.severity === 'WARNING' || alert.severity === 'HIGH') {
+          icon = <ThunderstormOutlinedIcon sx={{ color: '#f97316', fontSize: 20 }} />;
+          iconBg = isDark ? 'rgba(249,115,22,0.2)' : '#ffedd5';
+        } else if (alert.severity === 'INFO' || alert.severity === 'LOW') {
+          icon = <InfoOutlinedIcon sx={{ color: '#3b82f6', fontSize: 20 }} />;
+          iconBg = isDark ? 'rgba(59,130,246,0.2)' : '#dbeafe';
+        }
+        return {
+          id: alert.id || alert._id,
+          title: alert.title,
+          subtitle: alert.subtitle,
+          time: alert.time || '1h ago',
+          icon,
+          iconBg,
+        };
+      })
+    : [
+        {
+          id: 'alert-1',
+          title: 'High Flood Risk',
+          subtitle: `${riverName} telemetry monitored in ${locationName}`,
+          time: '2h ago',
+          icon: <WarningAmberIcon sx={{ color: '#ef4444', fontSize: 20 }} />,
+          iconBg: isDark ? 'rgba(239,68,68,0.2)' : '#fee2e2',
+        },
+        {
+          id: 'alert-2',
+          title: 'Heavy Rainfall Forecast',
+          subtitle: `${rainfall} in active sectors`,
+          time: '4h ago',
+          icon: <ThunderstormOutlinedIcon sx={{ color: '#f97316', fontSize: 20 }} />,
+          iconBg: isDark ? 'rgba(249,115,22,0.2)' : '#ffedd5',
+        },
+        {
+          id: 'alert-3',
+          title: 'Low-Lying Areas Advisory',
+          subtitle: `${sheltersReady} shelters operational`,
+          time: '6h ago',
+          icon: <InfoOutlinedIcon sx={{ color: '#3b82f6', fontSize: 20 }} />,
+          iconBg: isDark ? 'rgba(59,130,246,0.2)' : '#dbeafe',
+        },
+      ];
 
   return (
     <Boilerplate>
@@ -493,7 +536,7 @@ export default function Dashboard() {
               >
                 <Typography sx={{ fontSize: '0.75rem', color: textMuted }}>Live feeds</Typography>
                 <Typography sx={{ fontSize: '0.75rem', color: textSecondary }}>
-                  Yamuna Gauge <strong style={{ color: '#ef4444' }}>205.85m (+0.52m)</strong>
+                  {riverName} <strong style={{ color: isRiverCritical ? '#ef4444' : '#10b981' }}>{riverLevel} {riverTrend}</strong>
                 </Typography>
               </Box>
             </Paper>
@@ -562,7 +605,7 @@ export default function Dashboard() {
                         fontSize: '0.7rem',
                       }}
                     >
-                      88% Ready
+                      {shelterReadyPercent}% Ready
                     </Box>
                   </Box>
                 </Box>
@@ -581,7 +624,7 @@ export default function Dashboard() {
               >
                 <Typography sx={{ fontSize: '0.75rem', color: textSecondary, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981' }} />
-                  1,740 Occupied
+                  {shelterOccupied.toLocaleString()} Occupied
                 </Typography>
                 <Typography sx={{ fontSize: '0.75rem', color: textSecondary }}>• Operational</Typography>
               </Box>
@@ -665,9 +708,9 @@ export default function Dashboard() {
                   alignItems: 'center',
                 }}
               >
-                <Typography sx={{ fontSize: '0.75rem', color: textSecondary }}>6 Active Sectors</Typography>
+                <Typography sx={{ fontSize: '0.75rem', color: textSecondary }}>{activeSectors} Active Sectors</Typography>
                 <Typography sx={{ fontSize: '0.75rem', color: textSecondary }}>
-                  • <strong style={{ color: '#ef4444' }}>2 Critical</strong>
+                  • <strong style={{ color: '#ef4444' }}>{criticalSectors} Critical</strong>
                 </Typography>
               </Box>
             </Paper>
@@ -733,7 +776,7 @@ export default function Dashboard() {
                       }}
                     >
                       <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#2563eb' }} />
-                      4 Verified
+                      {verifiedReportsCount} Verified
                     </Box>
                   </Box>
                 </Box>
@@ -755,7 +798,7 @@ export default function Dashboard() {
                   Rainfall
                 </Typography>
                 <Typography sx={{ fontSize: '0.75rem', color: textPrimary, fontWeight: 600 }}>
-                  68.4mm (Heavy)
+                  {rainfall}
                 </Typography>
               </Box>
             </Paper>
@@ -791,7 +834,13 @@ export default function Dashboard() {
                 </Typography>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1 }}>
-                  <RiskDonutChart isDark={isDark} />
+                  <RiskDonutChart
+                    isDark={isDark}
+                    total={totalHazardZones}
+                    low={lowRiskZones}
+                    med={medRiskZones}
+                    high={highRiskZones}
+                  />
 
                   <Box sx={{ flex: 1, pl: 3, display: 'flex', flexDirection: 'column', gap: 1.4 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -803,9 +852,11 @@ export default function Dashboard() {
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
                         <Typography sx={{ fontSize: '0.84rem', fontWeight: 800, color: textPrimary }}>
-                          320
+                          {lowRiskZones}
                         </Typography>
-                        <Typography sx={{ fontSize: '0.78rem', color: textMuted }}>57%</Typography>
+                        <Typography sx={{ fontSize: '0.78rem', color: textMuted }}>
+                          {Math.round((lowRiskZones / (totalHazardZones || 1)) * 100)}%
+                        </Typography>
                       </Box>
                     </Box>
 
@@ -818,9 +869,11 @@ export default function Dashboard() {
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
                         <Typography sx={{ fontSize: '0.84rem', fontWeight: 800, color: textPrimary }}>
-                          148
+                          {medRiskZones}
                         </Typography>
-                        <Typography sx={{ fontSize: '0.78rem', color: textMuted }}>26%</Typography>
+                        <Typography sx={{ fontSize: '0.78rem', color: textMuted }}>
+                          {Math.round((medRiskZones / (totalHazardZones || 1)) * 100)}%
+                        </Typography>
                       </Box>
                     </Box>
 
@@ -833,9 +886,11 @@ export default function Dashboard() {
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
                         <Typography sx={{ fontSize: '0.84rem', fontWeight: 800, color: textPrimary }}>
-                          72
+                          {highRiskZones}
                         </Typography>
-                        <Typography sx={{ fontSize: '0.78rem', color: textMuted }}>17%</Typography>
+                        <Typography sx={{ fontSize: '0.78rem', color: textMuted }}>
+                          {Math.round((highRiskZones / (totalHazardZones || 1)) * 100)}%
+                        </Typography>
                       </Box>
                     </Box>
                   </Box>
