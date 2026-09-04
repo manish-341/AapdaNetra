@@ -5,7 +5,7 @@ import { clearAuthToken, getCurrentUser } from '../lib/auth';
 import { getAlerts } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext } from '../context/LocationContext';
-import { alertMatchesLocation } from '../utils/alertMatcher';
+import { alertMatchesLocation, isTrueCriticalAlert } from '../utils/alertMatcher';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -50,9 +50,9 @@ const Navbar = () => {
 
   // Filter alerts specifically for current jurisdiction to prevent overwhelming clutter
   const localAlerts = alerts.filter(a => a.isActive !== false && alertMatchesLocation(a, location));
-  const localCriticalAlerts = localAlerts.filter(a => a.severity === 'CRITICAL');
+  const localCriticalAlerts = localAlerts.filter(a => isTrueCriticalAlert(a));
   const hasLocalCritical = localCriticalAlerts.length > 0;
-  const localBadgeCount = hasLocalCritical ? localCriticalAlerts.length : localAlerts.length;
+  const localBadgeCount = localAlerts.length;
 
   return (
     <header className="top-navbar">

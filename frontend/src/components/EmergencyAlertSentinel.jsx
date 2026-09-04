@@ -36,7 +36,7 @@ import { triggerDisasterNotification } from '../utils/emergencyNotification';
 import { useLocationContext } from '../context/LocationContext';
 import { useThemeMode } from '../context/ThemeContext';
 import { getCurrentUser } from '../lib/auth';
-import { alertMatchesLocation } from '../utils/alertMatcher';
+import { alertMatchesLocation, isTrueCriticalAlert } from '../utils/alertMatcher';
 
 const NOTIFICATIONS_STORAGE_KEY = 'aapdanetra_notifications_config';
 const ACKNOWLEDGED_ALERTS_KEY = 'an_acknowledged_critical_alerts';
@@ -109,8 +109,8 @@ export default function EmergencyAlertSentinel() {
         // 3. The single most important alert for this jurisdiction
         const primaryAlert = localAlerts[0] || null;
 
-        // 4. STRICT RULE: Acoustic alarm and emergency banner trigger ONLY IF the situation is truly CRITICAL
-        const isCriticalSituation = primaryAlert && primaryAlert.severity === 'CRITICAL';
+        // 4. STRICT CIVIL DEFENSE RULE: Alarm siren triggers ONLY for genuine, verified CRITICAL emergencies
+        const isCriticalSituation = primaryAlert && isTrueCriticalAlert(primaryAlert);
 
         if (isCriticalSituation) {
           const alertId = primaryAlert._id || primaryAlert.id || primaryAlert.title;
@@ -123,8 +123,8 @@ export default function EmergencyAlertSentinel() {
           const isAcknowledged = acknowledgedIds.includes(alertId);
           setActiveCriticalAlert(primaryAlert);
 
-          // Show floating Alert Popup Toast only for critical situation
-          if (!isAcknowledged) {
+          // Show floating Alert Popup Toast only for critical situation and when modal is not already open
+          if (!isAcknowledged && !modalOpen) {
             setToastPopupOpen(true);
           }
 
@@ -165,19 +165,19 @@ export default function EmergencyAlertSentinel() {
               }
             }
 
-            setModalOpen(true);
+            // Un-dismiss banner so civil defense bar is visible, but do NOT force-open large center modal
             setBannerDismissed(false);
           }
         } else {
-          // When situation is NOT critical, silence any siren immediately and do NOT show critical banner
+          // When situation is NOT critical, silence any siren immediately and do NOT show critical banner or toast
           setActiveCriticalAlert(null);
           setBannerDismissed(true);
           setToastPopupOpen(false);
 
           if (isSirenActive()) {
             stopEmergencySiren();
-            setSirenPlaying(false);
           }
+          setSirenPlaying(false);
         }
       } catch (err) {
         console.warn('[Emergency Sentinel] Alert check error:', err.message);
@@ -333,8 +333,8 @@ export default function EmergencyAlertSentinel() {
         </Box>
       )}
 
-      {/* 2. REAL-TIME FLOATING ALERT POPUP TOAST (Shown ONLY when a true CRITICAL situation is active) */}
-      {toastPopupOpen && activeCriticalAlert && (
+      {/* 2. REAL-TIME FLOATING ALERT POPUP TOAST (Shown ONLY when a true CRITICAL situation is active AND modal is closed) */}
+      {toastPopupOpen && activeCriticalAlert && !modalOpen && (
         <Box
           sx={{
             position: 'fixed',
@@ -460,8 +460,8 @@ export default function EmergencyAlertSentinel() {
           sx: {
             borderRadius: 4,
             border: '1px solid',
-            borderColor: activeCriticalAlert ? '#ef4444' : 'var(--border-color)',
-            boxShadow: activeCriticalAlert
+            borderColor: activeCriticalAlert && isTrueCriticalAlert(activeCriticalAlert) ? '#ef4444' : 'var(--border-color)',
+            boxShadow: activeCriticalAlert && isTrueCriticalAlert(activeCriticalAlert)
               ? '0 25px 60px -15px rgba(239, 68, 68, 0.45)'
               : '0 20px 45px rgba(0, 0, 0, 0.25)',
             bgcolor: isDark ? '#0f172a' : '#ffffff',
@@ -478,14 +478,14 @@ export default function EmergencyAlertSentinel() {
                   width: 42,
                   height: 42,
                   borderRadius: 2.5,
-                  bgcolor: activeCriticalAlert ? 'rgba(239, 68, 68, 0.15)' : 'rgba(2, 132, 199, 0.12)',
+                  bgcolor: activeCriticalAlert && isTrueCriticalAlert(activeCriticalAlert) ? 'rgba(239, 68, 68, 0.15)' : 'rgba(2, 132, 199, 0.12)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: activeCriticalAlert ? '#ef4444' : '#0284c7'
+                  color: activeCriticalAlert && isTrueCriticalAlert(activeCriticalAlert) ? '#ef4444' : '#0284c7'
                 }}
               >
-                {activeCriticalAlert ? <AlertTriangle size={22} /> : <BellRing size={22} />}
+                {activeCriticalAlert && isTrueCriticalAlert(activeCriticalAlert) ? <AlertTriangle size={22} /> : <BellRing size={22} />}
               </Box>
               <Box>
                 <Box display="flex" alignItems="center" gap={1}>
@@ -560,88 +560,104 @@ export default function EmergencyAlertSentinel() {
               {primaryDistrictAlert ? (
                 <>
                   {/* FEATURED: SINGLE MOST IMPORTANT ALERT */}
-                  <Box
-                    sx={{
-                      p: 2.2,
-                      borderRadius: 3,
-                      bgcolor:
-                        primaryDistrictAlert.severity === 'CRITICAL'
-                          ? isDark
-                            ? 'rgba(239, 68, 68, 0.12)'
-                            : '#fef2f2'
-                          : isDark
-                          ? 'rgba(249, 115, 22, 0.1)'
-                          : '#fff7ed',
-                      border: '1.5px solid',
-                      borderColor:
-                        primaryDistrictAlert.severity === 'CRITICAL' ? '#ef4444' : '#f97316',
-                      mb: 2
-                    }}
-                  >
-                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Chip
-                          label={`MOST IMPORTANT: ${primaryDistrictAlert.severity}`}
+                  {(() => {
+                    const isTrulyCritical = isTrueCriticalAlert(primaryDistrictAlert);
+                    const effectiveSev = isTrulyCritical
+                      ? 'CRITICAL'
+                      : primaryDistrictAlert.severity === 'CRITICAL'
+                      ? 'WARNING'
+                      : primaryDistrictAlert.severity || 'INFO';
+                    const isHigh = effectiveSev === 'HIGH';
+                    const isCrit = effectiveSev === 'CRITICAL';
+                    const themeColor = isCrit ? '#ef4444' : isHigh ? '#f97316' : '#0284c7';
+                    const bgTint = isDark
+                      ? isCrit
+                        ? 'rgba(239, 68, 68, 0.12)'
+                        : isHigh
+                        ? 'rgba(249, 115, 22, 0.1)'
+                        : 'rgba(2, 132, 199, 0.1)'
+                      : isCrit
+                      ? '#fef2f2'
+                      : isHigh
+                      ? '#fff7ed'
+                      : '#f0f9ff';
+
+                    return (
+                      <Box
+                        sx={{
+                          p: 2.2,
+                          borderRadius: 3,
+                          bgcolor: bgTint,
+                          border: '1.5px solid',
+                          borderColor: themeColor,
+                          mb: 2
+                        }}
+                      >
+                        <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Chip
+                              label={`MOST IMPORTANT: ${effectiveSev}`}
+                              size="small"
+                              sx={{
+                                bgcolor: themeColor,
+                                color: '#fff',
+                                fontWeight: 900,
+                                fontSize: '0.68rem',
+                                height: 22
+                              }}
+                            />
+                            <Chip
+                              label={primaryDistrictAlert.hazardType || 'HAZARD'}
+                              size="small"
+                              variant="outlined"
+                              sx={{ fontWeight: 700, fontSize: '0.65rem', height: 22 }}
+                            />
+                          </Box>
+
+                          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                            {new Date(primaryDistrictAlert.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </Typography>
+                        </Box>
+
+                        <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.primary', mb: 0.8 }}>
+                          {primaryDistrictAlert.title}
+                        </Typography>
+
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5, lineHeight: 1.5 }}>
+                          {primaryDistrictAlert.message || primaryDistrictAlert.description}
+                        </Typography>
+
+                        {primaryDistrictAlert.affectedRadius && (
+                          <Typography variant="caption" sx={{ color: 'text.muted', display: 'block', mb: 1.5 }}>
+                            📍 Threat Radius: <strong>{primaryDistrictAlert.affectedRadius} km</strong> around monitored zone.
+                          </Typography>
+                        )}
+
+                        <Button
                           size="small"
-                          sx={{
-                            bgcolor:
-                              primaryDistrictAlert.severity === 'CRITICAL' ? '#ef4444' : '#f97316',
-                            color: '#fff',
-                            fontWeight: 900,
-                            fontSize: '0.68rem',
-                            height: 22
+                          variant="contained"
+                          onClick={() => {
+                            setModalOpen(false);
+                            navigate('/disaster-map');
                           }}
-                        />
-                        <Chip
-                          label={primaryDistrictAlert.hazardType || 'HAZARD'}
-                          size="small"
-                          variant="outlined"
-                          sx={{ fontWeight: 700, fontSize: '0.65rem', height: 22 }}
-                        />
+                          startIcon={<MapPin size={14} />}
+                          sx={{
+                            bgcolor: themeColor,
+                            color: '#fff',
+                            fontWeight: 700,
+                            fontSize: '0.75rem',
+                            textTransform: 'none',
+                            borderRadius: 2,
+                            '&:hover': {
+                              bgcolor: themeColor
+                            }
+                          }}
+                        >
+                          View Safe Routes on Threat Map
+                        </Button>
                       </Box>
-
-                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                        {new Date(primaryDistrictAlert.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </Typography>
-                    </Box>
-
-                    <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.primary', mb: 0.8 }}>
-                      {primaryDistrictAlert.title}
-                    </Typography>
-
-                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5, lineHeight: 1.5 }}>
-                      {primaryDistrictAlert.message || primaryDistrictAlert.description}
-                    </Typography>
-
-                    {primaryDistrictAlert.affectedRadius && (
-                      <Typography variant="caption" sx={{ color: 'text.muted', display: 'block', mb: 1.5 }}>
-                        📍 Threat Radius: <strong>{primaryDistrictAlert.affectedRadius} km</strong> around monitored zone.
-                      </Typography>
-                    )}
-
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={() => {
-                        setModalOpen(false);
-                        navigate('/disaster-map');
-                      }}
-                      startIcon={<MapPin size={14} />}
-                      sx={{
-                        bgcolor: primaryDistrictAlert.severity === 'CRITICAL' ? '#ef4444' : '#f97316',
-                        color: '#fff',
-                        fontWeight: 700,
-                        fontSize: '0.75rem',
-                        textTransform: 'none',
-                        borderRadius: 2,
-                        '&:hover': {
-                          bgcolor: primaryDistrictAlert.severity === 'CRITICAL' ? '#dc2626' : '#ea580c'
-                        }
-                      }}
-                    >
-                      View Safe Routes on Threat Map
-                    </Button>
-                  </Box>
+                    );
+                  })()}
 
                   {/* SECONDARY LOCAL ADVISORIES (MAX 2 ITEMS TO PREVENT CLUTTER) */}
                   {secondaryDistrictAlerts.length > 0 && (

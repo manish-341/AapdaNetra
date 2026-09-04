@@ -216,11 +216,11 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
             reason: `Urgent evacuation due to monsoon water surge in ${districtName} basin`
         });
 
-        // 5. Create Local Alert
+        // 5. Create Local Alert (Advisory/Warning level, NOT critical alarm)
         await Alert.create({
             title: `EARLY WARNING — Flood & Inundation Watch (${districtName})`,
-            message: `Hydrological gauge thresholds in ${districtName} approaching critical marks. Responders on alert.`,
-            severity: "CRITICAL",
+            message: `Hydrological gauge thresholds in ${districtName} approaching warning marks. Responders on monitoring status.`,
+            severity: "WARNING",
             hazardType: "FLOOD",
             source: "OFFICIAL",
             verificationStatus: "VERIFIED",

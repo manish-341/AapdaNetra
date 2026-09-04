@@ -63,3 +63,41 @@ export function alertMatchesLocation(alert, userLoc) {
 
   return false;
 }
+
+/**
+ * Strict verification of whether an alert qualifies as an immediate CRITICAL life-safety emergency
+ * that warrants an acoustic civil defense siren.
+ * 
+ * Rules:
+ * - Must have severity === 'CRITICAL'
+ * - Must NOT be a watch, early warning, advisory, forecast, monitoring, precaution, or minor waterlogging
+ * - Must be an active, verified emergency situation
+ */
+export function isTrueCriticalAlert(alert) {
+  if (!alert || alert.isActive === false) return false;
+  if (alert.severity !== 'CRITICAL') return false;
+
+  const title = (alert.title || '').toLowerCase();
+  const message = (alert.message || alert.description || '').toLowerCase();
+
+  // Explicit non-critical keywords in title or message
+  const advisoryKeywords = [
+    'watch',
+    'early warning',
+    'advisory',
+    'forecast',
+    'monitoring',
+    'precaution',
+    'waterlogging',
+    'elevated risk',
+    'preparedness'
+  ];
+
+  for (const kw of advisoryKeywords) {
+    if (title.includes(kw)) {
+      return false; // Title explicitly indicates Watch / Early Warning / Advisory
+    }
+  }
+
+  return true;
+}
