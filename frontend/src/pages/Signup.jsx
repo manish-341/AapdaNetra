@@ -34,7 +34,7 @@ import {
   Moon,
   X
 } from 'lucide-react';
-import { registerUser, googleDirectLogin } from '../services/api';
+import { registerUser } from '../services/api';
 import { setAuthToken } from '../lib/auth';
 import { useThemeMode } from '../context/ThemeContext';
 import aapdaHeroBg from '../assets/aapda_hero_bg.jpg';
@@ -273,66 +273,10 @@ export default function Signup() {
     }
   };
 
-  // Google SSO Modal State (Consistent with Login.jsx)
-  const [googleModalOpen, setGoogleModalOpen] = useState(false);
-  const [googleEmail, setGoogleEmail] = useState('');
-  const [googlePassword, setGooglePassword] = useState('');
-  const [googleShowPassword, setGoogleShowPassword] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [googleError, setGoogleError] = useState('');
-  const [googleStep, setGoogleStep] = useState('email');
-
+  // Official Google OAuth 2.0 Registration (Direct verification via Google Accounts)
   const handleGoogleSignup = () => {
-    setServerError('');
-    setGoogleError('');
-    setGoogleEmail('citizen.new@gmail.com');
-    setGooglePassword('');
-    setGoogleStep('email');
-    setGoogleModalOpen(true);
-  };
-
-  const handleGoogleNextEmail = (chosenEmail) => {
-    const emailToUse = chosenEmail || googleEmail;
-    if (!emailToUse.trim()) {
-      setGoogleError('Enter an email or phone number');
-      return;
-    }
-    if (!emailToUse.includes('@')) {
-      setGoogleError('Couldn’t find your Google Account. Please enter a valid email.');
-      return;
-    }
-    setGoogleEmail(emailToUse);
-    setGoogleError('');
-    setGoogleStep('password');
-  };
-
-  const handleGoogleSubmitPassword = async (e) => {
-    if (e) e.preventDefault();
-    if (!googlePassword.trim()) {
-      setGoogleError('Enter a password');
-      return;
-    }
-
-    setGoogleLoading(true);
-    setGoogleError('');
-
-    try {
-      const res = await googleDirectLogin({
-        email: googleEmail,
-        password: googlePassword,
-        role: 'citizen',
-        name: googleEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-      });
-
-      const { token, ...userData } = res.data.data;
-      setAuthToken(token, userData, true);
-      setGoogleModalOpen(false);
-      navigate('/dashboard', { replace: true });
-    } catch (err) {
-      setGoogleError(err.response?.data?.message || 'Google sign-in could not be completed. Please try again.');
-    } finally {
-      setGoogleLoading(false);
-    }
+    const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+    window.location.href = `${apiBase}/auth/google?role=citizen`;
   };
 
   return (
@@ -1275,13 +1219,13 @@ export default function Signup() {
                       </Box>
                     </Box>
 
-                    {/* Google Sign-in Button */}
+                    {/* High-Visibility Google Sign-in Button */}
                     <Button
                       fullWidth
                       variant="outlined"
                       onClick={handleGoogleSignup}
                       startIcon={
-                        <svg width="18" height="18" viewBox="0 0 24 24">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
                           <path
                             fill="#4285F4"
                             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -1301,17 +1245,24 @@ export default function Signup() {
                         </svg>
                       }
                       sx={{
-                        color: brandDarkNavy,
-                        borderColor: inputBorder,
-                        py: 1.15,
+                        color: isDark ? '#ffffff' : '#1f2937',
+                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#ffffff',
+                        border: isDark ? '1.5px solid rgba(255, 255, 255, 0.22)' : '1.5px solid #d0d5dd',
+                        boxShadow: isDark
+                          ? '0 2px 6px rgba(0, 0, 0, 0.4)'
+                          : '0 1px 3px rgba(16, 24, 40, 0.08)',
+                        py: 1.25,
                         borderRadius: 2,
-                        fontSize: '0.88rem',
+                        fontSize: '0.92rem',
                         fontWeight: 650,
                         textTransform: 'none',
-                        backgroundColor: inputBg,
+                        transition: 'all 0.2s ease',
                         '&:hover': {
                           borderColor: primaryBrandBlue,
-                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.14)' : '#f9fafb',
+                          boxShadow: isDark
+                            ? '0 4px 12px rgba(0, 101, 255, 0.3)'
+                            : '0 4px 12px rgba(0, 101, 255, 0.15)',
                         },
                       }}
                     >
@@ -1423,236 +1374,7 @@ export default function Signup() {
         </Box>
       </Box>
 
-      {/* Google Authentication Dialog Modal (Matching Login.jsx) */}
-      <Dialog
-        open={googleModalOpen}
-        onClose={() => !googleLoading && setGoogleModalOpen(false)}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            backgroundColor: cardBg,
-            color: brandDarkNavy,
-            border: `1px solid ${inputBorder}`,
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-            p: 1,
-          },
-        }}
-      >
-        <DialogContent sx={{ p: { xs: 2.5, sm: 3 } }}>
-          {googleLoading && <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />}
 
-          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-            <Box display="flex" alignItems="center" gap={1.5}>
-              <svg width="24" height="24" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              <Typography variant="subtitle1" fontWeight={700}>
-                Sign up with Google
-              </Typography>
-            </Box>
-            <IconButton
-              size="small"
-              onClick={() => !googleLoading && setGoogleModalOpen(false)}
-              sx={{ color: brandMutedText }}
-            >
-              <X size={18} />
-            </IconButton>
-          </Box>
-
-          <Typography variant="body2" sx={{ color: brandSecondaryNavy, mb: 2.5, fontSize: '0.84rem' }}>
-            Choose an account to continue to <strong>AapdaNetra Platform</strong> as a Citizen.
-          </Typography>
-
-          {googleError && (
-            <Alert severity="error" sx={{ mb: 2, borderRadius: 2, fontSize: '0.8rem' }}>
-              {googleError}
-            </Alert>
-          )}
-
-          {googleStep === 'email' ? (
-            <Box>
-              <Box
-                onClick={() => handleGoogleNextEmail('citizen.delhi@gmail.com')}
-                sx={{
-                  p: 1.5,
-                  borderRadius: 2,
-                  border: `1px solid ${inputBorder}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                  cursor: 'pointer',
-                  mb: 2,
-                  '&:hover': {
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc',
-                    borderColor: primaryBrandBlue,
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: '50%',
-                    backgroundColor: primaryBrandBlue,
-                    color: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 700,
-                    fontSize: '0.84rem',
-                  }}
-                >
-                  C
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" fontWeight={650} sx={{ fontSize: '0.84rem' }}>
-                    Citizen User
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: brandMutedText, fontSize: '0.74rem' }}>
-                    citizen.delhi@gmail.com
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Typography variant="caption" sx={{ color: brandMutedText, display: 'block', mb: 1 }}>
-                Or use your own Google email:
-              </Typography>
-
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Email or phone"
-                value={googleEmail}
-                onChange={(e) => setGoogleEmail(e.target.value)}
-                sx={{
-                  mb: 2.5,
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: inputBg,
-                    borderRadius: 2,
-                    color: brandDarkNavy,
-                    fontSize: '0.86rem',
-                    '& fieldset': { borderColor: inputBorder },
-                  },
-                }}
-              />
-
-              <Box display="flex" justifyContent="flex-end" gap={1.5}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => setGoogleModalOpen(false)}
-                  sx={{ textTransform: 'none', borderRadius: 2, color: brandSecondaryNavy, borderColor: inputBorder }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={() => handleGoogleNextEmail()}
-                  sx={{
-                    textTransform: 'none',
-                    borderRadius: 2,
-                    backgroundColor: primaryBrandBlue,
-                    fontWeight: 700,
-                  }}
-                >
-                  Next
-                </Button>
-              </Box>
-            </Box>
-          ) : (
-            <Box component="form" onSubmit={handleGoogleSubmitPassword}>
-              <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <Typography variant="body2" fontWeight={600} sx={{ color: brandDarkNavy }}>
-                  {googleEmail}
-                </Typography>
-                <Button
-                  size="small"
-                  onClick={() => setGoogleStep('email')}
-                  sx={{ textTransform: 'none', fontSize: '0.75rem', p: 0, minWidth: 0, color: primaryBrandBlue }}
-                >
-                  Change
-                </Button>
-              </Box>
-
-              <TextField
-                fullWidth
-                size="small"
-                type={googleShowPassword ? 'text' : 'password'}
-                placeholder="Enter your password (e.g. password123)"
-                value={googlePassword}
-                onChange={(e) => setGooglePassword(e.target.value)}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        size="small"
-                        onClick={() => setGoogleShowPassword(!googleShowPassword)}
-                        sx={{ color: brandMutedText }}
-                      >
-                        {googleShowPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  mb: 2.5,
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: inputBg,
-                    borderRadius: 2,
-                    color: brandDarkNavy,
-                    fontSize: '0.86rem',
-                    '& fieldset': { borderColor: inputBorder },
-                  },
-                }}
-              />
-
-              <Box display="flex" justifyContent="flex-end" gap={1.5}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => setGoogleStep('email')}
-                  disabled={googleLoading}
-                  sx={{ textTransform: 'none', borderRadius: 2, color: brandSecondaryNavy, borderColor: inputBorder }}
-                >
-                  Back
-                </Button>
-                <Button
-                  size="small"
-                  type="submit"
-                  variant="contained"
-                  disabled={googleLoading}
-                  sx={{
-                    textTransform: 'none',
-                    borderRadius: 2,
-                    backgroundColor: primaryBrandBlue,
-                    fontWeight: 700,
-                  }}
-                >
-                  {googleLoading ? 'Signing in...' : 'Sign in'}
-                </Button>
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Information Dialog for Navbar Links (About, How It Works, Contact) */}
       <Dialog
