@@ -55,6 +55,7 @@ export default function StatCard({
   value,
   change,
   subtext,
+  telemetry,
   icon: Icon,
   colorScheme = 'cyan',
 }) {
@@ -77,7 +78,7 @@ export default function StatCard({
           : '0 4px 18px -2px rgba(0, 0, 0, 0.05)',
         transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
         '&:hover': {
-          transform: 'translateY(-4px)',
+          transform: 'translateY(-3px)',
           borderColor: scheme.border,
           boxShadow: isDark
             ? `0 14px 28px -4px rgba(0, 0, 0, 0.5), 0 0 20px ${scheme.glow}`
@@ -94,14 +95,14 @@ export default function StatCard({
         },
       }}
     >
-      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+      <CardContent sx={{ p: 2.2, '&:last-child': { pb: 2.2 } }}>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.2}>
           <Typography
             variant="body2"
             sx={{
               color: isDark ? '#94a3b8' : '#64748b',
               fontWeight: 700,
-              fontSize: '0.8rem',
+              fontSize: '0.75rem',
               letterSpacing: '0.04em',
               textTransform: 'uppercase',
             }}
@@ -111,9 +112,9 @@ export default function StatCard({
           {Icon && (
             <Box
               sx={{
-                width: 40,
-                height: 40,
-                borderRadius: 2.5,
+                width: 36,
+                height: 36,
+                borderRadius: 2,
                 background: scheme.gradient,
                 display: 'flex',
                 alignItems: 'center',
@@ -123,7 +124,7 @@ export default function StatCard({
                 flexShrink: 0,
               }}
             >
-              <Icon sx={{ fontSize: 22 }} />
+              <Icon sx={{ fontSize: 20 }} />
             </Box>
           )}
         </Box>
@@ -135,7 +136,8 @@ export default function StatCard({
             color: isDark ? '#f8fafc' : '#0f172a',
             letterSpacing: '-0.03em',
             lineHeight: 1.2,
-            mb: 1.2,
+            mb: 1,
+            fontSize: '1.85rem'
           }}
         >
           {value}
@@ -148,8 +150,8 @@ export default function StatCard({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 0.6,
-                px: 1.1,
-                py: 0.35,
+                px: 1,
+                py: 0.3,
                 borderRadius: 1.5,
                 backgroundColor: scheme.badgeBg,
                 border: `1px solid ${scheme.border}`,
@@ -189,6 +191,43 @@ export default function StatCard({
             </Typography>
           )}
         </Box>
+
+        {telemetry && (
+          <Box
+            sx={{
+              mt: 1.5,
+              pt: 1.2,
+              borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.07)' : '1px solid rgba(0, 0, 0, 0.06)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1
+            }}
+          >
+            <Typography
+              variant="caption"
+              noWrap
+              sx={{
+                color: isDark ? '#94a3b8' : '#64748b',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+              }}
+            >
+              {telemetry.label}
+            </Typography>
+            <Typography
+              variant="caption"
+              noWrap
+              sx={{
+                color: telemetry.highlight ? scheme.accent : (isDark ? '#e2e8f0' : '#1e293b'),
+                fontSize: '0.72rem',
+                fontWeight: 700
+              }}
+            >
+              {telemetry.value}
+            </Typography>
+          </Box>
+        )}
       </CardContent>
     </Card>
   );

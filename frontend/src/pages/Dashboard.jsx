@@ -128,17 +128,19 @@ export default function Dashboard() {
 
   return (
     <Boilerplate>
-      {/* 1. Top Clean Status Header */}
+      {/* 1. Spacious Executive Header */}
       <Box
-        display="flex"
-        flexDirection={{ xs: 'column', md: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'flex-start', md: 'center' }}
-        gap={2}
-        mb={2.5}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 2,
+          mb: 3.5,
+        }}
       >
         <Box>
-          <Box display="flex" alignItems="center" gap={1.2} mb={0.4}>
+          <Box display="flex" alignItems="center" gap={1} mb={0.5}>
             <span className="beacon-live" />
             <Typography
               variant="caption"
@@ -163,210 +165,115 @@ export default function Dashboard() {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               letterSpacing: '-0.02em',
-              fontSize: { xs: '1.6rem', md: '1.95rem' },
-              lineHeight: 1.25
+              fontSize: { xs: '1.55rem', sm: '1.8rem', md: '2.05rem' },
+              lineHeight: 1.2
             }}
           >
             AapdaNetra Crisis Decision Cockpit
           </Typography>
-          <Typography variant="body2" sx={{ color: secondaryTextColor, mt: 0.3 }}>
-            Welcome back, <strong style={{ color: primaryTextColor }}>{user.name}</strong> ({user.role}) • Situational intelligence for{' '}
+          <Typography variant="body2" sx={{ color: secondaryTextColor, mt: 0.4 }}>
+            Welcome back, <strong style={{ color: primaryTextColor }}>{user.name}</strong> • Situational intelligence for{' '}
             <span style={{ color: isDark ? '#38bdf8' : '#0284c7', fontWeight: 700 }}>{user.district || 'Delhi'}</span>
           </Typography>
         </Box>
 
-        {/* Header Action Button */}
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <Button
-            variant="contained"
-            startIcon={<MapOutlinedIcon />}
-            onClick={() => navigate('/disaster-map')}
-            sx={{
-              background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-              boxShadow: '0 4px 16px rgba(37, 99, 235, 0.3)',
-              fontWeight: 700,
-              fontSize: '0.82rem',
-              px: 2.2,
-              py: 0.85,
-              borderRadius: 2.5,
-              textTransform: 'none',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%)',
-                boxShadow: '0 6px 20px rgba(37, 99, 235, 0.45)',
-              }
-            }}
-          >
-            Live Disaster Map
-          </Button>
-        </Stack>
+        {/* Live Threat Map Button - Aligned gracefully on the right */}
+        <Button
+          variant="contained"
+          startIcon={<MapOutlinedIcon sx={{ fontSize: 18 }} />}
+          onClick={() => navigate('/disaster-map')}
+          sx={{
+            background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+            boxShadow: '0 4px 14px rgba(37, 99, 235, 0.25)',
+            fontWeight: 700,
+            fontSize: '0.82rem',
+            px: 2.2,
+            py: 0.85,
+            borderRadius: 2.5,
+            textTransform: 'none',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            '&:hover': {
+              background: 'linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%)',
+              boxShadow: '0 6px 20px rgba(37, 99, 235, 0.4)',
+            }
+          }}
+        >
+          Live Disaster Map
+        </Button>
       </Box>
-
-      {/* 2. Real-Time Environmental Telemetry Bar (Compact & Polished) */}
-      <Paper
-        className="glass-card"
-        sx={{
-          p: 1.25,
-          px: 2,
-          mb: 2.5,
-          borderRadius: 2.5,
-          background: isDark
-            ? 'rgba(15, 23, 42, 0.75) !important'
-            : '#ffffff !important',
-          border: isDark
-            ? '1px solid rgba(255, 255, 255, 0.08) !important'
-            : '1px solid rgba(226, 232, 240, 0.9) !important',
-          boxShadow: isDark
-            ? '0 4px 16px rgba(0, 0, 0, 0.25)'
-            : '0 2px 10px rgba(0, 0, 0, 0.03)'
-        }}
-      >
-        <Grid container spacing={1.5} alignItems="center">
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Box display="flex" alignItems="center" gap={1.2}>
-              <Box
-                sx={{
-                  p: 0.8,
-                  borderRadius: 1.5,
-                  bgcolor: 'rgba(249, 115, 22, 0.12)',
-                  color: '#f97316',
-                  display: 'flex'
-                }}
-              >
-                <WaterDropOutlinedIcon sx={{ fontSize: 18 }} />
-              </Box>
-              <Box>
-                <Typography variant="caption" sx={{ color: secondaryTextColor, display: 'block', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase' }}>
-                  River Level Gauge
-                </Typography>
-                <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 800, fontSize: '0.85rem' }}>
-                  205.85 m <span style={{ color: '#f97316', fontSize: '0.72rem', fontWeight: 700 }}>(+0.52m Warning)</span>
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Box display="flex" alignItems="center" gap={1.2}>
-              <Box
-                sx={{
-                  p: 0.8,
-                  borderRadius: 1.5,
-                  bgcolor: isDark ? 'rgba(56, 189, 248, 0.12)' : 'rgba(2, 132, 199, 0.1)',
-                  color: isDark ? '#38bdf8' : '#0284c7',
-                  display: 'flex'
-                }}
-              >
-                <ThunderstormOutlinedIcon sx={{ fontSize: 18 }} />
-              </Box>
-              <Box>
-                <Typography variant="caption" sx={{ color: secondaryTextColor, display: 'block', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase' }}>
-                  24h Precipitation
-                </Typography>
-                <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 800, fontSize: '0.85rem' }}>
-                  68.4 mm <span style={{ color: isDark ? '#38bdf8' : '#0284c7', fontSize: '0.72rem', fontWeight: 700 }}>(Heavy Showers)</span>
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Box display="flex" alignItems="center" gap={1.2}>
-              <Box
-                sx={{
-                  p: 0.8,
-                  borderRadius: 1.5,
-                  bgcolor: 'rgba(244, 63, 94, 0.12)',
-                  color: '#f43f5e',
-                  display: 'flex'
-                }}
-              >
-                <ShieldOutlinedIcon sx={{ fontSize: 18 }} />
-              </Box>
-              <Box>
-                <Typography variant="caption" sx={{ color: secondaryTextColor, display: 'block', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase' }}>
-                  Monitored Risk Sectors
-                </Typography>
-                <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 800, fontSize: '0.85rem' }}>
-                  6 Active <span style={{ color: '#f43f5e', fontSize: '0.72rem', fontWeight: 700 }}>(2 Critical)</span>
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Box display="flex" alignItems="center" gap={1.2}>
-              <Box
-                sx={{
-                  p: 0.8,
-                  borderRadius: 1.5,
-                  bgcolor: 'rgba(16, 185, 129, 0.12)',
-                  color: '#10b981',
-                  display: 'flex'
-                }}
-              >
-                <HomeWorkOutlinedIcon sx={{ fontSize: 18 }} />
-              </Box>
-              <Box>
-                <Typography variant="caption" sx={{ color: secondaryTextColor, display: 'block', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase' }}>
-                  Shelter Readiness
-                </Typography>
-                <Typography variant="body2" sx={{ color: primaryTextColor, fontWeight: 800, fontSize: '0.85rem' }}>
-                  88% Capacity <span style={{ color: '#10b981', fontSize: '0.72rem', fontWeight: 700 }}>(14 Verified)</span>
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
 
       {loading ? (
         <Box display="flex" justifyContent="center" alignItems="center" py={12}>
           <CircularProgress sx={{ color: isDark ? '#38bdf8' : '#0284c7' }} size={48} thickness={4} />
         </Box>
       ) : (
-        <Grid container spacing={2.5}>
-          {/* 3. Top 4 Clean KPI Stat Cards */}
+        <Grid container spacing={2.5} sx={{ mb: 3 }}>
+          {/* Card 1: Active Alerts + River Level Sensor */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard
               title="Active System Alerts"
               value={stats?.alerts?.total || displayAlerts.length}
-              change={`${stats?.alerts?.critical || 1} Critical`}
-              subtext="Live Feeds"
+              change={`${stats?.alerts?.critical || 1} Critical Priority`}
+              subtext="Live feeds"
               icon={WarningAmberIcon}
               colorScheme="crimson"
+              telemetry={{
+                label: "🌊 Yamuna River Gauge",
+                value: "205.85 m (+0.52m Warning)",
+                highlight: true
+              }}
             />
           </Grid>
 
+          {/* Card 2: Evacuation Shelters + Facility Readiness */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard
               title="Available Shelters"
               value={stats?.shelters?.total ? `${stats.shelters.available}/${stats.shelters.total}` : '18/20'}
               change={`${stats?.shelters?.occupied || 1740} Occupied`}
-              subtext="Intake Verified"
+              subtext="Intake capacity"
               icon={HomeWorkOutlinedIcon}
               colorScheme="emerald"
+              telemetry={{
+                label: "⛺ Facility Readiness",
+                value: "88% (14 Operational)",
+                highlight: false
+              }}
             />
           </Grid>
 
+          {/* Card 3: Population at Risk + Monitored Habitations */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard
               title="Population at Risk"
               value={stats?.populationAtRisk ? stats.populationAtRisk.toLocaleString() : '62,730'}
-              change="Score ≥ 60"
-              subtext="Flood Wards"
+              change="Threat Score ≥ 60"
+              subtext="Floodplain wards"
               icon={PeopleAltOutlinedIcon}
               colorScheme="amber"
+              telemetry={{
+                label: "🛡️ Monitored Sectors",
+                value: "6 Active (2 Critical)",
+                highlight: true
+              }}
             />
           </Grid>
 
+          {/* Card 4: Citizen Reports + Rainfall */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard
               title="Citizen Reports (24h)"
               value={stats?.reports?.last24h || 9}
               change={`${stats?.reports?.verified || 4} Verified`}
-              subtext="NLP Triaged"
+              subtext="NLP classified"
               icon={BoltOutlinedIcon}
               colorScheme="cyan"
+              telemetry={{
+                label: "🌧️ 24h Rainfall",
+                value: "68.4 mm (Heavy)",
+                highlight: false
+              }}
             />
           </Grid>
 
