@@ -26,6 +26,7 @@
     "mongoose": "^9.9.4",
     "multer": "^2.3.0",
     "node-cache": "^5.1.2",
+    "nodemailer": "^10.0.0",
     "openai": "^7.9.0"
   },
   "devDependencies": {

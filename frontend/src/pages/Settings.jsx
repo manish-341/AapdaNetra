@@ -22,7 +22,11 @@ import {
   Tab,
   Card,
   CardContent,
-  IconButton
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import {
   User,
@@ -42,16 +46,19 @@ import {
   Globe,
   Radio,
   Volume2,
+  VolumeX,
   Lock,
   Compass,
   Cpu
 } from 'lucide-react';
 import Boilerplate from '../layouts/Boilerplate';
 import { getCurrentUser, getUserRole, clearAuthToken } from '../lib/auth';
-import { updateUser, getUserById } from '../services/api';
+import { updateUser, getUserById, dispatchEmergencyAlert } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext, PRESET_DISTRICTS } from '../context/LocationContext';
 import { useNavigate } from 'react-router-dom';
+import { playEmergencySiren, stopEmergencySiren, isSirenActive } from '../utils/emergencyAudio';
+import { triggerDisasterNotification } from '../utils/emergencyNotification';
 
 const NOTIFICATIONS_STORAGE_KEY = 'aapdanetra_notifications_config';
 const MAP_PREF_KEY = 'aapdanetra_map_preferences';
@@ -196,7 +203,59 @@ export default function Settings() {
     }
   };
 
+  // Emergency Alert Siren & Broadcast Dispatch Simulation
+  const [sirenPlaying, setSirenPlaying] = useState(false);
+  const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
+  const [dispatchingTest, setDispatchingTest] = useState(false);
+
+  const handleTestEmergencyBroadcast = async () => {
+    setDispatchingTest(true);
+    try {
+      // 1. Sound Civil Defense acoustic disaster siren
+      if (notifConfig.audioSiren) {
+        playEmergencySiren(15000);
+        setSirenPlaying(true);
+      }
+
+      // 2. Trigger native OS / browser notification
+      await triggerDisasterNotification({
+        title: 'CRITICAL DISASTER WARNING',
+        body: `URGENT: Flood breach surge detected in ${location?.district || profileForm.district}! Evacuation advisory active.`,
+        sound: false
+      });
+
+      // 3. Dispatch official government-grade email alert bulletin
+      const emailTarget = currentUser?.email || 'citizen@aapdanetra.in';
+      await dispatchEmergencyAlert({
+        recipientEmail: emailTarget,
+        recipientName: currentUser?.name || 'Citizen User',
+        title: `CRITICAL DISASTER WARNING — ${location?.district || profileForm.district}`,
+        hazardType: 'FLOOD',
+        severity: 'CRITICAL',
+        district: location?.district || profileForm.district,
+        state: location?.state || profileForm.state,
+        instructions: 'Flood telemetry indicates breach probability above 85%. Proceed immediately to designated safe relief shelters. Cut main electrical circuit.'
+      });
+
+      // 4. Open emergency incident advisory modal
+      setEmergencyModalOpen(true);
+      showToast(`Emergency alert siren activated & email bulletin dispatched to ${emailTarget}!`, 'success');
+    } catch (err) {
+      console.warn('Test dispatch fallback:', err);
+      setEmergencyModalOpen(true);
+      showToast('Emergency alert siren activated locally.', 'warning');
+    } finally {
+      setDispatchingTest(false);
+    }
+  };
+
+  const handleStopSiren = () => {
+    stopEmergencySiren();
+    setSirenPlaying(false);
+  };
+
   const handleLogout = () => {
+    stopEmergencySiren();
     clearAuthToken();
     navigate('/login', { replace: true });
   };
@@ -619,6 +678,57 @@ export default function Settings() {
                     Save Notification Preferences
                   </Button>
                 </Box>
+
+                <Divider sx={{ my: 3, borderColor }} />
+
+                {/* EMERGENCY BROADCAST & SIREN SIMULATOR */}
+                <Box sx={{ p: 2.5, borderRadius: 2.5, bgcolor: isDark ? 'rgba(239, 68, 68, 0.08)' : '#fef2f2', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+                  <Box display="flex" alignItems="center" gap={1.2} mb={1}>
+                    <AlertTriangle size={20} color="#ef4444" />
+                    <Typography variant="subtitle2" fontWeight={800} sx={{ color: '#ef4444' }}>
+                      Live Emergency Siren & Email Dispatch Simulation
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mb: 2 }}>
+                    Trigger an authentic emergency broadcast test. This sounds the acoustic Civil Defense disaster siren on your device, sends an OS push notification, and dispatches a critical alert bulletin to <strong>{currentUser?.email || 'your registered email'}</strong>.
+                  </Typography>
+
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                    <Button
+                      variant="contained"
+                      color="error"
+                      onClick={handleTestEmergencyBroadcast}
+                      disabled={dispatchingTest}
+                      startIcon={dispatchingTest ? <CircularProgress size={16} color="inherit" /> : <Volume2 size={16} />}
+                      sx={{
+                        fontWeight: 800,
+                        textTransform: 'none',
+                        px: 2.5,
+                        borderRadius: 2
+                      }}
+                    >
+                      {dispatchingTest ? 'Dispatching...' : '🚨 Trigger Emergency Siren & Email Alert'}
+                    </Button>
+
+                    {sirenPlaying && (
+                      <Button
+                        variant="outlined"
+                        onClick={handleStopSiren}
+                        startIcon={<VolumeX size={16} />}
+                        sx={{
+                          borderColor: '#ef4444',
+                          color: '#ef4444',
+                          fontWeight: 700,
+                          textTransform: 'none',
+                          borderRadius: 2,
+                          '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.1)' }
+                        }}
+                      >
+                        Silence Siren
+                      </Button>
+                    )}
+                  </Stack>
+                </Box>
               </Paper>
             </Grid>
 
@@ -951,6 +1061,125 @@ export default function Settings() {
             </Grid>
           </Grid>
         )}
+
+        {/* CRITICAL EMERGENCY ADVISORY MODAL */}
+        <Dialog
+          open={emergencyModalOpen}
+          onClose={() => {
+            handleStopSiren();
+            setEmergencyModalOpen(false);
+          }}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3.5,
+              p: 1.5,
+              border: '2px solid #ef4444',
+              boxShadow: '0 25px 50px -12px rgba(239, 68, 68, 0.35)',
+              bgcolor: isDark ? '#0f172a' : '#ffffff'
+            }
+          }}
+        >
+          <DialogTitle sx={{ pb: 1 }}>
+            <Box display="flex" alignItems="center" justifyContent="space-between">
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 2.5,
+                    bgcolor: 'rgba(239, 68, 68, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ef4444'
+                  }}
+                >
+                  <AlertTriangle size={26} />
+                </Box>
+                <Box>
+                  <Typography variant="h6" fontWeight={900} sx={{ color: '#ef4444', lineHeight: 1.2 }}>
+                    CRITICAL DISASTER ALERT
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: textSecondary, fontWeight: 700 }}>
+                    PRIORITY LEVEL 5 • IMMEDIATE PRECAUTIONARY ADVISORY
+                  </Typography>
+                </Box>
+              </Box>
+              <Chip
+                label="LIVE ALARM"
+                size="small"
+                sx={{
+                  bgcolor: '#ef4444',
+                  color: '#fff',
+                  fontWeight: 900,
+                  fontSize: '0.7rem'
+                }}
+              />
+            </Box>
+          </DialogTitle>
+          <DialogContent sx={{ pt: 1.5 }}>
+            <Alert severity="error" sx={{ mb: 2.5, borderRadius: 2, fontWeight: 600 }}>
+              Official Warning: Severe Inundation & Flash Flood breach detected in {location?.district || profileForm.district}. Evacuation advisory active.
+            </Alert>
+
+            <Typography variant="body2" sx={{ color: textSecondary, mb: 2 }}>
+              A high-priority emergency bulletin has been dispatched to <strong>{currentUser?.email}</strong> with full evacuation coordinates and relief maps.
+            </Typography>
+
+            <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', border: `1px solid ${borderColor}`, mb: 2 }}>
+              <Typography variant="caption" fontWeight={800} sx={{ color: textSecondary, textTransform: 'uppercase' }}>
+                Designated Safe Evacuation Shelters
+              </Typography>
+              <Box mt={1}>
+                <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
+                  📍 Central Relief Camp #4 (District Sports Complex)
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 700 }}>
+                  ✓ 850 Intake Capacity Ready • Medical Aid Active
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: isDark ? 'rgba(2, 132, 199, 0.1)' : '#f0f9ff', border: '1px dashed #0284c7', textAlign: 'center' }}>
+              <Typography variant="caption" sx={{ color: textPrimary, fontWeight: 700 }}>
+                National Disaster Helplines: NDRF: <strong>1070</strong> | Police/Emergency: <strong>112</strong> | State Control: <strong>1077</strong>
+              </Typography>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 2.5, pt: 0, gap: 1.5 }}>
+            {sirenPlaying && (
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<VolumeX size={16} />}
+                onClick={handleStopSiren}
+                sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+              >
+                Silence Siren
+              </Button>
+            )}
+            <Button
+              variant="contained"
+              onClick={() => {
+                handleStopSiren();
+                setEmergencyModalOpen(false);
+              }}
+              sx={{
+                bgcolor: '#0f172a',
+                color: '#fff',
+                fontWeight: 700,
+                borderRadius: 2,
+                textTransform: 'none',
+                px: 3,
+                '&:hover': { bgcolor: '#1e293b' }
+              }}
+            >
+              Acknowledge & Dismiss
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* TOAST SNACKBAR */}
         <Snackbar
