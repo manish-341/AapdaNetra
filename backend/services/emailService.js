@@ -160,12 +160,12 @@ const sendEmergencyDisasterEmail = async ({
 
           <h2 style="font-size: 18px; margin: 16px 0 6px 0; color: #0f172a;">${title}</h2>
           <p style="font-size: 14px; color: #475569; margin: 0; line-height: 1.5;">
-            Attention <strong>${recipientName}</strong>: An official situation report and sensor telemetry broadcast has been initiated by Disaster Operations Command for your registered district.
+            Attention <strong>${recipientName}</strong>: ${isCritical ? `An URGENT civil defense disaster broadcast has been dispatched by Disaster Operations Command regarding critical emergency conditions in <strong>${district}, ${state}</strong>. All citizens, field responders, and civil units must observe emergency safety directives immediately.` : `An official situation report and sensor telemetry broadcast has been initiated by Disaster Operations Command for ${district}, ${state}.`}
           </p>
 
           <div class="details-grid">
-            <div class="details-row"><span class="details-label">Classification:</span><span class="details-value">${hazardType}</span></div>
-            <div class="details-row"><span class="details-label">Monitored Region:</span><span class="details-value">${district}, ${state}</span></div>
+            <div class="details-row"><span class="details-label">Classification:</span><span class="details-value">${hazardType} (${severity})</span></div>
+            <div class="details-row"><span class="details-label">Hazard / Incident Region:</span><span class="details-value" style="color: ${headerColor}; font-weight: 800;">${district}, ${state}</span></div>
             <div class="details-row"><span class="details-label">Operational Status:</span><span class="details-value" style="color: ${headerColor}; font-weight: 800;">${severity}</span></div>
             <div class="details-row"><span class="details-label">Recipient Account:</span><span class="details-value">${recipientEmail}</span></div>
           </div>
@@ -482,9 +482,9 @@ const broadcastEmergencyToAllUsers = async ({
             title,
             hazardType,
             severity,
-            district: district || user.district || "Delhi NCR",
-            state: state || user.state || "Delhi",
-            instructions: instructions || "Disaster operations telemetry synchronized. Follow official advisories.",
+            district: district || "Bhopal",
+            state: state || "Madhya Pradesh",
+            instructions: instructions || "High-magnitude disaster alert issued. Follow civil defense directives and relocate to verified safe shelters immediately.",
             shelters,
             liveWeather
         });

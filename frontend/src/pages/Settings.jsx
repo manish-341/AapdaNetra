@@ -54,7 +54,7 @@ import {
 } from 'lucide-react';
 import Boilerplate from '../layouts/Boilerplate';
 import { getCurrentUser, getUserRole, clearAuthToken } from '../lib/auth';
-import { updateUser, getUserById, dispatchEmergencyAlert, broadcastEmergencyAlert, resolveEmergencyAlerts } from '../services/api';
+import { updateUser, getUserById, dispatchEmergencyAlert, broadcastEmergencyAlert, resolveEmergencyAlerts, getAlerts } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext, PRESET_DISTRICTS } from '../context/LocationContext';
 import { useNavigate } from 'react-router-dom';
@@ -212,6 +212,33 @@ export default function Settings() {
   const [dispatchingSingleTest, setDispatchingSingleTest] = useState(false);
   const [broadcastStats, setBroadcastStats] = useState(null);
 
+  // Active Critical Disaster Region & Target Controls
+  const [activeCriticalAlert, setActiveCriticalAlert] = useState(null);
+  const [broadcastDistrict, setBroadcastDistrict] = useState('Bhopal');
+  const [broadcastState, setBroadcastState] = useState('Madhya Pradesh');
+  const [broadcastTitle, setBroadcastTitle] = useState('🚨 CRITICAL FLASH FLOOD & EVACUATION ORDER — Bhopal');
+  const [broadcastInstructions, setBroadcastInstructions] = useState(
+    'Extreme cloudburst surge detected in Upper Lake / Bada Talab basin. Water levels exceeding breach threshold. Civil defense sirens and mandatory evacuation in effect. Proceed to nearest safe concrete shelter immediately.'
+  );
+
+  useEffect(() => {
+    getAlerts()
+      .then((res) => {
+        const alerts = res?.data?.data || [];
+        const critical = alerts.find((a) => a.severity === 'CRITICAL' && a.isActive);
+        if (critical) {
+          setActiveCriticalAlert(critical);
+          if (critical.district) {
+            setBroadcastDistrict(critical.district);
+            setBroadcastState(critical.state || 'Madhya Pradesh');
+            setBroadcastTitle(critical.title || `🚨 CRITICAL DISASTER WARNING — ${critical.district}`);
+            if (critical.message) setBroadcastInstructions(critical.message);
+          }
+        }
+      })
+      .catch((err) => console.warn('Failed to load active critical alerts:', err));
+  }, []);
+
   const isAdmin = role === 'ADMIN' || currentUser?.role === 'ADMIN';
 
   // Admin-Only Mass Broadcast to ALL Registered Users
@@ -224,21 +251,26 @@ export default function Settings() {
     }
     setIsBroadcasting(true);
     try {
+      const targetDist = broadcastDistrict || activeCriticalAlert?.district || location?.district || 'Bhopal';
+      const targetSt = broadcastState || activeCriticalAlert?.state || location?.state || 'Madhya Pradesh';
+
       // 1. Trigger native OS / browser notification
       await triggerDisasterNotification({
-        title: '🚨 CRITICAL DISASTER ALERT BROADCAST',
-        body: `URGENT: Emergency disaster warning dispatched to all registered citizens in ${location?.district || profileForm.district}.`,
-        sound: false
+        title: broadcastTitle || `🚨 CRITICAL DISASTER ALERT BROADCAST — ${targetDist}`,
+        body: `URGENT: Official emergency warning dispatched to ALL registered citizens regarding critical emergency in ${targetDist}.`,
+        sound: true
       });
 
       // 2. Dispatch official situation bulletin with live satellite & sensor telemetry
       const res = await Promise.race([
         broadcastEmergencyAlert({
-          district: location?.district || profileForm.district || 'Delhi NCR',
-          state: location?.state || profileForm.state || 'Delhi',
-          latitude: location?.lat || 28.6139,
-          longitude: location?.lng || 77.2090,
-          isActive: false
+          district: targetDist,
+          state: targetSt,
+          hazardType: 'FLOOD',
+          severity: 'CRITICAL',
+          title: broadcastTitle || `🚨 CRITICAL FLASH FLOOD & EVACUATION ORDER — ${targetDist}`,
+          instructions: broadcastInstructions,
+          isActive: true
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Broadcast request timed out after 35s")), 35000))
       ]);
@@ -246,7 +278,7 @@ export default function Settings() {
       const data = res?.data?.data || {};
       setBroadcastStats(data);
       setEmergencyModalOpen(true);
-      showToast(`Emergency alert broadcast dispatched to all ${data.totalRecipients || ''} registered citizens!`, 'success');
+      showToast(`Emergency alert broadcast dispatched to all ${data.totalRecipients || ''} registered citizens regarding ${targetDist}!`, 'success');
     } catch (err) {
       console.warn('Broadcast error:', err);
       showToast(err.response?.data?.message || 'Emergency alert broadcast failed. Check server logs.', 'error');
@@ -265,12 +297,19 @@ export default function Settings() {
     }
     setIsResolving(true);
     try {
+      const targetDist = broadcastDistrict || activeCriticalAlert?.district || location?.district || 'Bhopal';
+      const targetSt = broadcastState || activeCriticalAlert?.state || location?.state || 'Madhya Pradesh';
+
       stopEmergencySiren();
+      setSirenPlaying(false);
       const res = await resolveEmergencyAlerts({
-        district: location?.district || profileForm.district || 'Delhi NCR',
-        state: location?.state || profileForm.state || 'Delhi'
+        district: targetDist,
+        state: targetSt,
+        instructions: `Flood waters and hazard indices in ${targetDist} have receded to safe baseline levels. Civil defense sirens stood down and normal movement may resume.`,
+        resolvedDetails: `Disaster Operations Command confirms active emergency warnings across ${targetDist} have been contained and fully stood down.`
       });
-      showToast(res.data?.message || 'Emergency resolved! Status returned to Normal and All-Clear emails sent.', 'success');
+      showToast(res.data?.message || `Emergency resolved for ${targetDist}! All-Clear notifications dispatched.`, 'success');
+      setActiveCriticalAlert(null);
       sessionStorage.removeItem('an_sounded_critical_alerts');
       sessionStorage.removeItem('an_acknowledged_critical_alerts');
       window.dispatchEvent(new CustomEvent('emergency-siren-stopped'));
@@ -774,8 +813,78 @@ export default function Settings() {
                   {isAdmin ? (
                     <>
                       <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mb: 2 }}>
-                        Broadcast official critical disaster warnings directly to <strong>all registered citizens and responders</strong> via their registered Gmail accounts. <em>(Note: Acoustic disaster sirens trigger automatically during verified critical emergencies).</em>
+                        Broadcast official critical disaster warnings directly to <strong>all registered citizens and responders</strong> across India via their registered Gmail accounts. <em>(Note: Acoustic disaster sirens trigger automatically during verified critical emergencies).</em>
                       </Typography>
+
+                      {/* Active Critical Disaster Callout */}
+                      {activeCriticalAlert && (
+                        <Box sx={{ p: 1.5, mb: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2', border: '1px solid #ef4444' }}>
+                          <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <AlertTriangle size={18} color="#ef4444" />
+                              <Typography variant="body2" fontWeight={800} sx={{ color: '#ef4444' }}>
+                                🚨 ACTIVE CRITICAL DISASTER: {activeCriticalAlert.district}, {activeCriticalAlert.state}
+                              </Typography>
+                            </Box>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="error"
+                              onClick={() => {
+                                setBroadcastDistrict(activeCriticalAlert.district);
+                                setBroadcastState(activeCriticalAlert.state || 'Madhya Pradesh');
+                                setBroadcastTitle(activeCriticalAlert.title || `🚨 CRITICAL DISASTER WARNING — ${activeCriticalAlert.district}`);
+                                if (activeCriticalAlert.message) setBroadcastInstructions(activeCriticalAlert.message);
+                              }}
+                              sx={{ textTransform: 'none', fontWeight: 800, fontSize: '0.72rem', py: 0.2 }}
+                            >
+                              🎯 Target {activeCriticalAlert.district} (Critical Region)
+                            </Button>
+                          </Box>
+                          <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5 }}>
+                            <strong>{activeCriticalAlert.title}:</strong> {activeCriticalAlert.message}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {/* Target District Selection */}
+                      <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#ffffff', border: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 1, color: isDark ? '#38bdf8' : '#0284c7' }}>
+                          Broadcast Target Region (Disaster Zone to Warn About):
+                        </Typography>
+                        <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          label="Target Critical Region"
+                          value={broadcastDistrict}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setBroadcastDistrict(val);
+                            const preset = PRESET_DISTRICTS.find(p => p.district?.toLowerCase() === val.toLowerCase() || p.name?.toLowerCase().includes(val.toLowerCase()));
+                            if (preset) {
+                              setBroadcastState(preset.state);
+                            } else if (val.toLowerCase() === 'bhopal') {
+                              setBroadcastState('Madhya Pradesh');
+                            }
+                            setBroadcastTitle(`🚨 CRITICAL FLASH FLOOD & EVACUATION ORDER — ${val}`);
+                          }}
+                          sx={{ mb: 1 }}
+                        >
+                          <MenuItem value="Bhopal" sx={{ fontWeight: 700, color: '#dc2626' }}>
+                            🚨 Bhopal (MP) — [ACTIVE CRITICAL DISASTER ZONE]
+                          </MenuItem>
+                          {PRESET_DISTRICTS.filter(p => p.district?.toLowerCase() !== 'bhopal').map((p) => (
+                            <MenuItem key={p.id} value={p.district}>
+                              {p.name} — {p.state}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+
+                        <Typography variant="caption" sx={{ color: textSecondary, display: 'block' }}>
+                          📡 <strong>Broadcast Scope:</strong> All 14 registered citizens & responders across all districts will receive this emergency email warning regarding <strong>{broadcastDistrict} ({broadcastState})</strong>.
+                        </Typography>
+                      </Box>
 
                       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                         <Button
@@ -792,7 +901,7 @@ export default function Settings() {
                             borderRadius: 2
                           }}
                         >
-                          {isBroadcasting ? 'Broadcasting to All Users...' : '🚨 Broadcast Emergency Alert to All Users'}
+                          {isBroadcasting ? `Broadcasting for ${broadcastDistrict}...` : `🚨 Broadcast Critical Alert for ${broadcastDistrict} to All Users`}
                         </Button>
 
                         <Button
@@ -815,7 +924,7 @@ export default function Settings() {
                             }
                           }}
                         >
-                          {isResolving ? 'Sending All-Clear Bulletin...' : '✅ Resolve Emergency (All Clear)'}
+                          {isResolving ? 'Sending All-Clear Bulletin...' : `✅ Resolve Emergency for ${broadcastDistrict}`}
                         </Button>
                       </Stack>
                     </>
