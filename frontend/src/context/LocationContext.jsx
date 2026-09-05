@@ -263,34 +263,64 @@ export function LocationProvider({ children }) {
         return reject(new Error('Geolocation unsupported'));
       }
 
+      try {
+        stopEmergencySiren();
+      } catch {}
+
       setGpsLoading(true);
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
 
-          let resolvedName = 'Live GPS Location';
-          let resolvedDistrict = 'Current Location';
-          let resolvedState = 'India';
+          let resolvedDistrict = '';
+          let resolvedState = '';
 
           try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
-              headers: { 'User-Agent': 'AapdaNetra-App/2.0' }
+              headers: { 'User-Agent': 'AapdaNetra-Emergency-System/2.0' },
+              signal: controller.signal
             });
+            clearTimeout(timeoutId);
             const data = await res.json();
             if (data?.address) {
-              resolvedDistrict = data.address.state_district || data.address.county || data.address.city || 'Detected Region';
-              resolvedState = data.address.state || 'India';
-              resolvedName = `${resolvedDistrict} (${resolvedState})`;
+              resolvedDistrict = data.address.state_district || data.address.county || data.address.city || data.address.town || data.address.suburb || '';
+              resolvedState = data.address.state || '';
             }
           } catch (e) {
-            console.warn('Reverse geocoding error:', e.message);
+            console.warn('Reverse geocoding notice:', e.message);
           }
 
+          // Fallback: Bind to nearest known district via Haversine if reverse lookup was vague
+          if (!resolvedDistrict || resolvedDistrict === 'Detected Region' || resolvedDistrict === 'Current Location') {
+            let minDist = Infinity;
+            let bestMatch = PRESET_DISTRICTS[0];
+            for (const p of PRESET_DISTRICTS) {
+              const dLat = ((p.lat - lat) * Math.PI) / 180;
+              const dLon = ((p.lng - lng) * Math.PI) / 180;
+              const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat * Math.PI) / 180) * Math.cos((p.lat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+              const dist = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+              if (dist < minDist) {
+                minDist = dist;
+                bestMatch = p;
+              }
+            }
+            resolvedDistrict = bestMatch.district;
+            resolvedState = bestMatch.state;
+          }
+
+          // Clean up common Indian administrative affixes
+          resolvedDistrict = resolvedDistrict.replace(/district/i, '').replace(/division/i, '').trim();
+
+          const resolvedName = `${resolvedDistrict} (${resolvedState || 'Live GPS'})`;
+
           const gpsLoc = {
+            id: 'gps-live',
             name: resolvedName,
             district: resolvedDistrict,
-            state: resolvedState,
+            state: resolvedState || 'India',
             lat,
             lng,
             isGPS: true
@@ -298,16 +328,20 @@ export function LocationProvider({ children }) {
 
           setLocation(gpsLoc);
           localStorage.setItem('an_active_location', JSON.stringify(gpsLoc));
+          setDistrictLocation(resolvedDistrict, resolvedState, lat, lng).catch(() => {});
           setGpsLoading(false);
           resolve(gpsLoc);
         },
         (error) => {
           setGpsLoading(false);
           console.warn('GPS location error:', error.message);
-          alert('GPS location permission denied. You can manually select your district from the dropdown.');
+          let msg = 'GPS location permission was denied. You can still manually select or search your district.';
+          if (error.code === 2) msg = 'GPS satellite signal unavailable. Please select your district manually.';
+          if (error.code === 3) msg = 'GPS location request timed out. Please try again.';
+          alert(msg);
           reject(error);
         },
-        { enableHighAccuracy: true, timeout: 8000 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
       );
     });
   };

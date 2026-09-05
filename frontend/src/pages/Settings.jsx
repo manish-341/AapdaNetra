@@ -40,6 +40,7 @@ import {
   Monitor,
   AlertTriangle,
   CheckCircle2,
+  Crosshair,
   RefreshCw,
   LogOut,
   Sliders,
@@ -66,7 +67,7 @@ const MAP_PREF_KEY = 'aapdanetra_map_preferences';
 export default function Settings() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useThemeMode();
-  const { location, setLocation } = useLocationContext();
+  const { location, setLocation, detectLiveGPS, gpsLoading } = useLocationContext();
 
   const [activeTab, setActiveTab] = useState(0);
   const [currentUser, setCurrentUser] = useState(getCurrentUser() || {});
@@ -945,6 +946,28 @@ export default function Settings() {
                       </MenuItem>
                     ))}
                   </TextField>
+
+                  <Button
+                    variant="outlined"
+                    startIcon={<Crosshair size={16} />}
+                    onClick={async () => {
+                      try {
+                        const newGpsLoc = await detectLiveGPS();
+                        showToast(`Acquired live GPS: ${newGpsLoc.name}`, 'success');
+                      } catch {}
+                    }}
+                    disabled={gpsLoading}
+                    sx={{
+                      fontWeight: 800,
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      borderColor: '#0284c7',
+                      color: '#0284c7',
+                      py: 1
+                    }}
+                  >
+                    {gpsLoading ? 'Acquiring GPS Satellite Lock...' : '🎯 Auto-Detect & Set My Live GPS Location'}
+                  </Button>
 
                   <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc', border: `1px solid ${borderColor}` }}>
                     <Typography variant="caption" sx={{ color: textSecondary, fontWeight: 700, textTransform: 'uppercase' }}>

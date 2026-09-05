@@ -124,6 +124,21 @@ const Navbar = () => {
           >
             <MapPin size={16} />
             <span>{location.name || location.district || 'Location'}</span>
+            {location.isGPS && (
+              <span
+                style={{
+                  fontSize: '0.62rem',
+                  backgroundColor: '#10b981',
+                  color: '#ffffff',
+                  padding: '0.1rem 0.35rem',
+                  borderRadius: 4,
+                  fontWeight: 800,
+                  letterSpacing: '0.04em'
+                }}
+              >
+                LIVE GPS
+              </span>
+            )}
             <ChevronDown size={14} style={{ opacity: 0.8 }} />
           </button>
 
@@ -133,39 +148,59 @@ const Navbar = () => {
                 position: 'absolute',
                 top: '120%',
                 left: 0,
-                width: 290,
+                width: 300,
                 backgroundColor: isDark ? '#111827' : '#ffffff',
                 border: '1px solid var(--border-color)',
                 borderRadius: 12,
-                boxShadow: isDark ? '0 12px 30px rgba(0,0,0,0.6)' : '0 12px 30px rgba(0,0,0,0.12)',
-                padding: '0.75rem',
+                boxShadow: isDark ? '0 16px 36px rgba(0,0,0,0.6)' : '0 12px 30px rgba(0,0,0,0.12)',
+                padding: '0.85rem',
                 zIndex: 1000,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
-                  ACTIVE DISTRICT
+                  LOCATION TELEMETRY
                 </span>
-                <button
-                  type="button"
-                  onClick={detectLiveGPS}
-                  disabled={gpsLoading}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.3rem',
-                    fontSize: '0.7rem',
-                    color: isDark ? '#38bdf8' : '#0284c7',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                  }}
-                >
-                  <Crosshair size={12} />
-                  {gpsLoading ? 'Locating...' : 'GPS'}
-                </button>
+                {location.isGPS && (
+                  <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }}></span>
+                    GPS Active
+                  </span>
+                )}
               </div>
+
+              {/* PRIMARY PROMINENT GPS BUTTON */}
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await detectLiveGPS();
+                    setShowLocationMenu(false);
+                  } catch {}
+                }}
+                disabled={gpsLoading}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  padding: '0.65rem 0.8rem',
+                  marginBottom: '0.75rem',
+                  borderRadius: 8,
+                  border: isDark ? '1px solid rgba(56, 189, 248, 0.45)' : '1px solid rgba(2, 132, 199, 0.35)',
+                  backgroundColor: isDark ? 'rgba(56, 189, 248, 0.12)' : 'rgba(2, 132, 199, 0.08)',
+                  color: isDark ? '#38bdf8' : '#0284c7',
+                  fontWeight: 800,
+                  fontSize: '0.82rem',
+                  cursor: gpsLoading ? 'wait' : 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isDark ? '0 2px 8px rgba(56, 189, 248, 0.12)' : '0 2px 6px rgba(2, 132, 199, 0.08)'
+                }}
+              >
+                <Crosshair size={16} style={{ color: '#10b981' }} />
+                {gpsLoading ? 'Acquiring Live GPS Satellite Lock...' : '🎯 Use My Live GPS Location'}
+              </button>
 
               <form onSubmit={handleCustomSearch} style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.65rem' }}>
                 <input
