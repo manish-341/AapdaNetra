@@ -231,15 +231,13 @@ export default function Settings() {
         sound: false
       });
 
-      // 2. Dispatch official critical situation bulletin to ALL registered users
+      // 2. Dispatch official situation bulletin with live satellite & sensor telemetry
       const res = await Promise.race([
         broadcastEmergencyAlert({
-          title: `CRITICAL DISASTER WARNING — ${location?.district || profileForm.district}`,
-          hazardType: 'FLOOD',
-          severity: 'CRITICAL',
-          district: location?.district || profileForm.district,
-          state: location?.state || profileForm.state,
-          instructions: 'Flood telemetry indicates breach probability above 85%. Proceed immediately to designated safe relief shelters. Cut main electrical circuit. Keep emergency communications open.',
+          district: location?.district || profileForm.district || 'Delhi NCR',
+          state: location?.state || profileForm.state || 'Delhi',
+          latitude: location?.lat || 28.6139,
+          longitude: location?.lng || 77.2090,
           isActive: false
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Broadcast request timed out after 10s")), 10000))
