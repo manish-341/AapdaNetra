@@ -37,12 +37,15 @@ const getTransporter = async () => {
             try {
                 const candidate = nodemailer.createTransport({
                     ...transportConfig,
-                    connectionTimeout: 4000,
-                    greetingTimeout: 4000,
-                    socketTimeout: 5000
+                    connectionTimeout: 8000,
+                    greetingTimeout: 8000,
+                    socketTimeout: 10000,
+                    tls: {
+                        rejectUnauthorized: false
+                    }
                 });
                 const verifyPromise = candidate.verify();
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP verification timeout (4s)")), 4000));
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP verification timeout (8s)")), 8000));
                 await Promise.race([verifyPromise, timeoutPromise]);
 
                 transporter = candidate;
