@@ -10,17 +10,17 @@ let transporterInitPromise = null;
  */
 const getTransporter = async () => {
     if (transporter) return transporter;
-
     if (transporterInitPromise) return transporterInitPromise;
 
     transporterInitPromise = (async () => {
         const user = (process.env.SMTP_USER || "").trim();
         const pass = (process.env.SMTP_PASS || "").replace(/\s+/g, "");
+        const host = process.env.SMTP_HOST || (user.includes("smtp-brevo.com") ? "smtp-relay.brevo.com" : "smtp.gmail.com");
+        const port = Number(process.env.SMTP_PORT) || (user.includes("smtp-brevo.com") ? 587 : 587);
 
         if (user && pass) {
             const isGmail = process.env.SMTP_SERVICE === "gmail" ||
-                (!process.env.SMTP_HOST && user.includes("@gmail.com")) ||
-                (process.env.SMTP_HOST && process.env.SMTP_HOST.includes("gmail"));
+                (!process.env.SMTP_HOST && user.includes("@gmail.com"));
 
             const transportConfig = isGmail
                 ? {
@@ -28,35 +28,34 @@ const getTransporter = async () => {
                     auth: { user, pass }
                 }
                 : {
-                    host: process.env.SMTP_HOST || "smtp.gmail.com",
-                    port: Number(process.env.SMTP_PORT) || 465,
-                    secure: process.env.SMTP_SECURE === "true" || process.env.SMTP_PORT === "465",
+                    host,
+                    port,
+                    secure: process.env.SMTP_SECURE === "true" || port === 465,
                     auth: { user, pass }
                 };
 
             try {
                 const candidate = nodemailer.createTransport({
                     ...transportConfig,
-                    connectionTimeout: 8000,
-                    greetingTimeout: 8000,
-                    socketTimeout: 10000,
+                    connectionTimeout: 12000,
+                    greetingTimeout: 12000,
+                    socketTimeout: 15000,
                     tls: {
                         rejectUnauthorized: false
                     }
                 });
                 const verifyPromise = candidate.verify();
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP verification timeout (8s)")), 8000));
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP verification timeout (10s)")), 10000));
                 await Promise.race([verifyPromise, timeoutPromise]);
 
                 transporter = candidate;
                 console.log(`[Email Service] Connected to real SMTP relay for sender: ${user}`);
                 return transporter;
             } catch (err) {
-                console.warn(`[Email Service Warning] SMTP verification failed with configured credentials (${err.message}). Using development fallback mailer.`);
-                transporter = null;
+                console.warn(`[Email Service Warning] SMTP verification failed (${err.message}). Trying direct dispatch.`);
+                transporter = candidate;
+                return transporter;
             }
-        } else {
-            console.warn(`[Email Service Notice] SMTP_USER or SMTP_PASS is currently empty. To deliver directly to actual Gmail inboxes, add your credentials in .env (and on Render). Falling back to development test mailer.`);
         }
 
         // Fallback for development/testing if real SMTP is not yet configured or fails
@@ -226,7 +225,7 @@ const sendEmergencyDisasterEmail = async ({
                 subject: `🚨 [CRITICAL ALERT] ${title} - Immediate Action Required`,
                 html: htmlContent
             });
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP send timeout (4s)")), 4000));
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP send timeout (15s)")), 15000));
             const info = await Promise.race([sendPromise, timeoutPromise]);
 
             const previewUrl = nodemailer.getTestMessageUrl(info);
@@ -608,7 +607,7 @@ const sendEmergencyResolvedEmail = async ({
                 subject: `✅ [ALL CLEAR] Critical Emergency Resolved — ${district}`,
                 html: htmlContent
             });
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP send timeout (4s)")), 4000));
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP send timeout (15s)")), 15000));
             const info = await Promise.race([sendPromise, timeoutPromise]);
 
             const previewUrl = nodemailer.getTestMessageUrl(info);
