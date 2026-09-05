@@ -178,7 +178,7 @@ const broadcastEmergencyAlert = async (req, res) => {
                 source: "OFFICIAL",
                 verificationStatus: "VERIFIED",
                 createdBy: req.user?._id,
-                isActive: true
+                isActive: req.body.isActive === true // Only activate civil defense siren if explicitly requested
             });
         } catch (dbErr) {
             console.warn("[Broadcast Alert] Notice saving Alert model:", dbErr.message);

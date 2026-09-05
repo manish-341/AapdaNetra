@@ -235,7 +235,8 @@ export default function Settings() {
           severity: 'CRITICAL',
           district: location?.district || profileForm.district,
           state: location?.state || profileForm.state,
-          instructions: 'Flood telemetry indicates breach probability above 85%. Proceed immediately to designated safe relief shelters. Cut main electrical circuit. Keep emergency communications open.'
+          instructions: 'Flood telemetry indicates breach probability above 85%. Proceed immediately to designated safe relief shelters. Cut main electrical circuit. Keep emergency communications open.',
+          isActive: false
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Broadcast request timed out after 10s")), 10000))
       ]);
