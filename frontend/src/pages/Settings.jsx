@@ -240,7 +240,7 @@ export default function Settings() {
           longitude: location?.lng || 77.2090,
           isActive: false
         }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Broadcast request timed out after 10s")), 10000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Broadcast request timed out after 35s")), 35000))
       ]);
 
       const data = res?.data?.data || {};

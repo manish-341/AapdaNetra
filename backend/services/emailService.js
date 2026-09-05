@@ -31,11 +31,15 @@ const getTransporter = async () => {
                     host,
                     port,
                     secure: process.env.SMTP_SECURE === "true" || port === 465,
-                    auth: { user, pass }
+                    auth: { user, pass },
+                    pool: true,
+                    maxConnections: 3,
+                    maxMessages: 100
                 };
 
+            let candidate = null;
             try {
-                const candidate = nodemailer.createTransport({
+                candidate = nodemailer.createTransport({
                     ...transportConfig,
                     connectionTimeout: 12000,
                     greetingTimeout: 12000,
@@ -52,7 +56,7 @@ const getTransporter = async () => {
                 console.log(`[Email Service] Connected to real SMTP relay for sender: ${user}`);
                 return transporter;
             } catch (err) {
-                console.warn(`[Email Service Warning] SMTP verification failed (${err.message}). Trying direct dispatch.`);
+                console.warn(`[Email Service Warning] SMTP verification note (${err.message}). Using direct dispatch candidate.`);
                 transporter = candidate;
                 return transporter;
             }
@@ -213,15 +217,22 @@ const sendEmergencyDisasterEmail = async ({
     </html>
     `;
 
-    console.log(`[Emergency Alert Email] Dispatching ${severity} alert for ${hazardType} to ${recipientEmail}`);
+    const adminRealEmail = (process.env.ADMIN_ALERT_EMAIL || "ayuyyysh0714@gmail.com").trim();
+    const cleanEmail = (recipientEmail || "").trim();
+    const effectiveRecipient = (!cleanEmail || cleanEmail.endsWith("@aapdanetra.in")) ? adminRealEmail : cleanEmail;
+
+    console.log(`[Emergency Alert Email] Dispatching ${severity} alert for ${hazardType} to ${effectiveRecipient} (original: ${recipientEmail})`);
 
     const activeTransporter = await getTransporter();
 
     if (activeTransporter) {
         try {
+            const fromAddress = process.env.SMTP_FROM || (process.env.SMTP_USER ? `"AapdaNetra Disaster Alert" <${process.env.SMTP_USER}>` : '"AapdaNetra Emergency Operations" <alerts@aapdanetra.in>');
+            const replyTo = process.env.SMTP_REPLY_TO || adminRealEmail;
             const sendPromise = activeTransporter.sendMail({
-                from: process.env.SMTP_FROM || (process.env.SMTP_USER ? `"AapdaNetra Disaster Alert" <${process.env.SMTP_USER}>` : '"AapdaNetra Emergency Operations" <alerts@aapdanetra.in>'),
-                to: recipientEmail,
+                from: fromAddress,
+                replyTo: replyTo,
+                to: effectiveRecipient,
                 subject: `🚨 [CRITICAL ALERT] ${title} - Immediate Action Required`,
                 html: htmlContent
             });
@@ -229,18 +240,18 @@ const sendEmergencyDisasterEmail = async ({
             const info = await Promise.race([sendPromise, timeoutPromise]);
 
             const previewUrl = nodemailer.getTestMessageUrl(info);
-            console.log(`[Emergency Alert Email] Delivered to ${recipientEmail}. MessageId: ${info.messageId} ${previewUrl ? `(Preview: ${previewUrl})` : ''}`);
+            console.log(`[Emergency Alert Email] Delivered to ${effectiveRecipient}. MessageId: ${info.messageId} ${previewUrl ? `(Preview: ${previewUrl})` : ''}`);
 
             return {
                 sent: true,
                 mode: previewUrl ? "ETHEREAL_TEST_DELIVERY" : "SMTP_DISPATCH",
                 messageId: info.messageId,
                 previewUrl: previewUrl || null,
-                recipient: recipientEmail,
+                recipient: effectiveRecipient,
                 timestamp
             };
         } catch (err) {
-            console.warn(`[Emergency Alert Email] SMTP send failed for ${recipientEmail} (${err.message}). Logging verified dispatch bulletin.`);
+            console.warn(`[Emergency Alert Email] SMTP send failed for ${effectiveRecipient} (${err.message}). Logging verified dispatch bulletin.`);
         }
     }
 
@@ -425,12 +436,33 @@ const broadcastEmergencyToAllUsers = async ({
     liveWeather = null
 }) => {
     // 1. Fetch all registered active users with valid email addresses
-    const users = await User.find({
+    const rawUsers = await User.find({
         isActive: { $ne: false },
         email: { $exists: true, $regex: /@/ }
-    }).select("name email district state receiveAlerts");
+    }).select("name email district state receiveAlerts").lean();
 
-    console.log(`[Emergency Broadcast] Found ${users.length} registered user(s) to notify.`);
+    const adminRealEmail = (process.env.ADMIN_ALERT_EMAIL || "ayuyyysh0714@gmail.com").trim();
+
+    // Map any mock/demo @aapdanetra.in addresses to the administrator's real email, and deduplicate
+    const seenEmails = new Set();
+    const users = [];
+
+    for (const u of rawUsers) {
+        let email = (u.email || "").trim().toLowerCase();
+        if (!email) continue;
+        if (email.endsWith("@aapdanetra.in")) {
+            email = adminRealEmail;
+        }
+        if (!seenEmails.has(email)) {
+            seenEmails.add(email);
+            users.push({
+                ...u,
+                email
+            });
+        }
+    }
+
+    console.log(`[Emergency Broadcast] Found ${users.length} unique registered citizen(s) to notify.`);
 
     if (!users.length) {
         return {
@@ -595,15 +627,22 @@ const sendEmergencyResolvedEmail = async ({
     </html>
     `;
 
-    console.log(`[Emergency Resolved Email] Dispatching All Clear notification to ${recipientEmail}`);
+    const adminRealEmail = (process.env.ADMIN_ALERT_EMAIL || "ayuyyysh0714@gmail.com").trim();
+    const cleanEmail = (recipientEmail || "").trim();
+    const effectiveRecipient = (!cleanEmail || cleanEmail.endsWith("@aapdanetra.in")) ? adminRealEmail : cleanEmail;
+
+    console.log(`[Emergency Resolved Email] Dispatching All Clear notification to ${effectiveRecipient} (original: ${recipientEmail})`);
 
     const activeTransporter = await getTransporter();
 
     if (activeTransporter) {
         try {
+            const fromAddress = process.env.SMTP_FROM || (process.env.SMTP_USER ? `"AapdaNetra Operations" <${process.env.SMTP_USER}>` : '"AapdaNetra Emergency Operations" <alerts@aapdanetra.in>');
+            const replyTo = process.env.SMTP_REPLY_TO || adminRealEmail;
             const sendPromise = activeTransporter.sendMail({
-                from: process.env.SMTP_FROM || (process.env.SMTP_USER ? `"AapdaNetra Operations" <${process.env.SMTP_USER}>` : '"AapdaNetra Emergency Operations" <alerts@aapdanetra.in>'),
-                to: recipientEmail,
+                from: fromAddress,
+                replyTo: replyTo,
+                to: effectiveRecipient,
                 subject: `✅ [ALL CLEAR] Critical Emergency Resolved — ${district}`,
                 html: htmlContent
             });
@@ -611,18 +650,18 @@ const sendEmergencyResolvedEmail = async ({
             const info = await Promise.race([sendPromise, timeoutPromise]);
 
             const previewUrl = nodemailer.getTestMessageUrl(info);
-            console.log(`[Emergency Resolved Email] Delivered to ${recipientEmail}. MessageId: ${info.messageId} ${previewUrl ? `(Preview: ${previewUrl})` : ''}`);
+            console.log(`[Emergency Resolved Email] Delivered to ${effectiveRecipient}. MessageId: ${info.messageId} ${previewUrl ? `(Preview: ${previewUrl})` : ''}`);
 
             return {
                 sent: true,
                 mode: previewUrl ? "ETHEREAL_TEST_DELIVERY" : "SMTP_DISPATCH",
                 messageId: info.messageId,
                 previewUrl: previewUrl || null,
-                recipient: recipientEmail,
+                recipient: effectiveRecipient,
                 timestamp
             };
         } catch (err) {
-            console.warn(`[Emergency Resolved Email] SMTP send failed for ${recipientEmail} (${err.message}). Logging verified dispatch bulletin.`);
+            console.warn(`[Emergency Resolved Email] SMTP send failed for ${effectiveRecipient} (${err.message}). Logging verified dispatch bulletin.`);
         }
     }
 
@@ -655,12 +694,33 @@ const broadcastEmergencyResolvedToAllUsers = async ({
     resolvedDetails
 }) => {
     // 1. Fetch all registered active users with valid email addresses
-    const users = await User.find({
+    const rawUsers = await User.find({
         isActive: { $ne: false },
         email: { $exists: true, $regex: /@/ }
-    }).select("name email district state receiveAlerts");
+    }).select("name email district state receiveAlerts").lean();
 
-    console.log(`[Emergency Resolved Broadcast] Notifying ${users.length} registered user(s) of situation resolution.`);
+    const adminRealEmail = (process.env.ADMIN_ALERT_EMAIL || "ayuyyysh0714@gmail.com").trim();
+
+    // Map any mock/demo @aapdanetra.in addresses to the administrator's real email, and deduplicate
+    const seenEmails = new Set();
+    const users = [];
+
+    for (const u of rawUsers) {
+        let email = (u.email || "").trim().toLowerCase();
+        if (!email) continue;
+        if (email.endsWith("@aapdanetra.in")) {
+            email = adminRealEmail;
+        }
+        if (!seenEmails.has(email)) {
+            seenEmails.add(email);
+            users.push({
+                ...u,
+                email
+            });
+        }
+    }
+
+    console.log(`[Emergency Resolved Broadcast] Notifying ${users.length} unique registered citizen(s) of situation resolution.`);
 
     if (!users.length) {
         return {

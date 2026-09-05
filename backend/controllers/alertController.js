@@ -135,8 +135,12 @@ const dispatchEmergencyAlert = async (req, res) => {
             instructions
         } = req.body;
 
-        const email = recipientEmail || req.user?.email || "citizen@aapdanetra.in";
-        const name = recipientName || req.user?.name || "Citizen";
+        const adminRealEmail = (process.env.ADMIN_ALERT_EMAIL || "ayuyyysh0714@gmail.com").trim();
+        let email = (recipientEmail || req.user?.email || "").trim();
+        if (!email || email.endsWith("@aapdanetra.in")) {
+            email = adminRealEmail;
+        }
+        const name = recipientName || req.user?.name || "Disaster Operations Lead";
 
         const result = await sendEmergencyDisasterEmail({
             recipientEmail: email,
