@@ -98,6 +98,14 @@ export default function EmergencyAlertSentinel() {
     };
   }, []);
 
+  // Stop any active siren immediately when user switches active location
+  useEffect(() => {
+    if (isSirenActive()) {
+      stopEmergencySiren();
+    }
+    setSirenPlaying(false);
+  }, [location?.district, location?.name]);
+
   // Poll alerts and automatically trigger alarm strictly on critical emergencies in active district
   useEffect(() => {
     let isMounted = true;
@@ -124,84 +132,103 @@ export default function EmergencyAlertSentinel() {
         // 2. Primary most important alert for the searched area
         const primaryAreaAlert = localAlerts[0] || null;
 
-        // 3. Civil defense critical check (for acoustic siren and red civil defense banner)
+        // 3. Civil defense critical check: MUST BE STRICTLY A VERIFIED CRITICAL ALERT IN THIS REGION
         const localCriticalAlert = localAlerts.find((a) => isTrueCriticalAlert(a)) || null;
 
-        if (primaryAreaAlert && (primaryAreaAlert.severity === 'CRITICAL' || primaryAreaAlert.severity === 'HIGH')) {
-          const alertId = primaryAreaAlert._id || primaryAreaAlert.id || primaryAreaAlert.title;
-
-          let acknowledgedIds = [];
-          try {
-            acknowledgedIds = JSON.parse(sessionStorage.getItem(ACKNOWLEDGED_ALERTS_KEY) || '[]');
-          } catch {}
-
-          const isAcknowledged = acknowledgedIds.includes(alertId);
-          setActiveAreaAlert(primaryAreaAlert);
-
-          // Show floating Alert Popup Toast STRICTLY for the area the user is searching / viewing
-          if (!isAcknowledged && !modalOpen) {
-            setToastPopupOpen(true);
-          }
-
-          // STRICT CIVIL DEFENSE SIREN RULE:
-          // Siren rings automatically for 7 seconds ONLY IF the situation is a genuine CRITICAL emergency in this area (e.g. Bhopal)
-          const isLocallyCriticalCivilDefense = !!localCriticalAlert;
-
-          if (isLocallyCriticalCivilDefense && !isAcknowledged && lastSoundedAlertIdRef.current !== alertId) {
-            lastSoundedAlertIdRef.current = alertId;
-
-            if (notifConfig.audioSiren !== false) {
-              playEmergencySiren(7000);
-              setSirenPlaying(true);
-            }
-
-            const alertTitle = localCriticalAlert.title || 'Critical Disaster Alert';
-            const alertDesc =
-              localCriticalAlert.message ||
-              localCriticalAlert.description ||
-              `Immediate emergency action required in ${location?.district || 'your district'}.`;
-
-            triggerDisasterNotification({
-              title: alertTitle,
-              body: alertDesc,
-              sound: false
-            });
-
-            if (notifConfig.emailAlerts !== false) {
-              const user = getCurrentUser();
-              if (user?.email) {
-                dispatchEmergencyAlert({
-                  recipientEmail: user.email,
-                  recipientName: user.name || (isAdmin ? 'Disaster Operations Admin' : 'Citizen Resident'),
-                  title: alertTitle,
-                  hazardType: localCriticalAlert.hazardType || 'FLOOD',
-                  severity: 'CRITICAL',
-                  district: location?.district || 'Active Monitored Zone',
-                  state: location?.state || 'India',
-                  instructions: alertDesc
-                }).catch(() => {});
-              }
-            }
-          }
-
-          if (isLocallyCriticalCivilDefense) {
-            setActiveCriticalAlert(localCriticalAlert);
-            setBannerDismissed(false);
-          } else {
-            setActiveCriticalAlert(null);
-            setBannerDismissed(true);
-          }
-        } else {
-          // If no critical or high alert in this searched area:
-          setActiveAreaAlert(null);
-          setActiveCriticalAlert(null);
-          setBannerDismissed(true);
-          setToastPopupOpen(false);
-
+        // STRICT LIFE-SAFETY SIREN RULE:
+        // If the current location is NOT in a verified critical emergency:
+        // - IMMEDIATELY SILENCE ANY SIREN
+        // - HIDE CRITICAL EMERGENCY BANNER
+        // - DO NOT SOUND ANY ALARM
+        if (!localCriticalAlert) {
           if (isSirenActive()) {
             stopEmergencySiren();
           }
           setSirenPlaying(false);
+          setActiveCriticalAlert(null);
+          setBannerDismissed(true);
+
+          if (primaryAreaAlert && (primaryAreaAlert.severity === 'HIGH' || primaryAreaAlert.severity === 'CRITICAL')) {
+            const nonCritId = primaryAreaAlert._id || primaryAreaAlert.id || primaryAreaAlert.title;
+            let acknowledgedIds = [];
+            try {
+              acknowledgedIds = JSON.parse(sessionStorage.getItem(ACKNOWLEDGED_ALERTS_KEY) || '[]');
+            } catch {}
+            setActiveAreaAlert(primaryAreaAlert);
+            if (!acknowledgedIds.includes(nonCritId) && !modalOpen) {
+              setToastPopupOpen(true);
+            }
+          } else {
+            setActiveAreaAlert(null);
+            setToastPopupOpen(false);
+          }
+          return;
+        }
+
+        // --- CRITICAL REGION EMERGENCY ACTIVE ---
+        const critAlertId = localCriticalAlert._id || localCriticalAlert.id || localCriticalAlert.title;
+        setActiveAreaAlert(localCriticalAlert);
+        setActiveCriticalAlert(localCriticalAlert);
+        setBannerDismissed(false);
+
+        let acknowledgedIds = [];
+        try {
+          acknowledgedIds = JSON.parse(sessionStorage.getItem(ACKNOWLEDGED_ALERTS_KEY) || '[]');
+        } catch {}
+        const isAcknowledged = acknowledgedIds.includes(critAlertId);
+
+        let soundedIds = [];
+        try {
+          soundedIds = JSON.parse(sessionStorage.getItem('an_sounded_critical_alerts') || '[]');
+        } catch {}
+        const hasAlreadySounded = soundedIds.includes(critAlertId);
+
+        if (!isAcknowledged && !modalOpen) {
+          setToastPopupOpen(true);
+        }
+
+        // Sound acoustic civil defense siren ONLY for verified critical emergencies in this region
+        // and only once per session so navigating pages doesn't endlessly blare
+        if (!isAcknowledged && !hasAlreadySounded && lastSoundedAlertIdRef.current !== critAlertId) {
+          lastSoundedAlertIdRef.current = critAlertId;
+
+          try {
+            soundedIds.push(critAlertId);
+            sessionStorage.setItem('an_sounded_critical_alerts', JSON.stringify(soundedIds));
+          } catch {}
+
+          if (notifConfig.audioSiren !== false) {
+            playEmergencySiren(7000);
+            setSirenPlaying(true);
+          }
+
+          const alertTitle = localCriticalAlert.title || 'Critical Disaster Alert';
+          const alertDesc =
+            localCriticalAlert.message ||
+            localCriticalAlert.description ||
+            `Immediate emergency action required in ${location?.district || 'your district'}.`;
+
+          triggerDisasterNotification({
+            title: alertTitle,
+            body: alertDesc,
+            sound: false
+          });
+
+          if (notifConfig.emailAlerts !== false) {
+            const user = getCurrentUser();
+            if (user?.email) {
+              dispatchEmergencyAlert({
+                recipientEmail: user.email,
+                recipientName: user.name || (isAdmin ? 'Disaster Operations Admin' : 'Citizen Resident'),
+                title: alertTitle,
+                hazardType: localCriticalAlert.hazardType || 'FLOOD',
+                severity: 'CRITICAL',
+                district: location?.district || 'Active Monitored Zone',
+                state: location?.state || 'India',
+                instructions: alertDesc
+              }).catch(() => {});
+            }
+          }
         }
       } catch (err) {
         console.warn('[Emergency Sentinel] Alert check error:', err.message);
@@ -209,11 +236,14 @@ export default function EmergencyAlertSentinel() {
     };
 
     checkEmergencyAlerts();
-    const interval = setInterval(checkEmergencyAlerts, 20000);
+    const interval = setInterval(checkEmergencyAlerts, 15000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
+      if (isSirenActive()) {
+        stopEmergencySiren();
+      }
     };
   }, [location?.district, location?.name]);
 

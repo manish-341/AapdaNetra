@@ -206,17 +206,28 @@ export function playEmergencySiren(durationMs = 7000) {
   }
 }
 
+let pendingTriggerHandler = null;
+
+function disarmImmediateInteractionSiren() {
+  if (pendingTriggerHandler && typeof window !== 'undefined') {
+    window.removeEventListener('pointerdown', pendingTriggerHandler, true);
+    window.removeEventListener('click', pendingTriggerHandler, true);
+    window.removeEventListener('keydown', pendingTriggerHandler, true);
+    window.removeEventListener('touchstart', pendingTriggerHandler, true);
+    pendingTriggerHandler = null;
+  }
+  pendingTriggerRegistered = false;
+}
+
 // Arm immediate start on the very next user gesture if autoplay was deferred
 function armImmediateInteractionSiren(durationMs = 7000) {
   if (pendingTriggerRegistered || typeof window === 'undefined') return;
   pendingTriggerRegistered = true;
 
-  const triggerNow = () => {
-    pendingTriggerRegistered = false;
-    window.removeEventListener('pointerdown', triggerNow, true);
-    window.removeEventListener('click', triggerNow, true);
-    window.removeEventListener('keydown', triggerNow, true);
-    window.removeEventListener('touchstart', triggerNow, true);
+  pendingTriggerHandler = () => {
+    disarmImmediateInteractionSiren();
+
+    if (!isPlaying) return;
 
     const ctx = getAudioContext();
     if (ctx && ctx.state === 'suspended') {
@@ -228,13 +239,15 @@ function armImmediateInteractionSiren(durationMs = 7000) {
     }
   };
 
-  window.addEventListener('pointerdown', triggerNow, true);
-  window.addEventListener('click', triggerNow, true);
-  window.addEventListener('keydown', triggerNow, true);
-  window.addEventListener('touchstart', triggerNow, true);
+  window.addEventListener('pointerdown', pendingTriggerHandler, true);
+  window.addEventListener('click', pendingTriggerHandler, true);
+  window.addEventListener('keydown', pendingTriggerHandler, true);
+  window.addEventListener('touchstart', pendingTriggerHandler, true);
 }
 
 function stopEmergencySirenInternal(resetState = true) {
+  disarmImmediateInteractionSiren();
+
   if (autoStopTimer) {
     clearTimeout(autoStopTimer);
     autoStopTimer = null;

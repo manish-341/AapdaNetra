@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getCurrentUser } from '../lib/auth';
 import { setDistrictLocation } from '../services/api';
+import { stopEmergencySiren } from '../utils/emergencyAudio';
 
 const LocationContext = createContext();
 
@@ -194,6 +195,11 @@ export function LocationProvider({ children }) {
   }, []);
 
   const switchLocation = async (district, state = '') => {
+    // Instantly terminate any active civil defense siren on location change
+    try {
+      stopEmergencySiren();
+    } catch {}
+
     const clean = district.toLowerCase().trim();
 
     // 1. Direct preset match
