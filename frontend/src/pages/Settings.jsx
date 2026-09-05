@@ -262,8 +262,11 @@ export default function Settings() {
     setDispatchingTest(true);
     try {
       stopEmergencySiren();
-      const res = await resolveEmergencyAlerts({ district: location?.district || '' });
-      showToast(res.data?.message || 'Emergency alerts resolved. Status returned to Normal!', 'success');
+      const res = await resolveEmergencyAlerts({
+        district: location?.district || profileForm.district || 'Delhi NCR',
+        state: location?.state || profileForm.state || 'Delhi'
+      });
+      showToast(res.data?.message || 'Emergency resolved! Status returned to Normal and All-Clear emails sent.', 'success');
       sessionStorage.removeItem('an_sounded_critical_alerts');
       sessionStorage.removeItem('an_acknowledged_critical_alerts');
       window.dispatchEvent(new CustomEvent('emergency-siren-stopped'));

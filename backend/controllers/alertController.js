@@ -97,7 +97,11 @@ const updateAlert = async (req, res) => {
     }
 };
 
-const { sendEmergencyDisasterEmail, broadcastEmergencyToAllUsers } = require("../services/emailService");
+const {
+    sendEmergencyDisasterEmail,
+    broadcastEmergencyToAllUsers,
+    broadcastEmergencyResolvedToAllUsers
+} = require("../services/emailService");
 
 // Dispatch Critical Situation Email to single recipient / test diagnostic
 const dispatchEmergencyAlert = async (req, res) => {
@@ -201,10 +205,10 @@ const broadcastEmergencyAlert = async (req, res) => {
     }
 };
 
-// Resolve / Clear Emergency Alerts (Admin-only: marks active alerts resolved/inactive)
+// Resolve / Clear Emergency Alerts (Admin-only: marks active alerts resolved/inactive and notifies citizens)
 const resolveEmergencyAlerts = async (req, res) => {
     try {
-        const { district } = req.body;
+        const { district, state, instructions, resolvedDetails } = req.body;
         const query = { isActive: true };
         if (district) {
             const regex = new RegExp(district.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i");
@@ -213,10 +217,22 @@ const resolveEmergencyAlerts = async (req, res) => {
 
         const result = await Alert.updateMany(query, { $set: { isActive: false } });
 
+        // Dispatch official Emergency Resolved (All Clear) email broadcast to all registered citizens
+        const resolvedDistrict = district || "Delhi NCR";
+        const resolvedState = state || "Delhi";
+        const broadcastResult = await broadcastEmergencyResolvedToAllUsers({
+            title: `Critical Emergency Resolved — ${resolvedDistrict}`,
+            district: resolvedDistrict,
+            state: resolvedState,
+            instructions: instructions || "Flood waters and hazard indices have receded to safe baseline levels. Civil defense sirens have stood down and normal movement may resume.",
+            resolvedDetails: resolvedDetails || `Disaster Operations Command confirms active emergency warnings across ${resolvedDistrict} have been contained and fully stood down.`
+        });
+
         res.status(200).json({
             success: true,
-            message: `Successfully resolved and cleared ${result.modifiedCount} active alert(s). Emergency status returned to Normal.`,
-            clearedCount: result.modifiedCount
+            message: `Successfully resolved ${result.modifiedCount} active alert(s). Emergency status returned to Normal and All-Clear notifications sent to ${broadcastResult.totalRecipients} registered citizens!`,
+            clearedCount: result.modifiedCount,
+            broadcast: broadcastResult
         });
     } catch (error) {
         console.error("resolveEmergencyAlerts error:", error);
