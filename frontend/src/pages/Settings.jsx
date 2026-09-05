@@ -207,18 +207,22 @@ export default function Settings() {
   // Emergency Alert Siren & Broadcast Dispatch Simulation
   const [sirenPlaying, setSirenPlaying] = useState(false);
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
-  const [dispatchingTest, setDispatchingTest] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
+  const [dispatchingSingleTest, setDispatchingSingleTest] = useState(false);
   const [broadcastStats, setBroadcastStats] = useState(null);
 
   const isAdmin = role === 'ADMIN' || currentUser?.role === 'ADMIN';
 
   // Admin-Only Mass Broadcast to ALL Registered Users
-  const handleAdminBroadcastEmergency = async () => {
+  const handleAdminBroadcastEmergency = async (e) => {
+    if (e?.stopPropagation) e.stopPropagation();
+    if (e?.preventDefault) e.preventDefault();
     if (!isAdmin) {
       showToast('Only for Admin uses: Emergency mass email broadcast requires Administrator privileges.', 'warning');
       return;
     }
-    setDispatchingTest(true);
+    setIsBroadcasting(true);
     try {
       // 1. Trigger native OS / browser notification
       await triggerDisasterNotification({
@@ -250,16 +254,18 @@ export default function Settings() {
       showToast(err.response?.data?.message || 'Emergency alert broadcast failed.', 'error');
       setEmergencyModalOpen(true);
     } finally {
-      setDispatchingTest(false);
+      setIsBroadcasting(false);
     }
   };
 
-  const handleResolveEmergencyAlerts = async () => {
+  const handleResolveEmergencyAlerts = async (e) => {
+    if (e?.stopPropagation) e.stopPropagation();
+    if (e?.preventDefault) e.preventDefault();
     if (!isAdmin) {
       showToast('Only administrators can resolve emergency alerts.', 'warning');
       return;
     }
-    setDispatchingTest(true);
+    setIsResolving(true);
     try {
       stopEmergencySiren();
       const res = await resolveEmergencyAlerts({
@@ -273,12 +279,12 @@ export default function Settings() {
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to resolve emergency alerts.', 'error');
     } finally {
-      setDispatchingTest(false);
+      setIsResolving(false);
     }
   };
 
   const handleTestEmergencyBroadcast = async () => {
-    setDispatchingTest(true);
+    setDispatchingSingleTest(true);
     try {
       // 1. Trigger native OS / browser notification
       await triggerDisasterNotification({
@@ -309,7 +315,7 @@ export default function Settings() {
       setEmergencyModalOpen(true);
       showToast('Emergency alert siren activated locally.', 'warning');
     } finally {
-      setDispatchingTest(false);
+      setDispatchingSingleTest(false);
     }
   };
 
@@ -775,11 +781,12 @@ export default function Settings() {
 
                       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                         <Button
+                          type="button"
                           variant="contained"
                           color="error"
                           onClick={handleAdminBroadcastEmergency}
-                          disabled={dispatchingTest}
-                          startIcon={dispatchingTest ? <CircularProgress size={16} color="inherit" /> : <AlertTriangle size={16} />}
+                          disabled={isBroadcasting}
+                          startIcon={isBroadcasting ? <CircularProgress size={16} color="inherit" /> : <AlertTriangle size={16} />}
                           sx={{
                             fontWeight: 800,
                             textTransform: 'none',
@@ -787,15 +794,16 @@ export default function Settings() {
                             borderRadius: 2
                           }}
                         >
-                          {dispatchingTest ? 'Broadcasting to All Users...' : '🚨 Broadcast Emergency Alert to All Users'}
+                          {isBroadcasting ? 'Broadcasting to All Users...' : '🚨 Broadcast Emergency Alert to All Users'}
                         </Button>
 
                         <Button
+                          type="button"
                           variant="outlined"
                           color="success"
                           onClick={handleResolveEmergencyAlerts}
-                          disabled={dispatchingTest}
-                          startIcon={<CheckCircle2 size={16} />}
+                          disabled={isResolving}
+                          startIcon={isResolving ? <CircularProgress size={16} color="inherit" /> : <CheckCircle2 size={16} />}
                           sx={{
                             fontWeight: 800,
                             textTransform: 'none',
@@ -809,7 +817,7 @@ export default function Settings() {
                             }
                           }}
                         >
-                          ✅ Resolve Emergency (All Clear)
+                          {isResolving ? 'Sending All-Clear Bulletin...' : '✅ Resolve Emergency (All Clear)'}
                         </Button>
                       </Stack>
                     </>
