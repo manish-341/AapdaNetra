@@ -31,6 +31,7 @@ export const updateShelter = (id, data) => API.put(`/shelters/${id}`, data);
 export const getAlerts = () => API.get("/alerts");
 export const dispatchEmergencyAlert = (data) => API.post("/alerts/dispatch-emergency", data);
 export const broadcastEmergencyAlert = (data) => API.post("/alerts/broadcast-emergency", data);
+export const resolveEmergencyAlerts = (data = {}) => API.post("/alerts/resolve-emergency", data);
 export const getRisks = () => API.get("/risks");
 export const getRelocations = () => API.get("/relocations");
 export const getCrowdObservations = () => API.get("/crowd");

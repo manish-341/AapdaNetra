@@ -201,11 +201,38 @@ const broadcastEmergencyAlert = async (req, res) => {
     }
 };
 
+// Resolve / Clear Emergency Alerts (Admin-only: marks active alerts resolved/inactive)
+const resolveEmergencyAlerts = async (req, res) => {
+    try {
+        const { district } = req.body;
+        const query = { isActive: true };
+        if (district) {
+            const regex = new RegExp(district.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i");
+            query.$or = [{ district: regex }, { title: regex }];
+        }
+
+        const result = await Alert.updateMany(query, { $set: { isActive: false } });
+
+        res.status(200).json({
+            success: true,
+            message: `Successfully resolved and cleared ${result.modifiedCount} active alert(s). Emergency status returned to Normal.`,
+            clearedCount: result.modifiedCount
+        });
+    } catch (error) {
+        console.error("resolveEmergencyAlerts error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message || "Failed to resolve emergency alerts"
+        });
+    }
+};
+
 module.exports = {
     createAlert,
     getAlerts,
     getAlertById,
     updateAlert,
     dispatchEmergencyAlert,
-    broadcastEmergencyAlert
+    broadcastEmergencyAlert,
+    resolveEmergencyAlerts
 };

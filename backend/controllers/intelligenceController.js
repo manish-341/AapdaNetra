@@ -229,33 +229,33 @@ const REGIONAL_TELEMETRY = {
     },
     "delhi": {
         riverName: "Yamuna Gauge",
-        riverLevel: "205.85m",
-        riverTrend: "(+0.52m)",
-        riverStatus: "Warning",
-        rainfall: "68.4mm (Heavy)",
-        activeSectors: 6,
-        criticalSectors: 2,
-        occupiedShelterCount: 1740
+        riverLevel: "204.10m",
+        riverTrend: "(-0.04m)",
+        riverStatus: "Normal",
+        rainfall: "2.1mm (Light)",
+        activeSectors: 2,
+        criticalSectors: 0,
+        occupiedShelterCount: 45
     },
     "central delhi": {
         riverName: "Yamuna Gauge",
-        riverLevel: "205.85m",
-        riverTrend: "(+0.52m)",
-        riverStatus: "Warning",
-        rainfall: "68.4mm (Heavy)",
-        activeSectors: 6,
-        criticalSectors: 2,
-        occupiedShelterCount: 1740
+        riverLevel: "204.10m",
+        riverTrend: "(-0.04m)",
+        riverStatus: "Normal",
+        rainfall: "2.1mm (Light)",
+        activeSectors: 2,
+        criticalSectors: 0,
+        occupiedShelterCount: 45
     },
     "north delhi": {
         riverName: "Yamuna Gauge (Wazirabad)",
-        riverLevel: "206.10m",
-        riverTrend: "(+0.60m)",
-        riverStatus: "Critical",
-        rainfall: "72.0mm (Heavy)",
-        activeSectors: 7,
-        criticalSectors: 3,
-        occupiedShelterCount: 2150
+        riverLevel: "204.25m",
+        riverTrend: "(-0.02m)",
+        riverStatus: "Normal",
+        rainfall: "2.5mm (Light)",
+        activeSectors: 2,
+        criticalSectors: 0,
+        occupiedShelterCount: 60
     },
     "gautam buddha nagar": {
         riverName: "Hindon River Gauge",
@@ -434,21 +434,37 @@ const getDashboardStats = async (req, res) => {
             };
         }
 
-        // Fallback realistic baseline if database records for the specific district are emerging
+        // Enrich telemetry with live weather when available
+        try {
+            const { getCurrentWeather } = require("../services/weatherService");
+            // Default coords if not in gazetteer (Delhi coordinates ~ 28.6139, 77.2090)
+            const lat = req.query.lat ? parseFloat(req.query.lat) : 28.6139;
+            const lon = req.query.lng ? parseFloat(req.query.lng) : 77.2090;
+            const liveWeather = await getCurrentWeather(lat, lon);
+            if (liveWeather && liveWeather.rainfall !== undefined) {
+                const rainVal = Number(liveWeather.rainfall) || 0;
+                const rainDesc = rainVal >= 50 ? "Heavy" : rainVal >= 10 ? "Moderate" : rainVal > 0 ? "Light" : "None";
+                telemetry.rainfall = `${rainVal.toFixed(1)}mm (${rainDesc})`;
+            }
+        } catch (weaErr) {
+            console.warn("[getDashboardStats] Live weather enrichment notice:", weaErr.message);
+        }
+
+        // Realistic fallbacks without fabricating fake critical alerts
         if (alertCount === 0 && districtName) {
-            alertCount = telemetry.criticalSectors > 0 ? 3 : 2;
-            criticalAlerts = telemetry.criticalSectors > 0 ? 1 : 0;
+            alertCount = 0;
+            criticalAlerts = 0;
         }
         if (shelterCount === 0 && districtName) {
             shelterCount = 12;
             availableShelters = 10;
         }
         if (populationAtRisk === 0 && districtName) {
-            populationAtRisk = habitationCount > 0 ? habitationCount * 2800 : 34500;
+            populationAtRisk = habitationCount > 0 ? habitationCount * 500 : 0;
         }
         if (reportCount === 0 && districtName) {
-            reportCount = 6;
-            verifiedReports = 4;
+            reportCount = 0;
+            verifiedReports = 0;
         }
 
         // 7. Recent Alerts specifically for this district
@@ -469,30 +485,12 @@ const getDashboardStats = async (req, res) => {
             recentAlerts = [
                 {
                     _id: `alert-loc-1`,
-                    title: `Water Level & Drainage Watch`,
+                    title: `Normal Hydrological & Flow Status`,
                     subtitle: `${telemetry.riverName} telemetry actively monitored in ${districtName}.`,
-                    message: `${telemetry.riverName} reading ${telemetry.riverLevel} ${telemetry.riverTrend}.`,
-                    severity: telemetry.criticalSectors > 0 ? "CRITICAL" : "WARNING",
-                    district: districtName,
-                    time: "1h ago"
-                },
-                {
-                    _id: `alert-loc-2`,
-                    title: `Precipitation & Flash Inundation Advisory`,
-                    subtitle: `${telemetry.rainfall} observed across low-lying sectors.`,
-                    message: `Local response teams on preparedness standby in ${districtName}.`,
-                    severity: "HIGH",
-                    district: districtName,
-                    time: "3h ago"
-                },
-                {
-                    _id: `alert-loc-3`,
-                    title: `Relief Shelters Operational`,
-                    subtitle: `${availableShelters} designated disaster shelters ready for intake.`,
-                    message: `Evacuation corridors verified by emergency command.`,
+                    message: `${telemetry.riverName} reading ${telemetry.riverLevel} ${telemetry.riverTrend} — Flow is well within safe thresholds.`,
                     severity: "INFO",
                     district: districtName,
-                    time: "5h ago"
+                    time: "Just now"
                 }
             ];
         }

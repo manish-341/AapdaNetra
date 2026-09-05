@@ -53,7 +53,7 @@ import {
 } from 'lucide-react';
 import Boilerplate from '../layouts/Boilerplate';
 import { getCurrentUser, getUserRole, clearAuthToken } from '../lib/auth';
-import { updateUser, getUserById, dispatchEmergencyAlert, broadcastEmergencyAlert } from '../services/api';
+import { updateUser, getUserById, dispatchEmergencyAlert, broadcastEmergencyAlert, resolveEmergencyAlerts } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext, PRESET_DISTRICTS } from '../context/LocationContext';
 import { useNavigate } from 'react-router-dom';
@@ -247,6 +247,26 @@ export default function Settings() {
       console.warn('Broadcast error:', err);
       showToast(err.response?.data?.message || 'Emergency alert broadcast failed.', 'error');
       setEmergencyModalOpen(true);
+    } finally {
+      setDispatchingTest(false);
+    }
+  };
+
+  const handleResolveEmergencyAlerts = async () => {
+    if (!isAdmin) {
+      showToast('Only administrators can resolve emergency alerts.', 'warning');
+      return;
+    }
+    setDispatchingTest(true);
+    try {
+      stopEmergencySiren();
+      const res = await resolveEmergencyAlerts({ district: location?.district || '' });
+      showToast(res.data?.message || 'Emergency alerts resolved. Status returned to Normal!', 'success');
+      sessionStorage.removeItem('an_sounded_critical_alerts');
+      sessionStorage.removeItem('an_acknowledged_critical_alerts');
+      window.dispatchEvent(new CustomEvent('emergency-siren-stopped'));
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to resolve emergency alerts.', 'error');
     } finally {
       setDispatchingTest(false);
     }
@@ -763,6 +783,28 @@ export default function Settings() {
                           }}
                         >
                           {dispatchingTest ? 'Broadcasting to All Users...' : '🚨 Broadcast Emergency Alert to All Users'}
+                        </Button>
+
+                        <Button
+                          variant="outlined"
+                          color="success"
+                          onClick={handleResolveEmergencyAlerts}
+                          disabled={dispatchingTest}
+                          startIcon={<CheckCircle2 size={16} />}
+                          sx={{
+                            fontWeight: 800,
+                            textTransform: 'none',
+                            px: 2.5,
+                            borderRadius: 2,
+                            borderColor: '#10b981',
+                            color: '#10b981',
+                            '&:hover': {
+                              bgcolor: 'rgba(16, 185, 129, 0.08)',
+                              borderColor: '#10b981'
+                            }
+                          }}
+                        >
+                          ✅ Resolve Emergency (All Clear)
                         </Button>
                       </Stack>
                     </>
