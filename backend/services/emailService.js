@@ -104,10 +104,16 @@ const sendEmergencyDisasterEmail = async ({
     shelters = [
         { name: "Central Relief Camp #4", location: "District Sports Complex", capacity: "850 Persons Available" },
         { name: "Community Emergency Shelter #1", location: "Govt Senior Secondary School", capacity: "400 Persons Available" }
-    ]
+    ],
+    liveWeather = null
 }) => {
     const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-    const severityColor = severity === "CRITICAL" ? "#dc2626" : "#ea580c";
+    const isCritical = severity === "CRITICAL" || severity === "HIGH";
+    const headerColor = isCritical ? "#dc2626" : "#0284c7";
+    const headerTitle = isCritical ? "🚨 CRITICAL DISASTER ALERT BROADCAST" : "🛰️ REAL-TIME SITUATION & SENSOR BULLETIN";
+    const severityBadgeBg = isCritical ? "#fee2e2" : "#e0f2fe";
+    const severityBadgeColor = isCritical ? "#b91c1c" : "#0369a1";
+    const severityBadgeBorder = isCritical ? "#fca5a5" : "#7dd3fc";
 
     const htmlContent = `
     <!DOCTYPE html>
@@ -118,11 +124,11 @@ const sendEmergencyDisasterEmail = async ({
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px; color: #0f172a; }
         .card { max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
-        .header { background: ${severityColor}; padding: 24px 28px; color: #ffffff; text-align: center; }
+        .header { background: ${headerColor}; padding: 24px 28px; color: #ffffff; text-align: center; }
         .header h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
         .header p { margin: 6px 0 0 0; font-size: 13px; opacity: 0.95; }
         .content { padding: 28px; }
-        .badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-weight: 800; font-size: 12px; text-transform: uppercase; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-weight: 800; font-size: 12px; text-transform: uppercase; background: ${severityBadgeBg}; color: ${severityBadgeColor}; border: 1px solid ${severityBadgeBorder}; }
         .details-grid { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0; }
         .details-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
         .details-row:last-child { border-bottom: none; }
@@ -140,29 +146,49 @@ const sendEmergencyDisasterEmail = async ({
     <body>
       <div class="card">
         <div class="header">
-          <h1>🚨 CRITICAL DISASTER ALERT BROADCAST</h1>
+          <h1>${headerTitle}</h1>
           <p>AapdaNetra Crisis Decision Support System • Ministry of Disaster Management</p>
         </div>
         <div class="content">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span class="badge">PRIORITY: ${severity}</span>
+            <span class="badge">STATUS: ${severity}</span>
             <span style="font-size: 12px; color: #64748b; font-weight: 600;">${timestamp}</span>
           </div>
 
           <h2 style="font-size: 18px; margin: 16px 0 6px 0; color: #0f172a;">${title}</h2>
           <p style="font-size: 14px; color: #475569; margin: 0; line-height: 1.5;">
-            Attention <strong>${recipientName}</strong>: An emergency hazard broadcast has been initiated by Disaster Operations Command for your registered district. Immediate precautionary action is advised.
+            Attention <strong>${recipientName}</strong>: An official situation report and sensor telemetry broadcast has been initiated by Disaster Operations Command for your registered district.
           </p>
 
           <div class="details-grid">
-            <div class="details-row"><span class="details-label">Hazard Classification:</span><span class="details-value">${hazardType}</span></div>
+            <div class="details-row"><span class="details-label">Classification:</span><span class="details-value">${hazardType}</span></div>
             <div class="details-row"><span class="details-label">Monitored Region:</span><span class="details-value">${district}, ${state}</span></div>
-            <div class="details-row"><span class="details-label">Threat Level:</span><span class="details-value" style="color: ${severityColor};">HIGH / CRITICAL (Verified Incident)</span></div>
+            <div class="details-row"><span class="details-label">Operational Status:</span><span class="details-value" style="color: ${headerColor}; font-weight: 800;">${severity}</span></div>
             <div class="details-row"><span class="details-label">Recipient Account:</span><span class="details-value">${recipientEmail}</span></div>
           </div>
 
+          ${liveWeather ? `
+          <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px 16px; margin: 18px 0;">
+            <div style="font-weight: 800; font-size: 13px; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+              <span>🛰️ Real-Time Telemetry & Sensor Observations</span>
+              <span style="font-size: 11px; color: #16a34a; font-weight: 700;">● LIVE SATELLITE FEED</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; color: #334155;">
+              <div>🌡️ <strong>Air Temperature:</strong> ${liveWeather.temperature}°C</div>
+              <div>🌧️ <strong>Rainfall Intensity:</strong> ${liveWeather.rainfall} mm/h ${liveWeather.rainfall < 15 ? '(Safe Baseline)' : '(Surge Threshold)'}</div>
+              <div>💧 <strong>Relative Humidity:</strong> ${liveWeather.humidity}%</div>
+              <div>💨 <strong>Wind Velocity:</strong> ${liveWeather.windSpeed} km/h</div>
+              <div>🌱 <strong>Soil Saturation:</strong> ${liveWeather.soilMoisturePct || 69}%</div>
+              <div>🌊 <strong>Hydrological Basin:</strong> ${liveWeather.rainfall < 15 ? 'Normal Baseline Flow (No Flood)' : 'Surge Danger Level'}</div>
+            </div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 10px; border-top: 1px solid #e2e8f0; padding-top: 6px;">
+              Sensor Feed: ${liveWeather.source || 'Open-Meteo & Central Water Commission (CWC)'} • Synced: ${timestamp}
+            </div>
+          </div>
+          ` : ''}
+
           <div class="action-box">
-            <h3>Immediate Protective Action Protocol:</h3>
+            <h3>Disaster Operations Directive / Status:</h3>
             <p>${instructions}</p>
           </div>
 
@@ -396,7 +422,8 @@ const broadcastEmergencyToAllUsers = async ({
     state = "Delhi",
     instructions,
     shelters,
-    senderName = "Disaster Management Administrator"
+    senderName = "Disaster Management Administrator",
+    liveWeather = null
 }) => {
     // 1. Fetch all registered active users with valid email addresses
     const users = await User.find({
@@ -426,8 +453,9 @@ const broadcastEmergencyToAllUsers = async ({
             severity,
             district: district || user.district || "Delhi NCR",
             state: state || user.state || "Delhi",
-            instructions: instructions || "High-confidence disaster threshold triggered. Follow immediate evacuation protocols and move to designated shelters.",
-            shelters
+            instructions: instructions || "Disaster operations telemetry synchronized. Follow official advisories.",
+            shelters,
+            liveWeather
         });
     });
 
