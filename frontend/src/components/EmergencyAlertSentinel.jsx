@@ -98,12 +98,13 @@ export default function EmergencyAlertSentinel() {
     };
   }, []);
 
-  // Stop any active siren immediately when user switches active location
+  // Stop any active siren immediately when user switches active location and reset sounded ref
   useEffect(() => {
     if (isSirenActive()) {
       stopEmergencySiren();
     }
     setSirenPlaying(false);
+    lastSoundedAlertIdRef.current = null;
   }, [location?.district, location?.name]);
 
   // Poll alerts and automatically trigger alarm strictly on critical emergencies in active district
@@ -177,25 +178,14 @@ export default function EmergencyAlertSentinel() {
         } catch {}
         const isAcknowledged = acknowledgedIds.includes(critAlertId);
 
-        let soundedIds = [];
-        try {
-          soundedIds = JSON.parse(sessionStorage.getItem('an_sounded_critical_alerts') || '[]');
-        } catch {}
-        const hasAlreadySounded = soundedIds.includes(critAlertId);
-
         if (!isAcknowledged && !modalOpen) {
           setToastPopupOpen(true);
         }
 
         // Sound acoustic civil defense siren ONLY for verified critical emergencies in this region
-        // and only once per session so navigating pages doesn't endlessly blare
-        if (!isAcknowledged && !hasAlreadySounded && lastSoundedAlertIdRef.current !== critAlertId) {
+        // and only once per active district visit so polling doesn't endlessly blare
+        if (!isAcknowledged && lastSoundedAlertIdRef.current !== critAlertId) {
           lastSoundedAlertIdRef.current = critAlertId;
-
-          try {
-            soundedIds.push(critAlertId);
-            sessionStorage.setItem('an_sounded_critical_alerts', JSON.stringify(soundedIds));
-          } catch {}
 
           if (notifConfig.audioSiren !== false) {
             playEmergencySiren(7000);

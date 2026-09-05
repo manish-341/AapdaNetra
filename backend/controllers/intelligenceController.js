@@ -288,14 +288,14 @@ const REGIONAL_TELEMETRY = {
         occupiedShelterCount: 3400
     },
     "bhopal": {
-        riverName: "Upper Lake Level",
-        riverLevel: "1666.8 ft",
-        riverTrend: "(+0.2 ft)",
-        riverStatus: "Normal",
-        rainfall: "34.5mm (Moderate)",
-        activeSectors: 4,
-        criticalSectors: 0,
-        occupiedShelterCount: 650
+        riverName: "Upper Lake Basin",
+        riverLevel: "1668.5 ft (Danger Mark Exceeded)",
+        riverTrend: "(+1.8 ft Surge)",
+        riverStatus: "Critical",
+        rainfall: "88.5mm (Extreme Precipitation)",
+        activeSectors: 6,
+        criticalSectors: 3,
+        occupiedShelterCount: 1450
     },
     "indore": {
         riverName: "Kanh River Gauge",
@@ -381,7 +381,9 @@ const getDashboardStats = async (req, res) => {
             relocationCount,
             activeRelocations,
             hazardCount,
-            criticalHazards
+            criticalHazards,
+            mediumHazards,
+            lowHazards
         ] = await Promise.all([
             Alert.countDocuments({ isActive: true, ...filter }),
             Alert.countDocuments({ isActive: true, severity: "CRITICAL", ...filter }),
@@ -394,7 +396,9 @@ const getDashboardStats = async (req, res) => {
             Relocation.countDocuments(filter),
             Relocation.countDocuments({ status: "IN_PROGRESS", ...filter }),
             HazardZone.countDocuments(filter),
-            HazardZone.countDocuments({ riskCategory: { $in: ["RED", "CRITICAL"] }, ...filter })
+            HazardZone.countDocuments({ riskCategory: { $in: ["RED", "CRITICAL"] }, ...filter }),
+            HazardZone.countDocuments({ riskCategory: "AMBER", ...filter }),
+            HazardZone.countDocuments({ riskCategory: "GREEN", ...filter })
         ]);
 
         // 4. Localized Population at Risk
@@ -434,20 +438,39 @@ const getDashboardStats = async (req, res) => {
             };
         }
 
-        // Enrich telemetry with live weather when available
-        try {
-            const { getCurrentWeather } = require("../services/weatherService");
-            // Default coords if not in gazetteer (Delhi coordinates ~ 28.6139, 77.2090)
-            const lat = req.query.lat ? parseFloat(req.query.lat) : 28.6139;
-            const lon = req.query.lng ? parseFloat(req.query.lng) : 77.2090;
-            const liveWeather = await getCurrentWeather(lat, lon);
-            if (liveWeather && liveWeather.rainfall !== undefined) {
-                const rainVal = Number(liveWeather.rainfall) || 0;
-                const rainDesc = rainVal >= 50 ? "Heavy" : rainVal >= 10 ? "Moderate" : rainVal > 0 ? "Light" : "None";
-                telemetry.rainfall = `${rainVal.toFixed(1)}mm (${rainDesc})`;
+        // Enrich telemetry with live weather when safe, BUT PRESERVE simulated/critical extreme telemetry
+        const isDisasterScenario = criticalAlerts > 0 || telemetry.riverStatus === "Critical";
+        if (!isDisasterScenario) {
+            try {
+                const { getCurrentWeather } = require("../services/weatherService");
+                let lat = req.query.lat ? parseFloat(req.query.lat) : null;
+                let lon = req.query.lng ? parseFloat(req.query.lng) : null;
+                if (!lat || !lon) {
+                    const COORDS_MAP = {
+                        "bhopal": { lat: 23.2599, lng: 77.4126 },
+                        "delhi": { lat: 28.6139, lng: 77.2090 },
+                        "central delhi": { lat: 28.6139, lng: 77.2090 },
+                        "mumbai": { lat: 19.0760, lng: 72.8777 },
+                        "pune": { lat: 18.5204, lng: 73.8567 },
+                        "gautam buddha nagar": { lat: 28.4744, lng: 77.5040 },
+                        "noida": { lat: 28.5355, lng: 77.3910 },
+                        "indore": { lat: 22.7196, lng: 75.8577 },
+                        "dehradun": { lat: 30.3165, lng: 78.0322 },
+                        "ranchi": { lat: 23.3441, lng: 85.3096 }
+                    };
+                    const mapped = COORDS_MAP[cleanKey] || { lat: 28.6139, lng: 77.2090 };
+                    lat = mapped.lat;
+                    lon = mapped.lng;
+                }
+                const liveWeather = await getCurrentWeather(lat, lon);
+                if (liveWeather && liveWeather.rainfall !== undefined) {
+                    const rainVal = Number(liveWeather.rainfall) || 0;
+                    const rainDesc = rainVal >= 50 ? "Heavy" : rainVal >= 10 ? "Moderate" : rainVal > 0 ? "Light" : "None";
+                    telemetry.rainfall = `${rainVal.toFixed(1)}mm (${rainDesc})`;
+                }
+            } catch (weaErr) {
+                console.warn("[getDashboardStats] Live weather enrichment notice:", weaErr.message);
             }
-        } catch (weaErr) {
-            console.warn("[getDashboardStats] Live weather enrichment notice:", weaErr.message);
         }
 
         // Realistic fallbacks without fabricating fake critical alerts
@@ -515,7 +538,7 @@ const getDashboardStats = async (req, res) => {
                 habitations: { total: habitationCount, highRisk: highRiskHabitations },
                 reports: { last24h: reportCount, verified: verifiedReports },
                 relocations: { total: relocationCount, active: activeRelocations },
-                hazards: { total: hazardCount, critical: criticalHazards },
+                hazards: { total: hazardCount, critical: criticalHazards, medium: mediumHazards, low: lowHazards },
                 populationAtRisk: populationAtRisk,
                 recentAlerts: recentAlerts.map(a => ({
                     id: a._id || a.id,

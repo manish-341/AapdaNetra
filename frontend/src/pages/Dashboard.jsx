@@ -6,7 +6,9 @@ import {
   Box,
   Button,
   Fade,
-  Tooltip
+  Tooltip,
+  Select,
+  MenuItem
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import HomeWorkOutlinedIcon from '@mui/icons-material/HomeWorkOutlined';
@@ -27,7 +29,7 @@ import Boilerplate from '../layouts/Boilerplate';
 import { getDashboardStats } from '../services/api';
 import { getCurrentUser, getUserRole } from '../lib/auth';
 import { useThemeMode } from '../context/ThemeContext';
-import { useLocationContext } from '../context/LocationContext';
+import { useLocationContext, PRESET_DISTRICTS } from '../context/LocationContext';
 import AdminOnlyModal from '../components/AdminOnlyModal';
 import EmergencyContactsModal from '../components/EmergencyContactsModal';
 
@@ -222,7 +224,7 @@ function RiskTrendAreaChart({ isDark }) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { isDark } = useThemeMode();
-  const { location } = useLocationContext();
+  const { location, switchLocation, presets } = useLocationContext();
   const user = getCurrentUser() || { name: 'Admin User', role: 'ADMIN' };
   const role = getUserRole();
   const isAdmin = ["ADMIN", "ADMINISTRATOR"].includes(role);
@@ -235,6 +237,14 @@ export default function Dashboard() {
   const [currentTime, setCurrentTime] = useState('');
 
   const locationName = location?.name || location?.district || 'Gautam Buddha Nagar (Uttar Pradesh)';
+
+  const matchedPreset = (presets || PRESET_DISTRICTS).find(
+    (p) =>
+      p.id === location?.id ||
+      (location?.district && p.district.toLowerCase() === location.district.toLowerCase()) ||
+      (location?.name && location.name.toLowerCase().includes(p.district.toLowerCase()))
+  );
+  const activePresetId = matchedPreset?.id || location?.id || 'delhi';
 
   useEffect(() => {
     const updateTime = () => {
@@ -258,7 +268,12 @@ export default function Dashboard() {
     const targetDistrict = location?.district || (location?.name ? location.name.split('(')[0].trim() : '');
     const targetState = location?.state || '';
 
-    getDashboardStats({ district: targetDistrict, state: targetState })
+    getDashboardStats({
+      district: targetDistrict,
+      state: targetState,
+      lat: location?.lat,
+      lng: location?.lng
+    })
       .then((res) => {
         if (!cancelled && res?.data?.data) {
           setStats(res.data.data);
@@ -270,31 +285,35 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [location?.district, location?.name, location?.state]);
+  }, [location?.district, location?.name, location?.state, location?.lat, location?.lng]);
 
-  const activeAlertsCount = stats?.alerts?.total ?? stats?.activeAlerts ?? 11;
-  const criticalAlertsCount = stats?.alerts?.critical ?? stats?.criticalAlerts ?? 1;
-  const sheltersReady = stats?.shelters?.available ?? stats?.sheltersOperational ?? 18;
-  const totalShelters = stats?.shelters?.total ?? stats?.totalShelters ?? 20;
-  const shelterOccupied = stats?.shelters?.occupied ?? stats?.telemetry?.occupiedShelterCount ?? 1740;
-  const shelterReadyPercent = totalShelters > 0 ? Math.round((sheltersReady / totalShelters) * 100) : 88;
-  const populationAtRisk = stats?.populationAtRisk ?? 83730;
-  const reportsCount = stats?.reports?.last24h ?? stats?.reports24h ?? 9;
-  const verifiedReportsCount = stats?.reports?.verified ?? 4;
+  const activeAlertsCount = stats?.alerts?.total ?? stats?.activeAlerts ?? 0;
+  const criticalAlertsCount = stats?.alerts?.critical ?? stats?.criticalAlerts ?? 0;
+  const sheltersReady = stats?.shelters?.available ?? stats?.sheltersOperational ?? 0;
+  const totalShelters = stats?.shelters?.total ?? stats?.totalShelters ?? 0;
+  const shelterOccupied = stats?.shelters?.occupied ?? stats?.telemetry?.occupiedShelterCount ?? 0;
+  const shelterReadyPercent = totalShelters > 0 ? Math.round((sheltersReady / totalShelters) * 100) : 0;
+  const populationAtRisk = stats?.populationAtRisk ?? 0;
+  const reportsCount = stats?.reports?.last24h ?? stats?.reports24h ?? 0;
+  const verifiedReportsCount = stats?.reports?.verified ?? 0;
 
   const riverName = stats?.telemetry?.riverName || 'River Basin Gauge';
-  const riverLevel = stats?.telemetry?.riverLevel || '142.50m';
-  const riverTrend = stats?.telemetry?.riverTrend || '(+0.18m)';
+  const riverLevel = stats?.telemetry?.riverLevel || 'Normal Level';
+  const riverTrend = stats?.telemetry?.riverTrend || '(Steady)';
   const riverStatus = stats?.telemetry?.riverStatus || 'Normal';
   const isRiverCritical = riverStatus === 'Critical' || riverStatus === 'Warning' || riverStatus === 'Danger';
-  const activeSectors = stats?.telemetry?.activeSectors ?? 6;
-  const criticalSectors = stats?.telemetry?.criticalSectors ?? 2;
-  const rainfall = stats?.telemetry?.rainfall || '68.4mm (Heavy)';
+  const activeSectors = stats?.telemetry?.activeSectors ?? 2;
+  const criticalSectors = stats?.telemetry?.criticalSectors ?? 0;
+  const rainfall = stats?.telemetry?.rainfall || '0.0mm (None)';
 
-  const totalHazardZones = stats?.hazards?.total || 322;
-  const highRiskZones = stats?.hazards?.critical || Math.round(totalHazardZones * 0.17) || 72;
-  const medRiskZones = Math.round((totalHazardZones - highRiskZones) * 0.38) || 148;
-  const lowRiskZones = Math.max(0, totalHazardZones - highRiskZones - medRiskZones) || 320;
+  const totalHazardZones = stats?.hazards?.total ?? (criticalAlertsCount > 0 ? 4 : 8);
+  const highRiskZones = stats?.hazards?.critical ?? (criticalAlertsCount > 0 ? 1 : 0);
+  const medRiskZones = stats?.hazards?.medium ?? (criticalAlertsCount > 0 ? 1 : 2);
+  const lowRiskZones = stats?.hazards?.low ?? Math.max(0, totalHazardZones - highRiskZones - medRiskZones);
+
+  const lowPercent = totalHazardZones > 0 ? Math.min(100, Math.round((lowRiskZones / totalHazardZones) * 100)) : 0;
+  const medPercent = totalHazardZones > 0 ? Math.min(100, Math.round((medRiskZones / totalHazardZones) * 100)) : 0;
+  const highPercent = totalHazardZones > 0 ? Math.min(100, Math.round((highRiskZones / totalHazardZones) * 100)) : 0;
 
   const cardBg = isDark ? '#111827' : '#ffffff';
   const cardBorder = isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #f1f5f9';
@@ -380,10 +399,52 @@ export default function Dashboard() {
               </Typography>
               <Typography
                 variant="body2"
-                sx={{ color: textSecondary, mt: 0.6, fontWeight: 500, fontSize: '0.86rem' }}
+                component="div"
+                sx={{
+                  color: textSecondary,
+                  mt: 0.6,
+                  fontWeight: 500,
+                  fontSize: '0.86rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 0.8
+                }}
               >
-                Welcome back, <strong style={{ color: textPrimary }}>{user?.name || 'Admin User'}</strong> • Monitoring{' '}
-                <span style={{ color: '#0284c7', fontWeight: 700 }}>{locationName}</span>
+                <span>Welcome back, <strong style={{ color: textPrimary }}>{user?.name || 'Admin User'}</strong> • Monitoring</span>
+                <Select
+                  size="small"
+                  value={activePresetId}
+                  onChange={(e) => {
+                    const p = (presets || PRESET_DISTRICTS).find((item) => item.id === e.target.value);
+                    if (p) {
+                      switchLocation(p.district, p.state);
+                    } else {
+                      switchLocation(e.target.value);
+                    }
+                  }}
+                  variant="standard"
+                  disableUnderline
+                  sx={{
+                    color: '#0284c7',
+                    fontWeight: 800,
+                    fontSize: '0.86rem',
+                    cursor: 'pointer',
+                    bgcolor: isDark ? 'rgba(2, 132, 199, 0.15)' : '#e0f2fe',
+                    borderRadius: 1.5,
+                    px: 1,
+                    py: 0.2,
+                    border: '1px solid rgba(2, 132, 199, 0.3)',
+                    '& .MuiSelect-select': { py: 0.1, pr: '22px !important' },
+                    '& .MuiSvgIcon-root': { color: '#0284c7', right: 2 }
+                  }}
+                >
+                  {(presets || PRESET_DISTRICTS).map((p) => (
+                    <MenuItem key={p.id} value={p.id} sx={{ fontSize: '0.84rem', fontWeight: 600 }}>
+                      {p.name}
+                    </MenuItem>
+                  ))}
+                </Select>
               </Typography>
             </Box>
 
@@ -864,7 +925,7 @@ export default function Dashboard() {
                           {lowRiskZones}
                         </Typography>
                         <Typography sx={{ fontSize: '0.78rem', color: textMuted }}>
-                          {Math.round((lowRiskZones / (totalHazardZones || 1)) * 100)}%
+                          {lowPercent}%
                         </Typography>
                       </Box>
                     </Box>
@@ -881,7 +942,7 @@ export default function Dashboard() {
                           {medRiskZones}
                         </Typography>
                         <Typography sx={{ fontSize: '0.78rem', color: textMuted }}>
-                          {Math.round((medRiskZones / (totalHazardZones || 1)) * 100)}%
+                          {medPercent}%
                         </Typography>
                       </Box>
                     </Box>
@@ -898,7 +959,7 @@ export default function Dashboard() {
                           {highRiskZones}
                         </Typography>
                         <Typography sx={{ fontSize: '0.78rem', color: textMuted }}>
-                          {Math.round((highRiskZones / (totalHazardZones || 1)) * 100)}%
+                          {highPercent}%
                         </Typography>
                       </Box>
                     </Box>

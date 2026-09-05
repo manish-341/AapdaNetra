@@ -200,15 +200,30 @@ export function LocationProvider({ children }) {
       stopEmergencySiren();
     } catch {}
 
-    const clean = district.toLowerCase().trim();
+    // Support object or string argument
+    if (typeof district === 'object' && district !== null) {
+      state = district.state || state;
+      district = district.district || district.name || district.id || '';
+    }
+
+    const clean = (district || '').toLowerCase().trim();
+    const cleanNormalized = clean.replace(/[-_]/g, ' ');
 
     // 1. Direct preset match
-    let matched = PRESET_DISTRICTS.find(p => p.district.toLowerCase() === clean || p.district.toLowerCase().includes(clean) || clean.includes(p.district.toLowerCase()));
+    let matched = PRESET_DISTRICTS.find(p => 
+      p.id.toLowerCase() === clean ||
+      p.id.toLowerCase().replace(/[-_]/g, ' ') === cleanNormalized ||
+      p.district.toLowerCase() === clean ||
+      p.district.toLowerCase() === cleanNormalized ||
+      p.name.toLowerCase().includes(clean) ||
+      clean.includes(p.district.toLowerCase()) ||
+      p.district.toLowerCase().includes(clean)
+    );
 
     // 2. Gazetteer lookup for any Indian district/city
     if (!matched) {
       for (const [key, val] of Object.entries(INDIAN_DISTRICT_GAZETTEER)) {
-        if (clean === key || clean.includes(key) || key.includes(clean)) {
+        if (clean === key || cleanNormalized === key || clean.includes(key) || key.includes(clean)) {
           matched = {
             id: key,
             name: `${val.name} (${val.state})`,
@@ -224,14 +239,15 @@ export function LocationProvider({ children }) {
     }
 
     if (matched) {
-      setLocation(matched);
-      localStorage.setItem('an_active_location', JSON.stringify(matched));
+      const fullMatched = { ...matched, isGPS: false };
+      setLocation(fullMatched);
+      localStorage.setItem('an_active_location', JSON.stringify(fullMatched));
       try {
-        await setDistrictLocation({ district: matched.district, state: matched.state });
+        await setDistrictLocation({ district: fullMatched.district, state: fullMatched.state });
       } catch (e) {
         console.warn('Set district API error:', e.message);
       }
-      return matched;
+      return fullMatched;
     }
 
     // 3. Fallback geocoding via backend
