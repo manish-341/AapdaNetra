@@ -126,5 +126,6 @@ app.listen(PORT, "0.0.0.0", () => {
     console.log(`\n🛡️  AapdaNetra AI Platform — Server started on port ${PORT}`);
     console.log(`   Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`   AI Service: ${process.env.AI_SERVICE_URL || "http://localhost:8000"}`);
-    console.log(`   Frontend: ${process.env.FRONTEND_URL || "http://localhost:5173"}\n`);
+    console.log(`   Frontend: ${process.env.FRONTEND_URL || "http://localhost:5173"}`);
+    console.log(`   SMTP Relay: ${process.env.SMTP_USER ? `Configured (${process.env.SMTP_USER}) via ${process.env.SMTP_HOST || "brevo"}` : "Not configured (Ethereal fallback)"}\n`);
 });
