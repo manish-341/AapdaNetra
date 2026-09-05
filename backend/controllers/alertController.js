@@ -97,9 +97,9 @@ const updateAlert = async (req, res) => {
     }
 };
 
-const { sendEmergencyDisasterEmail } = require("../services/emailService");
+const { sendEmergencyDisasterEmail, broadcastEmergencyToAllUsers } = require("../services/emailService");
 
-// Dispatch Critical Situation Email & Notification Alert
+// Dispatch Critical Situation Email to single recipient / test diagnostic
 const dispatchEmergencyAlert = async (req, res) => {
     try {
         const {
@@ -141,10 +141,71 @@ const dispatchEmergencyAlert = async (req, res) => {
     }
 };
 
+// Broadcast Critical Emergency Alert to ALL registered users (Admin Only)
+const broadcastEmergencyAlert = async (req, res) => {
+    try {
+        const {
+            title = "CRITICAL DISASTER EMERGENCY ALERT",
+            hazardType = "FLOOD",
+            severity = "CRITICAL",
+            district = "Delhi NCR",
+            state = "Delhi",
+            instructions,
+            shelters
+        } = req.body;
+
+        const broadcastResult = await broadcastEmergencyToAllUsers({
+            title,
+            hazardType,
+            severity,
+            district,
+            state,
+            instructions,
+            shelters,
+            senderName: req.user?.name || "Disaster Operations Administrator"
+        });
+
+        // Persist emergency alert record in the central Alert collection
+        let createdAlert = null;
+        try {
+            createdAlert = await Alert.create({
+                title: title || `CRITICAL DISASTER WARNING — ${district}`,
+                message: instructions || `Emergency hazard bulletin broadcast across ${district}, ${state}. Evacuate immediately if instructed.`,
+                severity: severity === "CRITICAL" ? "CRITICAL" : "HIGH",
+                hazardType: ["FLOOD", "LANDSLIDE", "WILDFIRE", "HEATWAVE", "EARTHQUAKE"].includes(hazardType) ? hazardType : "FLOOD",
+                district,
+                state,
+                source: "OFFICIAL",
+                verificationStatus: "VERIFIED",
+                createdBy: req.user?._id,
+                isActive: true
+            });
+        } catch (dbErr) {
+            console.warn("[Broadcast Alert] Notice saving Alert model:", dbErr.message);
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Emergency alert broadcast dispatched successfully to ${broadcastResult.totalRecipients} registered citizens!`,
+            data: {
+                ...broadcastResult,
+                alertRecordId: createdAlert?._id
+            }
+        });
+    } catch (error) {
+        console.error("broadcastEmergencyAlert error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message || "Failed to broadcast emergency alerts"
+        });
+    }
+};
+
 module.exports = {
     createAlert,
     getAlerts,
     getAlertById,
     updateAlert,
-    dispatchEmergencyAlert
+    dispatchEmergencyAlert,
+    broadcastEmergencyAlert
 };

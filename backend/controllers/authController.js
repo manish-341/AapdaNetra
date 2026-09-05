@@ -2,6 +2,7 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
+const { sendWelcomeAlertEmail } = require("../services/emailService");
 
 // Generate JWT
 const generateToken = (id, role) => {
@@ -41,6 +42,14 @@ const register = async (req, res) => {
         const { resolveDistrictCoordinates, ensureDistrictProvisioned } = require("../services/districtProvisioner");
         await ensureDistrictProvisioned(district || "Central Delhi", state || "Delhi");
         const coords = await resolveDistrictCoordinates(district || "Central Delhi", state || "Delhi");
+
+        // Automatically send Disaster Early Warning Network Welcome & Activation Email
+        sendWelcomeAlertEmail({
+            recipientEmail: user.email,
+            recipientName: user.name,
+            district: user.district || "Central Delhi",
+            state: user.state || "Delhi"
+        }).catch(err => console.warn("[Auth Register] Notice on welcome email dispatch:", err.message));
 
         const token = generateToken(user._id, user.role);
 
@@ -541,6 +550,14 @@ const googleCallback = async (req, res) => {
                 state: "Delhi",
                 isActive: true
             });
+
+            // Send Welcome Alert Confirmation
+            sendWelcomeAlertEmail({
+                recipientEmail: user.email,
+                recipientName: user.name,
+                district: user.district || "Central Delhi",
+                state: user.state || "Delhi"
+            }).catch(err => console.warn("[Google OAuth] Welcome email dispatch notice:", err.message));
         }
 
         // Generate standard AapdaNetra JWT session
@@ -641,6 +658,14 @@ const googleDirectLogin = async (req, res) => {
                 state: "Delhi",
                 isActive: true
             });
+
+            // Send Welcome Alert Confirmation
+            sendWelcomeAlertEmail({
+                recipientEmail: user.email,
+                recipientName: user.name,
+                district: user.district || "Central Delhi",
+                state: user.state || "Delhi"
+            }).catch(err => console.warn("[Google Direct] Welcome email dispatch notice:", err.message));
         }
 
         const token = generateToken(user._id, user.role);
@@ -726,6 +751,14 @@ const googleExchangeCode = async (req, res) => {
                 state: "Delhi",
                 isActive: true
             });
+
+            // Send Welcome Alert Confirmation
+            sendWelcomeAlertEmail({
+                recipientEmail: user.email,
+                recipientName: user.name,
+                district: user.district || "Central Delhi",
+                state: user.state || "Delhi"
+            }).catch(err => console.warn("[Google Exchange] Welcome email dispatch notice:", err.message));
         }
 
         const token = generateToken(user._id, user.role);

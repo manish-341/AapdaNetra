@@ -53,7 +53,7 @@ import {
 } from 'lucide-react';
 import Boilerplate from '../layouts/Boilerplate';
 import { getCurrentUser, getUserRole, clearAuthToken } from '../lib/auth';
-import { updateUser, getUserById, dispatchEmergencyAlert } from '../services/api';
+import { updateUser, getUserById, dispatchEmergencyAlert, broadcastEmergencyAlert } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext, PRESET_DISTRICTS } from '../context/LocationContext';
 import { useNavigate } from 'react-router-dom';
@@ -207,6 +207,47 @@ export default function Settings() {
   const [sirenPlaying, setSirenPlaying] = useState(false);
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
   const [dispatchingTest, setDispatchingTest] = useState(false);
+  const [broadcastStats, setBroadcastStats] = useState(null);
+
+  const isAdmin = role === 'ADMIN' || currentUser?.role === 'ADMIN';
+
+  // Admin-Only Mass Broadcast to ALL Registered Users
+  const handleAdminBroadcastEmergency = async () => {
+    if (!isAdmin) {
+      showToast('Only for Admin uses: Emergency mass email broadcast requires Administrator privileges.', 'warning');
+      return;
+    }
+    setDispatchingTest(true);
+    try {
+      // 1. Trigger native OS / browser notification
+      await triggerDisasterNotification({
+        title: '🚨 CRITICAL DISASTER ALERT BROADCAST',
+        body: `URGENT: Emergency disaster warning dispatched to all registered citizens in ${location?.district || profileForm.district}.`,
+        sound: false
+      });
+
+      // 2. Dispatch official critical situation bulletin to ALL registered users
+      const res = await broadcastEmergencyAlert({
+        title: `CRITICAL DISASTER WARNING — ${location?.district || profileForm.district}`,
+        hazardType: 'FLOOD',
+        severity: 'CRITICAL',
+        district: location?.district || profileForm.district,
+        state: location?.state || profileForm.state,
+        instructions: 'Flood telemetry indicates breach probability above 85%. Proceed immediately to designated safe relief shelters. Cut main electrical circuit. Keep emergency communications open.'
+      });
+
+      const data = res?.data?.data || {};
+      setBroadcastStats(data);
+      setEmergencyModalOpen(true);
+      showToast(`Emergency alert broadcast dispatched to all ${data.totalRecipients || ''} registered citizens!`, 'success');
+    } catch (err) {
+      console.warn('Broadcast error:', err);
+      showToast(err.response?.data?.message || 'Emergency alert broadcast failed.', 'error');
+      setEmergencyModalOpen(true);
+    } finally {
+      setDispatchingTest(false);
+    }
+  };
 
   const handleTestEmergencyBroadcast = async () => {
     setDispatchingTest(true);
@@ -218,7 +259,7 @@ export default function Settings() {
         sound: false
       });
 
-      // 3. Dispatch official government-grade email alert bulletin
+      // 2. Dispatch official government-grade email alert bulletin
       const emailTarget = currentUser?.email || 'citizen@aapdanetra.in';
       await dispatchEmergencyAlert({
         recipientEmail: emailTarget,
@@ -231,7 +272,8 @@ export default function Settings() {
         instructions: 'Flood telemetry indicates breach probability above 85%. Proceed immediately to designated safe relief shelters. Cut main electrical circuit.'
       });
 
-      // 4. Open emergency incident advisory modal
+      // 3. Open emergency incident advisory modal
+      setBroadcastStats(null);
       setEmergencyModalOpen(true);
       showToast(`Emergency alert siren activated & email bulletin dispatched to ${emailTarget}!`, 'success');
     } catch (err) {
@@ -677,33 +719,86 @@ export default function Settings() {
 
                 {/* EMERGENCY BROADCAST & SIREN SIMULATOR */}
                 <Box sx={{ p: 2.5, borderRadius: 2.5, bgcolor: isDark ? 'rgba(239, 68, 68, 0.08)' : '#fef2f2', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
-                  <Box display="flex" alignItems="center" gap={1.2} mb={1}>
-                    <AlertTriangle size={20} color="#ef4444" />
-                    <Typography variant="subtitle2" fontWeight={800} sx={{ color: '#ef4444' }}>
-                      Emergency Email & Push Broadcast Diagnostic
-                    </Typography>
-                  </Box>
-                  <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mb: 2 }}>
-                    Validate emergency alert delivery. This dispatches an official critical situation email bulletin to <strong>{currentUser?.email || 'your registered email'}</strong> and triggers an OS notification. <em>(Note: The acoustic disaster siren triggers automatically for 7 seconds during verified critical emergencies).</em>
-                  </Typography>
-
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                    <Button
-                      variant="contained"
-                      color="error"
-                      onClick={handleTestEmergencyBroadcast}
-                      disabled={dispatchingTest}
-                      startIcon={dispatchingTest ? <CircularProgress size={16} color="inherit" /> : <AlertTriangle size={16} />}
+                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={1} flexWrap="wrap" gap={1}>
+                    <Box display="flex" alignItems="center" gap={1.2}>
+                      <AlertTriangle size={20} color="#ef4444" />
+                      <Typography variant="subtitle2" fontWeight={800} sx={{ color: '#ef4444' }}>
+                        {isAdmin ? '🚨 Admin Emergency Email Broadcast Command' : 'Emergency Alert Telemetry & Notification Status'}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      size="small"
+                      label={isAdmin ? 'ADMIN AUTHORIZED' : 'CITIZEN SUBSCRIBER'}
                       sx={{
                         fontWeight: 800,
-                        textTransform: 'none',
-                        px: 2.5,
-                        borderRadius: 2
+                        fontSize: '0.72rem',
+                        bgcolor: isAdmin ? 'rgba(239, 68, 68, 0.18)' : 'rgba(2, 132, 199, 0.15)',
+                        color: isAdmin ? '#dc2626' : '#0284c7',
+                        border: `1px solid ${isAdmin ? 'rgba(239, 68, 68, 0.35)' : 'rgba(2, 132, 199, 0.3)'}`
                       }}
-                    >
-                      {dispatchingTest ? 'Dispatching...' : '🚨 Test Emergency Email Alert Broadcast'}
-                    </Button>
-                  </Stack>
+                    />
+                  </Box>
+
+                  {isAdmin ? (
+                    <>
+                      <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mb: 2 }}>
+                        Broadcast official critical disaster warnings directly to <strong>all registered citizens and responders</strong> via their registered Gmail accounts. <em>(Note: Acoustic disaster sirens trigger automatically during verified critical emergencies).</em>
+                      </Typography>
+
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                        <Button
+                          variant="contained"
+                          color="error"
+                          onClick={handleAdminBroadcastEmergency}
+                          disabled={dispatchingTest}
+                          startIcon={dispatchingTest ? <CircularProgress size={16} color="inherit" /> : <AlertTriangle size={16} />}
+                          sx={{
+                            fontWeight: 800,
+                            textTransform: 'none',
+                            px: 2.5,
+                            borderRadius: 2
+                          }}
+                        >
+                          {dispatchingTest ? 'Broadcasting to All Users...' : '🚨 Broadcast Emergency Alert to All Users'}
+                        </Button>
+                      </Stack>
+                    </>
+                  ) : (
+                    <>
+                      <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mb: 2 }}>
+                        Your verified Gmail account (<strong>{currentUser?.email || 'your registered email'}</strong>) is enrolled to receive critical situation email bulletins and acoustic alarms during district emergencies.
+                      </Typography>
+
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#ffffff',
+                          border: '1px dashed #cbd5e1',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: 1
+                        }}
+                      >
+                        <Typography variant="caption" sx={{ color: textSecondary }}>
+                          🔒 Mass disaster broadcast controls are strictly restricted to Disaster Management Administrators.
+                        </Typography>
+                        <Tooltip title="Only for Admin uses: Mass broadcast can only be initiated by administrators">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="inherit"
+                            onClick={() => showToast('Only for Admin uses: Mass emergency alert broadcasting requires Admin clearance.', 'warning')}
+                            sx={{ textTransform: 'none', fontWeight: 700, fontSize: '0.75rem', borderColor: '#cbd5e1' }}
+                          >
+                            Only for Admin uses
+                          </Button>
+                        </Tooltip>
+                      </Box>
+                    </>
+                  )}
                 </Box>
               </Paper>
             </Grid>
@@ -1101,7 +1196,9 @@ export default function Settings() {
             </Alert>
 
             <Typography variant="body2" sx={{ color: textSecondary, mb: 2 }}>
-              A high-priority emergency bulletin has been dispatched to <strong>{currentUser?.email}</strong> with full evacuation coordinates and relief maps.
+              {broadcastStats
+                ? `Official critical situation bulletin successfully broadcast to all ${broadcastStats.totalRecipients || ''} registered citizens across ${location?.district || profileForm.district}.`
+                : `A high-priority emergency bulletin has been dispatched to ${currentUser?.email} with full evacuation coordinates and relief maps.`}
             </Typography>
 
             <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', border: `1px solid ${borderColor}`, mb: 2 }}>
