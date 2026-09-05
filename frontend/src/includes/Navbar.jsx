@@ -353,6 +353,7 @@ const Navbar = () => {
           }}
         >
           <div
+            onClick={() => navigate('/settings')}
             style={{
               width: 36,
               height: 36,
@@ -366,14 +367,22 @@ const Navbar = () => {
               fontSize: '0.9rem',
             }}
           >
-            {(user?.name || 'Admin User').charAt(0).toUpperCase()}
+            {(user?.name || (user?.email ? user.email.split('@')[0] : 'Citizen')).charAt(0).toUpperCase()}
           </div>
-          <div>
+          <div onClick={() => navigate('/settings')}>
             <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-              {user.name || 'Admin User'}
+              {user?.name || (user?.email ? user.email.split('@')[0] : 'Citizen')}
             </div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-              Admin • GB Nagar
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              {((user?.role || 'CITIZEN').toUpperCase() === 'ADMIN'
+                ? 'Admin'
+                : (user?.role || 'CITIZEN').toUpperCase() === 'DISTRICT_OFFICER'
+                ? 'District Officer'
+                : (user?.role || 'CITIZEN').toUpperCase() === 'FIELD_OFFICER'
+                ? 'Field Officer'
+                : (user?.role || 'CITIZEN').toUpperCase() === 'RESPONDER'
+                ? 'Responder'
+                : 'Citizen')} • {user?.district || location?.name || location?.district || 'Delhi NCR'}
             </div>
           </div>
           <ChevronDown size={14} style={{ color: 'var(--text-muted)', opacity: 0.8 }} />

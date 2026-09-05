@@ -14,8 +14,8 @@ const getTransporter = async () => {
     if (transporterInitPromise) return transporterInitPromise;
 
     transporterInitPromise = (async () => {
-        const user = process.env.SMTP_USER;
-        const pass = process.env.SMTP_PASS;
+        const user = (process.env.SMTP_USER || "").trim();
+        const pass = (process.env.SMTP_PASS || "").replace(/\s+/g, "");
 
         if (user && pass) {
             const isGmail = process.env.SMTP_SERVICE === "gmail" ||
@@ -29,7 +29,7 @@ const getTransporter = async () => {
                 }
                 : {
                     host: process.env.SMTP_HOST || "smtp.gmail.com",
-                    port: Number(process.env.SMTP_PORT) || 587,
+                    port: Number(process.env.SMTP_PORT) || 465,
                     secure: process.env.SMTP_SECURE === "true" || process.env.SMTP_PORT === "465",
                     auth: { user, pass }
                 };
@@ -40,8 +40,10 @@ const getTransporter = async () => {
                 console.log(`[Email Service] Connected to real SMTP relay for sender: ${user}`);
                 return transporter;
             } catch (err) {
-                console.warn(`[Email Service] SMTP verification failed with configured credentials (${err.message}). Falling back to test transporter.`);
+                console.warn(`[Email Service] SMTP verification failed with configured credentials (${err.message}). Check SMTP_USER & SMTP_PASS.`);
             }
+        } else {
+            console.warn(`[Email Service Notice] SMTP_USER or SMTP_PASS is currently empty. To deliver directly to actual Gmail inboxes, add your Gmail address and 16-character Google App Password in .env (and on Render). Falling back to development test mailer.`);
         }
 
         // Fallback for development/testing if real SMTP is not yet configured in .env

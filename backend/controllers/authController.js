@@ -534,6 +534,10 @@ const googleCallback = async (req, res) => {
                 user.isActive = true;
                 shouldSave = true;
             }
+            if (requestedRole && user.email !== "admin@aapdanetra.in" && user.role !== requestedRole) {
+                user.role = requestedRole;
+                shouldSave = true;
+            }
             if (shouldSave) {
                 await user.save();
             }
@@ -639,6 +643,9 @@ const googleDirectLogin = async (req, res) => {
             user.authProvider = "google";
             if (!user.googleId) user.googleId = sub;
             if (avatar && !user.avatar) user.avatar = avatar;
+            if (requestedRole && user.email !== "admin@aapdanetra.in" && user.role !== requestedRole) {
+                user.role = requestedRole;
+            }
             await user.save();
         } else {
             // Hash password and create new Google user
@@ -738,6 +745,9 @@ const googleExchangeCode = async (req, res) => {
         if (user) {
             if (!user.googleId) user.googleId = sub;
             if (!user.avatar && picture) user.avatar = picture;
+            if (requestedRole && user.email !== "admin@aapdanetra.in" && user.role !== requestedRole) {
+                user.role = requestedRole;
+            }
             await user.save();
         } else {
             user = await User.create({
