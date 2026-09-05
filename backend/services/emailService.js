@@ -35,18 +35,28 @@ const getTransporter = async () => {
                 };
 
             try {
-                transporter = nodemailer.createTransport(transportConfig);
-                await transporter.verify();
+                const candidate = nodemailer.createTransport({
+                    ...transportConfig,
+                    connectionTimeout: 4000,
+                    greetingTimeout: 4000,
+                    socketTimeout: 5000
+                });
+                const verifyPromise = candidate.verify();
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP verification timeout (4s)")), 4000));
+                await Promise.race([verifyPromise, timeoutPromise]);
+
+                transporter = candidate;
                 console.log(`[Email Service] Connected to real SMTP relay for sender: ${user}`);
                 return transporter;
             } catch (err) {
-                console.warn(`[Email Service] SMTP verification failed with configured credentials (${err.message}). Check SMTP_USER & SMTP_PASS.`);
+                console.warn(`[Email Service Warning] SMTP verification failed with configured credentials (${err.message}). Using development fallback mailer.`);
+                transporter = null;
             }
         } else {
-            console.warn(`[Email Service Notice] SMTP_USER or SMTP_PASS is currently empty. To deliver directly to actual Gmail inboxes, add your Gmail address and 16-character Google App Password in .env (and on Render). Falling back to development test mailer.`);
+            console.warn(`[Email Service Notice] SMTP_USER or SMTP_PASS is currently empty. To deliver directly to actual Gmail inboxes, add your credentials in .env (and on Render). Falling back to development test mailer.`);
         }
 
-        // Fallback for development/testing if real SMTP is not yet configured in .env
+        // Fallback for development/testing if real SMTP is not yet configured or fails
         try {
             console.log(`[Email Service] Provisioning Ethereal test mail transporter...`);
             const testAccount = await nodemailer.createTestAccount();
@@ -54,6 +64,9 @@ const getTransporter = async () => {
                 host: "smtp.ethereal.email",
                 port: 587,
                 secure: false,
+                connectionTimeout: 4000,
+                greetingTimeout: 4000,
+                socketTimeout: 5000,
                 auth: {
                     user: testAccount.user,
                     pass: testAccount.pass
@@ -178,12 +191,14 @@ const sendEmergencyDisasterEmail = async ({
 
     if (activeTransporter) {
         try {
-            const info = await activeTransporter.sendMail({
+            const sendPromise = activeTransporter.sendMail({
                 from: process.env.SMTP_FROM || (process.env.SMTP_USER ? `"AapdaNetra Disaster Alert" <${process.env.SMTP_USER}>` : '"AapdaNetra Emergency Operations" <alerts@aapdanetra.in>'),
                 to: recipientEmail,
                 subject: `🚨 [CRITICAL ALERT] ${title} - Immediate Action Required`,
                 html: htmlContent
             });
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP send timeout (4s)")), 4000));
+            const info = await Promise.race([sendPromise, timeoutPromise]);
 
             const previewUrl = nodemailer.getTestMessageUrl(info);
             console.log(`[Emergency Alert Email] Delivered to ${recipientEmail}. MessageId: ${info.messageId} ${previewUrl ? `(Preview: ${previewUrl})` : ''}`);

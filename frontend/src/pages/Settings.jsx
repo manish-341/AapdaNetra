@@ -227,14 +227,17 @@ export default function Settings() {
       });
 
       // 2. Dispatch official critical situation bulletin to ALL registered users
-      const res = await broadcastEmergencyAlert({
-        title: `CRITICAL DISASTER WARNING — ${location?.district || profileForm.district}`,
-        hazardType: 'FLOOD',
-        severity: 'CRITICAL',
-        district: location?.district || profileForm.district,
-        state: location?.state || profileForm.state,
-        instructions: 'Flood telemetry indicates breach probability above 85%. Proceed immediately to designated safe relief shelters. Cut main electrical circuit. Keep emergency communications open.'
-      });
+      const res = await Promise.race([
+        broadcastEmergencyAlert({
+          title: `CRITICAL DISASTER WARNING — ${location?.district || profileForm.district}`,
+          hazardType: 'FLOOD',
+          severity: 'CRITICAL',
+          district: location?.district || profileForm.district,
+          state: location?.state || profileForm.state,
+          instructions: 'Flood telemetry indicates breach probability above 85%. Proceed immediately to designated safe relief shelters. Cut main electrical circuit. Keep emergency communications open.'
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Broadcast request timed out after 10s")), 10000))
+      ]);
 
       const data = res?.data?.data || {};
       setBroadcastStats(data);
