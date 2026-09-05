@@ -251,8 +251,8 @@ export default function Settings() {
       showToast(`Emergency alert broadcast dispatched to all ${data.totalRecipients || ''} registered citizens!`, 'success');
     } catch (err) {
       console.warn('Broadcast error:', err);
-      showToast(err.response?.data?.message || 'Emergency alert broadcast failed.', 'error');
-      setEmergencyModalOpen(true);
+      showToast(err.response?.data?.message || 'Emergency alert broadcast failed. Check server logs.', 'error');
+      setEmergencyModalOpen(false);
     } finally {
       setIsBroadcasting(false);
     }
