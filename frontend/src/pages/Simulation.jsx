@@ -24,6 +24,7 @@ import ScienceIcon from '@mui/icons-material/Science';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import HomeWorkOutlinedIcon from '@mui/icons-material/HomeWorkOutlined';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import Boilerplate from '../layouts/Boilerplate';
 import { runSimulation } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
@@ -118,16 +119,44 @@ export default function Simulation() {
 
   return (
     <Boilerplate>
-      <Box mb={3}>
-        <Typography variant="caption" sx={{ color: textMuted }}>
-          Disaster Intelligence &gt; Feature 10: "What If?" Disaster Simulator
-        </Typography>
-        <Typography variant="h5" fontWeight={800} sx={{ color: textMain, mt: 0.5 }}>
-          "What-If?" Disaster Simulation Sandbox
-        </Typography>
-        <Typography variant="body2" sx={{ color: textMuted }}>
-          Stress-test municipal infrastructure under simulated environmental shifts. Calculate risk escalations, affected population deltas, and emergency shelter deficits.
-        </Typography>
+      <Box mb={3} display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2}>
+        <Box sx={{ maxWidth: { xs: '100%', md: '75%' } }}>
+          <Typography variant="caption" sx={{ color: textMuted }}>
+            Disaster Intelligence &gt; Feature 10: "What If?" Disaster Simulator
+          </Typography>
+          <Typography variant="h5" fontWeight={800} sx={{ color: textMain, mt: 0.5 }}>
+            "What-If?" Disaster Simulation Sandbox
+          </Typography>
+          <Typography variant="body2" sx={{ color: textMuted }}>
+            Stress-test municipal infrastructure under simulated environmental shifts. Calculate risk escalations, affected population deltas, and emergency shelter deficits.
+          </Typography>
+        </Box>
+        <Button
+          variant="outlined"
+          size="small"
+          href="/AapdaNetra_WhatIf_Simulation_Technical_Guide.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
+          download="AapdaNetra_WhatIf_Simulation_Technical_Guide.pdf"
+          startIcon={<PictureAsPdfIcon sx={{ color: '#ef4444' }} />}
+          sx={{
+            borderColor: cardBorder,
+            color: textMain,
+            fontWeight: 700,
+            textTransform: 'none',
+            fontSize: '0.82rem',
+            py: 0.75,
+            px: 1.5,
+            borderRadius: 2,
+            bgcolor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+            '&:hover': {
+              borderColor: '#0284c7',
+              bgcolor: isDark ? 'rgba(2,132,199,0.1)' : '#f0f9ff'
+            }
+          }}
+        >
+          Technical Guide (PDF)
+        </Button>
       </Box>
 
       {/* Prominent Mandatory Simulation Disclaimer */}
