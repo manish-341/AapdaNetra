@@ -701,7 +701,7 @@ export default function Login() {
                           transition: 'all 0.15s ease',
                         }}
                       >
-                        📱 Mobile Number
+                        Mobile Number
                       </Button>
                       <Button
                         fullWidth
@@ -721,7 +721,7 @@ export default function Login() {
                           transition: 'all 0.15s ease',
                         }}
                       >
-                        ✉️ Email Address
+                        Email Address
                       </Button>
                     </Box>
                   )}
