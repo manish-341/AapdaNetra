@@ -1,8 +1,18 @@
 import axios from "axios";
 import { getAuthToken } from "../lib/auth";
 
+const getBaseURL = () => {
+    if (import.meta.env.VITE_API_BASE_URL) {
+        return import.meta.env.VITE_API_BASE_URL;
+    }
+    if (typeof window !== "undefined" && window.location.hostname.includes("onrender.com")) {
+        return "https://aapdanetra.onrender.com/api";
+    }
+    return "http://localhost:5000/api";
+};
+
 const API = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api",
+    baseURL: getBaseURL(),
     headers: {
         "Content-Type": "application/json"
     }
