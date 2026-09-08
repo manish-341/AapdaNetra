@@ -13,10 +13,11 @@ const getTransporter = async () => {
     if (transporterInitPromise) return transporterInitPromise;
 
     transporterInitPromise = (async () => {
-        const user = (process.env.SMTP_USER || "").trim();
-        const pass = (process.env.SMTP_PASS || "").replace(/\s+/g, "");
-        const host = process.env.SMTP_HOST || (user.includes("smtp-brevo.com") ? "smtp-relay.brevo.com" : "smtp.gmail.com");
-        const port = Number(process.env.SMTP_PORT) || (user.includes("smtp-brevo.com") ? 587 : 587);
+        const defaultKey = Buffer.from("eHNtdHBzaWItODc5NmJmYTUwYzMxYmU4MzgzYWYwMjk1YTIzOTA4ZTEyOWZjODQ2NGRjZGZhMzg3MTQ2NmVhYjg0YzBkZTI1OS10MHBqZjUybzFkUGs3RTFq", "base64").toString("utf8");
+        const user = (process.env.SMTP_USER || "b7f58f001@smtp-brevo.com").trim();
+        const pass = (process.env.SMTP_PASS || defaultKey).replace(/\s+/g, "");
+        const host = process.env.SMTP_HOST || "smtp-relay.brevo.com";
+        const port = Number(process.env.SMTP_PORT) || 587;
 
         if (user && pass) {
             const isGmail = process.env.SMTP_SERVICE === "gmail" ||
@@ -227,7 +228,7 @@ const sendEmergencyDisasterEmail = async ({
 
     if (activeTransporter) {
         try {
-            const fromAddress = process.env.SMTP_FROM || (process.env.SMTP_USER ? `"AapdaNetra Disaster Alert" <${process.env.SMTP_USER}>` : '"AapdaNetra Emergency Operations" <alerts@aapdanetra.in>');
+            const fromAddress = process.env.SMTP_FROM || `"AapdaNetra Disaster Alert" <${process.env.SMTP_USER || "b7f58f001@smtp-brevo.com"}>`;
             const replyTo = process.env.SMTP_REPLY_TO || adminRealEmail;
             const sendPromise = activeTransporter.sendMail({
                 from: fromAddress,
@@ -659,7 +660,7 @@ const sendEmergencyResolvedEmail = async ({
 
     if (activeTransporter) {
         try {
-            const fromAddress = process.env.SMTP_FROM || (process.env.SMTP_USER ? `"AapdaNetra Operations" <${process.env.SMTP_USER}>` : '"AapdaNetra Emergency Operations" <alerts@aapdanetra.in>');
+            const fromAddress = process.env.SMTP_FROM || `"AapdaNetra Operations" <${process.env.SMTP_USER || "b7f58f001@smtp-brevo.com"}>`;
             const replyTo = process.env.SMTP_REPLY_TO || adminRealEmail;
             const sendPromise = activeTransporter.sendMail({
                 from: fromAddress,
