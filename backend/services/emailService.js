@@ -433,6 +433,7 @@ const broadcastEmergencyToAllUsers = async ({
     instructions,
     shelters,
     senderName = "Disaster Management Administrator",
+    senderEmail = null,
     liveWeather = null
 }) => {
     // 1. Fetch all registered active users with valid email addresses
@@ -443,15 +444,36 @@ const broadcastEmergencyToAllUsers = async ({
 
     const adminRealEmail = (process.env.ADMIN_ALERT_EMAIL || "ayuyyysh0714@gmail.com").trim();
 
-    // Map any mock/demo @aapdanetra.in addresses to the administrator's real email, and deduplicate
     const seenEmails = new Set();
     const users = [];
+
+    // Ensure sender/admin email is explicitly enrolled
+    if (senderEmail && senderEmail.includes("@") && !senderEmail.endsWith("@aapdanetra.in")) {
+        const cleanSender = senderEmail.trim().toLowerCase();
+        seenEmails.add(cleanSender);
+        users.push({
+            name: senderName || "Admin / Operations Dispatcher",
+            email: cleanSender,
+            district: district || "Bhopal",
+            state: state || "Madhya Pradesh"
+        });
+    }
+
+    if (adminRealEmail && adminRealEmail.includes("@") && !seenEmails.has(adminRealEmail.toLowerCase())) {
+        seenEmails.add(adminRealEmail.toLowerCase());
+        users.push({
+            name: "Disaster Operations Admin",
+            email: adminRealEmail.toLowerCase(),
+            district: district || "Bhopal",
+            state: state || "Madhya Pradesh"
+        });
+    }
 
     for (const u of rawUsers) {
         let email = (u.email || "").trim().toLowerCase();
         if (!email) continue;
         if (email.endsWith("@aapdanetra.in")) {
-            email = adminRealEmail;
+            email = adminRealEmail.toLowerCase();
         }
         if (!seenEmails.has(email)) {
             seenEmails.add(email);
@@ -688,10 +710,12 @@ const sendEmergencyResolvedEmail = async ({
  */
 const broadcastEmergencyResolvedToAllUsers = async ({
     title = "Critical Emergency Resolved — All Clear Bulletin",
-    district = "Delhi NCR",
-    state = "Delhi",
+    district = "Bhopal",
+    state = "Madhya Pradesh",
     instructions,
-    resolvedDetails
+    resolvedDetails,
+    senderEmail = null,
+    senderName = "Disaster Management Administrator"
 }) => {
     // 1. Fetch all registered active users with valid email addresses
     const rawUsers = await User.find({
@@ -701,15 +725,36 @@ const broadcastEmergencyResolvedToAllUsers = async ({
 
     const adminRealEmail = (process.env.ADMIN_ALERT_EMAIL || "ayuyyysh0714@gmail.com").trim();
 
-    // Map any mock/demo @aapdanetra.in addresses to the administrator's real email, and deduplicate
     const seenEmails = new Set();
     const users = [];
+
+    // Ensure sender/admin email is explicitly enrolled
+    if (senderEmail && senderEmail.includes("@") && !senderEmail.endsWith("@aapdanetra.in")) {
+        const cleanSender = senderEmail.trim().toLowerCase();
+        seenEmails.add(cleanSender);
+        users.push({
+            name: senderName || "Admin / Operations Dispatcher",
+            email: cleanSender,
+            district: district || "Bhopal",
+            state: state || "Madhya Pradesh"
+        });
+    }
+
+    if (adminRealEmail && adminRealEmail.includes("@") && !seenEmails.has(adminRealEmail.toLowerCase())) {
+        seenEmails.add(adminRealEmail.toLowerCase());
+        users.push({
+            name: "Disaster Operations Admin",
+            email: adminRealEmail.toLowerCase(),
+            district: district || "Bhopal",
+            state: state || "Madhya Pradesh"
+        });
+    }
 
     for (const u of rawUsers) {
         let email = (u.email || "").trim().toLowerCase();
         if (!email) continue;
         if (email.endsWith("@aapdanetra.in")) {
-            email = adminRealEmail;
+            email = adminRealEmail.toLowerCase();
         }
         if (!seenEmails.has(email)) {
             seenEmails.add(email);

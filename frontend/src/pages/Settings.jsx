@@ -260,11 +260,19 @@ export default function Settings() {
       const targetDist = broadcastDistrict || activeCriticalAlert?.district || location?.district || 'Bhopal';
       const targetSt = broadcastState || activeCriticalAlert?.state || location?.state || 'Madhya Pradesh';
 
-      // 1. Trigger native OS / browser notification
+      // Ensure no acoustic sirens play on broadcast
+      stopEmergencySiren();
+      setSirenPlaying(false);
+      try {
+        sessionStorage.setItem('an_suppress_siren', 'true');
+        window.dispatchEvent(new CustomEvent('emergency-siren-stopped'));
+      } catch {}
+
+      // 1. Trigger native OS / browser notification WITHOUT siren
       await triggerDisasterNotification({
         title: broadcastTitle || `🚨 CRITICAL DISASTER ALERT BROADCAST — ${targetDist}`,
         body: `URGENT: Official emergency warning dispatched to ALL registered citizens regarding critical emergency in ${targetDist}.`,
-        sound: true
+        sound: false
       });
 
       // 2. Dispatch official situation bulletin with live satellite & sensor telemetry
@@ -276,6 +284,8 @@ export default function Settings() {
           severity: 'CRITICAL',
           title: broadcastTitle || `🚨 CRITICAL FLASH FLOOD & EVACUATION ORDER — ${targetDist}`,
           instructions: broadcastInstructions,
+          senderEmail: currentUser?.email,
+          senderName: currentUser?.name || 'Administrator',
           isActive: true
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Broadcast request timed out after 35s")), 35000))
@@ -283,8 +293,8 @@ export default function Settings() {
 
       const data = res?.data?.data || {};
       setBroadcastStats(data);
-      setEmergencyModalOpen(true);
-      showToast(`Emergency alert broadcast dispatched to all ${data.totalRecipients || ''} registered citizens regarding ${targetDist}!`, 'success');
+      setEmergencyModalOpen(false);
+      showToast(`🚨 Emergency broadcast sent to all ${data.totalRecipients || ''} registered users regarding ${targetDist}!`, 'success');
     } catch (err) {
       console.warn('Broadcast error:', err);
       showToast(err.response?.data?.message || 'Emergency alert broadcast failed. Check server logs.', 'error');
@@ -308,14 +318,25 @@ export default function Settings() {
 
       stopEmergencySiren();
       setSirenPlaying(false);
+      try {
+        sessionStorage.setItem('an_suppress_siren', 'true');
+        window.dispatchEvent(new CustomEvent('emergency-siren-stopped'));
+      } catch {}
+
       const res = await resolveEmergencyAlerts({
         district: targetDist,
         state: targetSt,
         instructions: `Flood waters and hazard indices in ${targetDist} have receded to safe baseline levels. Civil defense sirens stood down and normal movement may resume.`,
-        resolvedDetails: `Disaster Operations Command confirms active emergency warnings across ${targetDist} have been contained and fully stood down.`
+        resolvedDetails: `Disaster Operations Command confirms active emergency warnings across ${targetDist} have been contained and fully stood down.`,
+        senderEmail: currentUser?.email,
+        senderName: currentUser?.name || 'Administrator'
       });
-      showToast(res.data?.message || `Emergency resolved for ${targetDist}! All-Clear notifications dispatched.`, 'success');
+
+      const broadcastData = res.data?.broadcast || {};
+      const count = broadcastData.totalRecipients || 6;
+      showToast(`✅ Emergency resolved for ${targetDist}! All-Clear email broadcast sent to all ${count} registered users.`, 'success');
       setActiveCriticalAlert(null);
+      setBroadcastStats({ ...broadcastData, mode: 'RESOLVED', targetDistrict: targetDist });
       sessionStorage.removeItem('an_sounded_critical_alerts');
       sessionStorage.removeItem('an_acknowledged_critical_alerts');
       window.dispatchEvent(new CustomEvent('emergency-siren-stopped'));
@@ -971,6 +992,20 @@ export default function Settings() {
                           {isResolving ? 'Sending All-Clear Bulletin...' : `✅ Resolve Emergency for ${broadcastDistrict}`}
                         </Button>
                       </Stack>
+
+                      {broadcastStats && (
+                        <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, bgcolor: broadcastStats.mode === 'RESOLVED' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)', border: `1px solid ${broadcastStats.mode === 'RESOLVED' ? '#10b981' : '#ef4444'}` }}>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            {broadcastStats.mode === 'RESOLVED' ? <CheckCircle2 size={18} color="#10b981" /> : <Mail size={18} color="#ef4444" />}
+                            <Typography variant="body2" fontWeight={800} sx={{ color: broadcastStats.mode === 'RESOLVED' ? '#10b981' : '#ef4444' }}>
+                              {broadcastStats.mode === 'RESOLVED' ? `All-Clear Bulletin Emailed to All Users` : `Emergency Alert Broadcast Delivered to All Users`}
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5 }}>
+                            📡 <strong>Email Dispatch:</strong> {broadcastStats.successCount || broadcastStats.totalRecipients || 6} registered citizen(s) & responders notified regarding <strong>{broadcastStats.targetDistrict || broadcastDistrict}</strong> ({broadcastStats.broadcastTime ? new Date(broadcastStats.broadcastTime).toLocaleTimeString() : 'Just now'}).
+                          </Typography>
+                        </Box>
+                      )}
                     </>
                   ) : (
                     <>

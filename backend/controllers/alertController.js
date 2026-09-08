@@ -265,7 +265,8 @@ const broadcastEmergencyAlert = async (req, res) => {
             state: targetState,
             instructions: finalInstructions,
             shelters: targetShelters,
-            senderName: req.user?.name || "Disaster Operations Administrator",
+            senderName: req.body.senderName || req.user?.name || "Disaster Operations Administrator",
+            senderEmail: req.body.senderEmail || req.user?.email,
             liveWeather
         });
 
@@ -310,7 +311,17 @@ const broadcastEmergencyAlert = async (req, res) => {
 // Resolve / Clear Emergency Alerts (Admin-only: marks active alerts resolved/inactive and notifies citizens)
 const resolveEmergencyAlerts = async (req, res) => {
     try {
-        const { district, state, instructions, resolvedDetails } = req.body;
+        let { district, state, instructions, resolvedDetails } = req.body;
+        
+        // Auto-detect district from active critical alerts if not passed
+        if (!district) {
+            const activeAlert = await Alert.findOne({ severity: "CRITICAL", isActive: true }).sort({ createdAt: -1 });
+            if (activeAlert) {
+                district = activeAlert.district;
+                state = state || activeAlert.state;
+            }
+        }
+
         const query = { isActive: true };
         if (district) {
             const regex = new RegExp(district.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i");
@@ -320,14 +331,16 @@ const resolveEmergencyAlerts = async (req, res) => {
         const result = await Alert.updateMany(query, { $set: { isActive: false } });
 
         // Dispatch official Emergency Resolved (All Clear) email broadcast to all registered citizens
-        const resolvedDistrict = district || "Delhi NCR";
-        const resolvedState = state || "Delhi";
+        const resolvedDistrict = district || "Bhopal";
+        const resolvedState = state || "Madhya Pradesh";
         const broadcastResult = await broadcastEmergencyResolvedToAllUsers({
             title: `Critical Emergency Resolved — ${resolvedDistrict}`,
             district: resolvedDistrict,
             state: resolvedState,
-            instructions: instructions || "Flood waters and hazard indices have receded to safe baseline levels. Civil defense sirens have stood down and normal movement may resume.",
-            resolvedDetails: resolvedDetails || `Disaster Operations Command confirms active emergency warnings across ${resolvedDistrict} have been contained and fully stood down.`
+            instructions: instructions || `Flood waters and hazard indices in ${resolvedDistrict} have receded to safe baseline levels. Civil defense sirens have stood down and normal movement may resume.`,
+            resolvedDetails: resolvedDetails || `Disaster Operations Command confirms active emergency warnings across ${resolvedDistrict} have been contained and fully stood down.`,
+            senderEmail: req.body.senderEmail || req.user?.email,
+            senderName: req.body.senderName || req.user?.name
         });
 
         res.status(200).json({

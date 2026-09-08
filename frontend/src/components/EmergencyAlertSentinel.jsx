@@ -187,7 +187,7 @@ export default function EmergencyAlertSentinel() {
         if (!isAcknowledged && lastSoundedAlertIdRef.current !== critAlertId) {
           lastSoundedAlertIdRef.current = critAlertId;
 
-          if (notifConfig.audioSiren !== false) {
+          if (notifConfig.audioSiren !== false && sessionStorage.getItem('an_suppress_siren') !== 'true') {
             playEmergencySiren(7000);
             setSirenPlaying(true);
           }
