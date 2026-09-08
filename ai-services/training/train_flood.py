@@ -13,50 +13,57 @@ import time
 import os
 import json
 
-def generate_flood_data(n=5000):
-    """Generate realistic synthetic flood training data"""
-    np.random.seed(42)
-    data = {
-        "rainfall_mm": np.random.exponential(25, n) + np.random.uniform(0, 50, n),
-        
-        "water_level_m": np.random.uniform(0, 15, n),
-        "humidity_pct": np.random.uniform(30, 100, n),
-        "soil_moisture_pct": np.random.uniform(10, 95, n),
-        "elevation_m": np.random.uniform(5, 500, n),
-        "river_distance_km": np.random.exponential(5, n),
-        "drainage_capacity": np.random.uniform(0.1, 1.0, n),
-        "urbanization_pct": np.random.uniform(10, 95, n),
-        "slope_deg": np.random.uniform(0, 30, n),
-        "historical_floods": np.random.randint(0, 10, n),
-        "temperature_c": np.random.uniform(15, 45, n),
-        "wind_speed_ms": np.random.uniform(0, 25, n),
+def load_and_preprocess_data():
+    data_path = os.path.join(os.path.dirname(__file__), "..", "data", "landslide.csv")
+    print(f"Loading real flood telemetry from: {data_path}")
+    df = pd.read_csv(data_path)
+
+    # Standardize column names
+    col_mapping = {
+        "Latitude": "latitude",
+        "Longitude": "longitude",
+        "Elevation (m)": "elevation_m",
+        "Annual Rainfall (mm)": "annual_rainfall_mm",
+        "Earthquake Frequency": "earthquake_frequency",
+        "Erosion Index": "erosion_index",
+        "Mining Activity": "mining_activity",
+        "Landslide Probability": "landslide_probability",
+        "Flood Probability": "flood_probability",
     }
-    df = pd.DataFrame(data)
+    for c in df.columns:
+        if "temp" in c.lower():
+            col_mapping[c] = "temperature_c"
 
-    # Generate target: flood probability based on realistic factors
-    flood_score = (
-        (df["rainfall_mm"] / 100) * 0.30 +
-        (df["water_level_m"] / 15) * 0.20 +
-        (df["humidity_pct"] / 100) * 0.10 +
-        (df["soil_moisture_pct"] / 100) * 0.10 +
-        (1 - df["elevation_m"] / 500) * 0.08 +
-        (1 - df["river_distance_km"] / 20).clip(0, 1) * 0.08 +
-        (1 - df["drainage_capacity"]) * 0.06 +
-        (df["urbanization_pct"] / 100) * 0.04 +
-        (df["historical_floods"] / 10) * 0.04
-    )
-    noise = np.random.normal(0, 0.08, n)
-    df["flood"] = ((flood_score + noise) > 0.45).astype(int)
+    df = df.rename(columns=col_mapping)
 
-    return df
+    if "mining_activity" in df.columns and df["mining_activity"].dtype == object:
+        df["mining_activity"] = df["mining_activity"].astype(str).str.strip().str.lower().map({"yes": 1, "no": 0}).fillna(0).astype(int)
+
+    numeric_cols = [
+        "latitude", "longitude", "elevation_m", "annual_rainfall_mm",
+        "earthquake_frequency", "erosion_index", "mining_activity", "temperature_c"
+    ]
+    
+    for col in numeric_cols:
+        if col in df.columns:
+            s = pd.to_numeric(df[col], errors="coerce")
+            med = s.median() if not s.isna().all() else 0.0
+            df[col] = s.fillna(med)
+
+    # Target: binary flood hazard threshold
+    prob = pd.to_numeric(df["flood_probability"], errors="coerce").fillna(0.5)
+    df["flood"] = (prob >= 0.50).astype(int)
+
+    feature_cols = [c for c in numeric_cols if c in df.columns]
+    
+    return df, feature_cols
 
 def train_and_compare():
     print("=" * 60)
-    print("FLOOD MODEL TRAINING — RandomForest vs XGBoost")
+    print("FLOOD MODEL TRAINING — RandomForest vs XGBoost (Real Data)")
     print("=" * 60)
 
-    df = generate_flood_data(5000)
-    feature_cols = [c for c in df.columns if c != "flood"]
+    df, feature_cols = load_and_preprocess_data()
     X = df[feature_cols]
     y = df["flood"]
 
@@ -74,7 +81,7 @@ def train_and_compare():
     t0 = time.time()
     rf_pred = rf.predict(X_test)
     rf_prob = rf.predict_proba(X_test)[:, 1]
-    rf_infer_time = (time.time() - t0) / len(X_test) * 1000  # ms per sample
+    rf_infer_time = (time.time() - t0) / len(X_test) * 1000
 
     results["RandomForest"] = {
         "accuracy": round(accuracy_score(y_test, rf_pred), 4),
@@ -127,25 +134,36 @@ def train_and_compare():
     print(f"\n[BEST MODEL] Best model: {best_name} (F1: {results[best_name]['f1']})")
 
     # Save models
-    os.makedirs("../models", exist_ok=True)
-    joblib.dump(best_model, "../models/flood_model.joblib")
-    joblib.dump(rf, "../models/flood_rf.joblib")
-    joblib.dump(xgb_model, "../models/flood_xgb.joblib")
-    joblib.dump(feature_cols, "../models/flood_features.joblib")
+    models_dir = os.path.join(os.path.dirname(__file__), "..", "models")
+    root_models_dir = os.path.join(os.path.dirname(__file__), "..", "..", "models")
+    
+    os.makedirs(models_dir, exist_ok=True)
+    os.makedirs(root_models_dir, exist_ok=True)
+    
+    joblib.dump(best_model, os.path.join(models_dir, "flood_model.joblib"))
+    joblib.dump(best_model, os.path.join(root_models_dir, "flood_model.joblib"))
+    
+    joblib.dump(feature_cols, os.path.join(models_dir, "flood_features.joblib"))
+    joblib.dump(feature_cols, os.path.join(root_models_dir, "flood_features.joblib"))
 
     # Save comparison report
     report = {
         "model": "flood",
+        "dataset_source": "Real India Multi-City Geological Telemetry",
+        "samples_count": len(df),
         "best": best_name,
         "features": feature_cols,
         "results": results,
-        "data_size": len(df),
         "positive_ratio": round(y.mean(), 4)
     }
-    with open("../models/flood_comparison.json", "w") as f:
+    
+    with open(os.path.join(models_dir, "flood_comparison.json"), "w") as f:
+        json.dump(report, f, indent=2)
+        
+    with open(os.path.join(root_models_dir, "flood_comparison.json"), "w") as f:
         json.dump(report, f, indent=2)
 
-    print(f"\nModels saved to ../models/")
+    print(f"\nModels saved to models directories.")
     return report
 
 if __name__ == "__main__":

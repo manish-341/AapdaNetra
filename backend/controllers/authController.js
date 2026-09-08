@@ -130,20 +130,75 @@ const register = async (req, res) => {
 // Login
 const login = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, role } = req.body;
         const normalized = (email || "").trim();
+        const requestedRole = (role || "").trim().toUpperCase();
 
-        const user = await User.findOne({
-            $or: [
+        // 1. Strict separation: If logging in under CITIZEN role
+        if (requestedRole === "CITIZEN") {
+            // Admin IDs (e.g. NETRA0012121) are strictly prohibited for Citizen login
+            if (/^NETRA\d+/i.test(normalized) || normalized.toUpperCase().startsWith("NETRA")) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Admin IDs (e.g. NETRA0012121) cannot be used for Citizen login. Please switch to the Admin tab."
+                });
+            }
+        }
+
+        // 2. Query formulation based on role
+        let userQuery = [];
+        if (requestedRole === "CITIZEN") {
+            const digitsOnly = normalized.replace(/\D/g, "");
+            const phoneConditions = [];
+            if (digitsOnly.length === 10) {
+                phoneConditions.push({ phone: digitsOnly });
+                phoneConditions.push({ phone: `+91${digitsOnly}` });
+                phoneConditions.push({ phone: `91${digitsOnly}` });
+            } else if (normalized) {
+                phoneConditions.push({ phone: normalized });
+            }
+
+            userQuery = [
+                { email: normalized.toLowerCase() },
+                ...phoneConditions
+            ];
+        } else if (requestedRole === "ADMIN") {
+            userQuery = [
+                { adminId: normalized.toUpperCase() },
+                { email: normalized.toLowerCase() }
+            ];
+        } else {
+            userQuery = [
                 { email: normalized.toLowerCase() },
                 { phone: normalized },
                 { adminId: normalized.toUpperCase() }
-            ]
-        });
+            ];
+        }
+
+        const user = await User.findOne({ $or: userQuery });
         if (!user) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid credentials. Please verify your identifier and password."
+                message: requestedRole === "CITIZEN"
+                    ? "No citizen account found with this mobile number or email."
+                    : requestedRole === "ADMIN"
+                        ? "No administrator account found with this Admin ID or email."
+                        : "Invalid credentials. Please verify your identifier and password."
+            });
+        }
+
+        // 3. Strict Role Matching Enforcement
+        if (requestedRole === "CITIZEN" && (user.role === "ADMIN" || user.role === "DISTRICT_OFFICER" || user.role === "FIELD_OFFICER" || user.role === "RESPONDER")) {
+            return res.status(403).json({
+                success: false,
+                message: "Access Denied: This is an Administrator account. Administrative credentials are strictly not permitted on the Citizen portal. Please switch to the Admin tab."
+            });
+        }
+
+        if (requestedRole === "ADMIN" && user.role === "CITIZEN") {
+            return res.status(403).json({
+                success: false,
+                message: "Access Denied: This is a Citizen account. Citizens are not authorized to log into the Administrative Command portal. Please switch to the Citizen tab."
             });
         }
 

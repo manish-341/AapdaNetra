@@ -39,7 +39,11 @@ export default function Login() {
 
   // ONLY 2 Roles: 'citizen' and 'admin'
   const [activeRole, setActiveRole] = useState('citizen');
-  const [identifier, setIdentifier] = useState('');
+  // Dedicated Citizen Login Method: 'mobile' or 'email'
+  const [citizenMethod, setCitizenMethod] = useState('mobile');
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [citizenEmail, setCitizenEmail] = useState('');
+  const [adminIdentifier, setAdminIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -69,44 +73,71 @@ export default function Login() {
   const handleRoleChange = (role) => {
     setActiveRole(role);
     setError('');
-    setIdentifier('');
     setPassword('');
   };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    const cleanIdentifier = identifier.trim();
+    setError('');
+
+    let cleanIdentifier = '';
     const cleanPassword = password.trim();
 
-    if (!cleanIdentifier || !cleanPassword) {
-      setError(
-        activeRole === 'citizen'
-          ? 'Please enter your email or mobile number and password.'
-          : 'Please enter your Admin ID (e.g. NETRA0012121) and password.'
-      );
-      return;
-    }
-
-    // Enforce 12-char constraint if entering an Admin ID
-    if (activeRole === 'admin' && !cleanIdentifier.includes('@')) {
-      const normalizedAdminId = cleanIdentifier.toUpperCase();
-      const adminIdRegex = /^NETRA\d{7}$/;
-      if (!adminIdRegex.test(normalizedAdminId)) {
-        setError("Admin ID must be exactly 12 characters: fixed 'NETRA' followed by 7 digits (e.g. NETRA0012121).");
+    if (activeRole === 'citizen') {
+      if (citizenMethod === 'mobile') {
+        const cleanDigits = mobileNumber.replace(/\D/g, '').trim();
+        if (!cleanDigits || !cleanPassword) {
+          setError('Please enter your 10-digit mobile number and password.');
+          return;
+        }
+        if (cleanDigits.length !== 10) {
+          setError('Please enter a valid 10-digit Indian mobile number.');
+          return;
+        }
+        cleanIdentifier = cleanDigits;
+      } else {
+        const cleanEmail = citizenEmail.trim();
+        if (!cleanEmail || !cleanPassword) {
+          setError('Please enter your citizen email address and password.');
+          return;
+        }
+        // Strict guard: Admin IDs cannot be used in citizen login
+        if (/^NETRA/i.test(cleanEmail)) {
+          setError("Admin IDs (e.g. NETRA0012121) cannot be used for Citizen login. Please switch to the Admin tab above.");
+          return;
+        }
+        cleanIdentifier = cleanEmail.toLowerCase();
+      }
+    } else {
+      // Admin Role
+      const cleanAdminId = adminIdentifier.trim();
+      if (!cleanAdminId || !cleanPassword) {
+        setError('Please enter your Admin ID (e.g. NETRA0012121) and password.');
         return;
+      }
+
+      // Enforce 12-char constraint if entering an Admin ID
+      if (!cleanAdminId.includes('@')) {
+        const normalizedAdminId = cleanAdminId.toUpperCase();
+        const adminIdRegex = /^NETRA\d{7}$/;
+        if (!adminIdRegex.test(normalizedAdminId)) {
+          setError("Admin ID must be exactly 12 characters: fixed 'NETRA' followed by 7 digits (e.g. NETRA0012121).");
+          return;
+        }
+        cleanIdentifier = normalizedAdminId;
+      } else {
+        cleanIdentifier = cleanAdminId.toLowerCase();
       }
     }
 
     setLoading(true);
-    setError('');
 
     try {
-      const normalizedPayloadId =
-        activeRole === 'admin' && !cleanIdentifier.includes('@')
-          ? cleanIdentifier.toUpperCase()
-          : cleanIdentifier;
-
-      const response = await loginUser({ email: normalizedPayloadId, password: cleanPassword });
+      const response = await loginUser({
+        email: cleanIdentifier,
+        password: cleanPassword,
+        role: activeRole.toUpperCase()
+      });
       const { token, ...user } = response.data.data;
       setAuthToken(token, user, rememberMe);
       navigate('/dashboard', { replace: true });
@@ -640,57 +671,224 @@ export default function Login() {
 
                 {/* Authentication Form */}
                 <Box component="form" onSubmit={handleSubmit} noValidate>
-                  {/* Field 1: Email or Mobile Number / Admin ID */}
-                  <Box mb={2}>
-                    <Typography
+                  {/* CITIZEN SUB-METHOD SWITCHER: Separate Box Toggle for Mobile Number vs Email */}
+                  {activeRole === 'citizen' && (
+                    <Box
                       sx={{
-                        display: 'block',
-                        mb: 0.75,
-                        color: brandDarkNavy,
-                        fontWeight: 700,
-                        fontSize: '0.82rem',
+                        display: 'flex',
+                        p: '3px',
+                        borderRadius: 2,
+                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#edf2f7',
+                        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+                        mb: 2.5,
                       }}
                     >
-                      {activeRole === 'citizen' ? 'Email or Mobile Number' : 'Admin ID (12 characters)'}
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      id="login-identifier"
-                      placeholder={
-                        activeRole === 'citizen'
-                          ? 'Enter your email or mobile number'
-                          : 'e.g. NETRA0012121'
-                      }
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      variant="outlined"
-                      size="small"
-                      helperText={
-                        activeRole === 'admin'
-                          ? "Format: Fixed 'NETRA' + 7 digits (e.g. NETRA0012121)"
-                          : ""
-                      }
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          backgroundColor: inputBg,
-                          borderRadius: 2,
+                      <Button
+                        fullWidth
+                        onClick={() => {
+                          setCitizenMethod('mobile');
+                          setError('');
+                        }}
+                        sx={{
+                          py: 0.7,
+                          borderRadius: 1.6,
+                          fontSize: '0.82rem',
+                          fontWeight: citizenMethod === 'mobile' ? 700 : 500,
+                          textTransform: 'none',
+                          backgroundColor: citizenMethod === 'mobile' ? (isDark ? '#1e293b' : '#ffffff') : 'transparent',
+                          color: citizenMethod === 'mobile' ? primaryBrandBlue : brandMutedText,
+                          boxShadow: citizenMethod === 'mobile' ? (isDark ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 3px rgba(0,0,0,0.08)') : 'none',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        📱 Mobile Number
+                      </Button>
+                      <Button
+                        fullWidth
+                        onClick={() => {
+                          setCitizenMethod('email');
+                          setError('');
+                        }}
+                        sx={{
+                          py: 0.7,
+                          borderRadius: 1.6,
+                          fontSize: '0.82rem',
+                          fontWeight: citizenMethod === 'email' ? 700 : 500,
+                          textTransform: 'none',
+                          backgroundColor: citizenMethod === 'email' ? (isDark ? '#1e293b' : '#ffffff') : 'transparent',
+                          color: citizenMethod === 'email' ? primaryBrandBlue : brandMutedText,
+                          boxShadow: citizenMethod === 'email' ? (isDark ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 3px rgba(0,0,0,0.08)') : 'none',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        ✉️ Email Address
+                      </Button>
+                    </Box>
+                  )}
+
+                  {/* CITIZEN OPTION A: Separate Mobile Number Login Box */}
+                  {activeRole === 'citizen' && citizenMethod === 'mobile' && (
+                    <Box mb={2}>
+                      <Typography
+                        sx={{
+                          display: 'block',
+                          mb: 0.75,
                           color: brandDarkNavy,
-                          fontSize: '0.88rem',
-                          '& fieldset': { borderColor: inputBorder },
-                          '&:hover fieldset': { borderColor: primaryBrandBlue },
-                          '&.Mui-focused fieldset': {
-                            borderColor: primaryBrandBlue,
-                            borderWidth: '1.5px',
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                        }}
+                      >
+                        Mobile Number
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        id="login-citizen-mobile"
+                        type="tel"
+                        placeholder="Enter 10-digit mobile number"
+                        value={mobileNumber}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setMobileNumber(val);
+                          if (error) setError('');
+                        }}
+                        variant="outlined"
+                        size="small"
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Typography sx={{ fontWeight: 700, fontSize: '0.84rem', color: brandDarkNavy, mr: 0.5, userSelect: 'none' }}>
+                                🇮🇳 +91
+                              </Typography>
+                            </InputAdornment>
+                          ),
+                        }}
+                        helperText="Registered 10-digit Indian mobile number."
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            backgroundColor: inputBg,
+                            borderRadius: 2,
+                            color: brandDarkNavy,
+                            fontSize: '0.88rem',
+                            '& fieldset': { borderColor: inputBorder },
+                            '&:hover fieldset': { borderColor: primaryBrandBlue },
+                            '&.Mui-focused fieldset': {
+                              borderColor: primaryBrandBlue,
+                              borderWidth: '1.5px',
+                            },
                           },
-                        },
-                        '& .MuiFormHelperText-root': {
-                          ml: 0.5,
-                          fontSize: '0.72rem',
-                          color: brandMutedText
-                        }
-                      }}
-                    />
-                  </Box>
+                          '& .MuiFormHelperText-root': {
+                            ml: 0.5,
+                            fontSize: '0.72rem',
+                            color: brandMutedText
+                          }
+                        }}
+                      />
+                    </Box>
+                  )}
+
+                  {/* CITIZEN OPTION B: Separate Email Login Box */}
+                  {activeRole === 'citizen' && citizenMethod === 'email' && (
+                    <Box mb={2}>
+                      <Typography
+                        sx={{
+                          display: 'block',
+                          mb: 0.75,
+                          color: brandDarkNavy,
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                        }}
+                      >
+                        Citizen Email Address
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        id="login-citizen-email"
+                        type="email"
+                        placeholder="e.g. rahul.sharma@example.com"
+                        value={citizenEmail}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCitizenEmail(val);
+                          if (/^NETRA/i.test(val.trim())) {
+                            setError("Admin IDs (e.g. NETRA0012121) are strictly prohibited for Citizen login. Please switch to the Admin tab above.");
+                          } else if (error) {
+                            setError('');
+                          }
+                        }}
+                        variant="outlined"
+                        size="small"
+                        helperText="Registered citizen email address."
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            backgroundColor: inputBg,
+                            borderRadius: 2,
+                            color: brandDarkNavy,
+                            fontSize: '0.88rem',
+                            '& fieldset': { borderColor: inputBorder },
+                            '&:hover fieldset': { borderColor: primaryBrandBlue },
+                            '&.Mui-focused fieldset': {
+                              borderColor: primaryBrandBlue,
+                              borderWidth: '1.5px',
+                            },
+                          },
+                          '& .MuiFormHelperText-root': {
+                            ml: 0.5,
+                            fontSize: '0.72rem',
+                            color: brandMutedText
+                          }
+                        }}
+                      />
+                    </Box>
+                  )}
+
+                  {/* ADMIN-ONLY: Admin ID Login Box */}
+                  {activeRole === 'admin' && (
+                    <Box mb={2}>
+                      <Typography
+                        sx={{
+                          display: 'block',
+                          mb: 0.75,
+                          color: brandDarkNavy,
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                        }}
+                      >
+                        Admin ID (12 characters)
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        id="login-admin-id"
+                        placeholder="e.g. NETRA0012121 or admin@aapdanetra.in"
+                        value={adminIdentifier}
+                        onChange={(e) => {
+                          setAdminIdentifier(e.target.value);
+                          if (error) setError('');
+                        }}
+                        variant="outlined"
+                        size="small"
+                        helperText="Format: Fixed 'NETRA' + 7 digits (e.g. NETRA0012121) or official admin email"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            backgroundColor: inputBg,
+                            borderRadius: 2,
+                            color: brandDarkNavy,
+                            fontSize: '0.88rem',
+                            '& fieldset': { borderColor: inputBorder },
+                            '&:hover fieldset': { borderColor: primaryBrandBlue },
+                            '&.Mui-focused fieldset': {
+                              borderColor: primaryBrandBlue,
+                              borderWidth: '1.5px',
+                            },
+                          },
+                          '& .MuiFormHelperText-root': {
+                            ml: 0.5,
+                            fontSize: '0.72rem',
+                            color: brandMutedText
+                          }
+                        }}
+                      />
+                    </Box>
+                  )}
 
                   {/* Field 2: Password */}
                   <Box mb={2}>
@@ -833,8 +1031,8 @@ export default function Login() {
                     {loading
                       ? 'Authenticating...'
                       : activeRole === 'citizen'
-                      ? 'Sign In'
-                      : 'Sign In to Admin Portal'}
+                      ? (citizenMethod === 'mobile' ? 'Sign In with Mobile Number' : 'Sign In with Email')
+                      : 'Sign In as Administrator'}
                   </Button>
 
                   {/* CITIZEN-ONLY: OR Divider, Google SSO, and Create Account */}
