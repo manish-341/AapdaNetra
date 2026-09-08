@@ -42,6 +42,13 @@ class RiskPredictor:
                 except Exception:
                     pass
 
+    def _get_val(self, data: dict, *keys, default=0.0):
+        for k in keys:
+            v = data.get(k)
+            if v is not None:
+                return v
+        return default
+
     def predict_hazard(self, hazard_type: str, data: dict) -> dict:
         hazard = hazard_type.lower()
 
@@ -49,17 +56,20 @@ class RiskPredictor:
             model = self.models[hazard]
             feature_cols = self.features[hazard]
 
-            # Build feature vector with defaults if missing
+            # Build feature vector with defaults if missing or None
             row = {}
             for col in feature_cols:
-                raw_val = data.get(col, self._get_default_val(col, data))
+                raw_val = data.get(col)
+                if raw_val is None:
+                    raw_val = self._get_default_val(col, data)
                 if col == "mining_activity":
                     row[col] = 1.0 if str(raw_val).strip().lower() in ["yes", "1", "true", "y"] else 0.0
                 else:
                     try:
                         row[col] = float(raw_val)
                     except (ValueError, TypeError):
-                        row[col] = float(self._get_default_val(col, data))
+                        def_val = self._get_default_val(col, data)
+                        row[col] = float(def_val) if def_val is not None else 0.0
 
             df_input = pd.DataFrame([row])
             prob = float(model.predict_proba(df_input)[0, 1])
@@ -87,26 +97,27 @@ class RiskPredictor:
             return self._fallback_prediction(hazard, data)
 
     def _get_default_val(self, col, data):
+        rain_base = float(self._get_val(data, "rainfall", "rainfall_mm", default=20.0) or 20.0)
         defaults = {
-            "latitude": data.get("latitude", data.get("lat", 20.5937)),
-            "longitude": data.get("longitude", data.get("lon", data.get("lng", 78.9629))),
-            "elevation_m": data.get("elevation_m", data.get("elevation", 500.0)),
-            "annual_rainfall_mm": data.get("annual_rainfall_mm", data.get("rainfall_annual", data.get("rainfall", 20.0) * 35.0)),
-            "earthquake_frequency": data.get("earthquake_frequency", data.get("seismic_activity", 2.5)),
-            "erosion_index": data.get("erosion_index", data.get("soil_type_score", 5.0)),
-            "mining_activity": 1.0 if str(data.get("mining_activity", "No")).strip().lower() in ["yes", "1", "true", "y"] else 0.0,
-            "rainfall_mm": data.get("rainfall", 20.0),
+            "latitude": self._get_val(data, "latitude", "lat", default=20.5937),
+            "longitude": self._get_val(data, "longitude", "lon", "lng", default=78.9629),
+            "elevation_m": self._get_val(data, "elevation_m", "elevation", default=500.0),
+            "annual_rainfall_mm": self._get_val(data, "annual_rainfall_mm", "rainfall_annual", default=rain_base * 35.0),
+            "earthquake_frequency": self._get_val(data, "earthquake_frequency", "seismic_activity", default=2.5),
+            "erosion_index": self._get_val(data, "erosion_index", "soil_type_score", default=5.0),
+            "mining_activity": 1.0 if str(self._get_val(data, "mining_activity", default="No")).strip().lower() in ["yes", "1", "true", "y"] else 0.0,
+            "rainfall_mm": self._get_val(data, "rainfall_mm", "rainfall", default=20.0),
             "water_level_m": 5.0,
-            "humidity_pct": data.get("humidity", 65.0),
-            "soil_moisture_pct": 50.0,
+            "humidity_pct": self._get_val(data, "humidity_pct", "humidity", default=65.0),
+            "soil_moisture_pct": self._get_val(data, "soil_moisture_pct", default=50.0),
             "river_distance_km": 3.0,
             "drainage_capacity": 0.5,
             "urbanization_pct": 50.0,
-            "slope_deg": data.get("slope_deg", data.get("slope_angle_deg", 15.0)),
+            "slope_deg": self._get_val(data, "slope_deg", "slope_angle_deg", default=15.0),
             "historical_floods": 2,
-            "temperature_c": data.get("temperature", data.get("temperature_c", 28.0)),
-            "wind_speed_ms": data.get("wind_speed", 10.0),
-            "slope_angle_deg": data.get("slope_angle_deg", 25.0),
+            "temperature_c": self._get_val(data, "temperature_c", "temperature", default=28.0),
+            "wind_speed_ms": self._get_val(data, "wind_speed_ms", "wind_speed", default=10.0),
+            "slope_angle_deg": self._get_val(data, "slope_angle_deg", default=25.0),
             "seismic_activity": 1.0,
             "drainage_proximity_km": 2.0,
             "soil_type_score": 0.5,
@@ -116,7 +127,7 @@ class RiskPredictor:
             "vegetation_cover_pct": 40.0,
             "vegetation_density": 0.5,
             "drought_index": 50.0,
-            "precipitation_mm": data.get("rainfall", 5.0),
+            "precipitation_mm": rain_base,
             "human_activity_score": 0.5
         }
         return defaults.get(col, 0.0)
