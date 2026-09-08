@@ -102,15 +102,19 @@ export default function Signup() {
   const inputBorder = isDark ? 'rgba(255, 255, 255, 0.12)' : '#dfe1e6';
   const inputBg = isDark ? 'rgba(255, 255, 255, 0.03)' : '#ffffff';
 
-  // Form State
+  // Account Role: 'citizen' | 'admin'
+  const [activeRole, setActiveRole] = useState('citizen');
+
+  // Form State - Starts completely empty
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
+    adminId: '',
     password: '',
     confirmPassword: '',
-    district: 'Gautam Buddha Nagar',
-    state: 'Uttar Pradesh',
+    district: '',
+    state: '',
     receiveAlerts: true
   });
 
@@ -121,6 +125,14 @@ export default function Signup() {
   const [serverError, setServerError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [touched, setTouched] = useState({});
+
+  // Helper to generate a random valid 12-character Admin ID
+  const generateRandomAdminId = () => {
+    // NETRA (5 chars) + 7 distinct digits = 12 characters
+    const random7Digits = Math.floor(1000000 + Math.random() * 9000000).toString();
+    const newId = `NETRA${random7Digits}`;
+    handleInputChange('adminId', newId);
+  };
 
   // Info Modal State for Navbar Links
   const [infoModal, setInfoModal] = useState(null);
@@ -150,6 +162,13 @@ export default function Signup() {
     setFieldErrors(prev => {
       const errs = { ...prev };
       delete errs[field];
+
+      if (field === 'adminId' && activeRole === 'admin') {
+        const val = (value || '').trim().toUpperCase();
+        if (val && !/^NETRA\d{7}$/.test(val)) {
+          errs.adminId = "Admin ID must be exactly 12 characters: 'NETRA' + 7 digits (e.g. NETRA0012121).";
+        }
+      }
 
       if (field === 'confirmPassword' || field === 'password') {
         const pwd = field === 'password' ? value : formData.password;
@@ -198,6 +217,17 @@ export default function Signup() {
       errors.email = 'Please enter a valid email address.';
     }
 
+    if (activeRole === 'admin') {
+      if (!formData.adminId || !formData.adminId.trim()) {
+        errors.adminId = 'Admin ID is required for administrator accounts.';
+      } else {
+        const normalized = formData.adminId.trim().toUpperCase();
+        if (!/^NETRA\d{7}$/.test(normalized)) {
+          errors.adminId = "Admin ID must be exactly 12 characters: 'NETRA' + 7 digits (e.g. NETRA0012121).";
+        }
+      }
+    }
+
     if (formData.phone.trim() && !/^[+0-9\s-]{10,15}$/.test(formData.phone.trim())) {
       errors.phone = 'Please enter a valid 10-digit mobile number.';
     }
@@ -239,7 +269,9 @@ export default function Signup() {
         phone: formData.phone.trim() || undefined,
         district: formData.district.trim(),
         state: formData.state.trim() || 'India',
-        receiveAlerts: formData.receiveAlerts
+        receiveAlerts: formData.receiveAlerts,
+        role: activeRole === 'admin' ? 'ADMIN' : 'CITIZEN',
+        adminId: activeRole === 'admin' ? formData.adminId.trim().toUpperCase() : undefined
       };
 
       const response = await registerUser(payload);
@@ -719,8 +751,70 @@ export default function Signup() {
                     Create Account
                   </Typography>
                   <Typography sx={{ color: brandMutedText, fontSize: '0.88rem' }}>
-                    Join the citizen emergency network for your district
+                    {activeRole === 'citizen'
+                      ? 'Join the citizen emergency network for your district'
+                      : 'Register secure disaster administration access'}
                   </Typography>
+                </Box>
+
+                {/* Role Selector: Compact Segmented Control [ Citizen | Admin ] */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    p: '4px',
+                    borderRadius: 2.5,
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#f4f5f7',
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #dfe1e6',
+                    mb: 2.5,
+                  }}
+                >
+                  <Button
+                    fullWidth
+                    onClick={() => {
+                      setActiveRole('citizen');
+                      setServerError('');
+                    }}
+                    sx={{
+                      py: 0.8,
+                      borderRadius: 2,
+                      fontSize: '0.86rem',
+                      fontWeight: activeRole === 'citizen' ? 700 : 600,
+                      textTransform: 'none',
+                      backgroundColor: activeRole === 'citizen' ? primaryBrandBlue : 'transparent',
+                      color: activeRole === 'citizen' ? '#ffffff' : brandMutedText,
+                      boxShadow: activeRole === 'citizen' ? '0 2px 6px rgba(0, 101, 255, 0.3)' : 'none',
+                      transition: 'all 0.18s ease',
+                      '&:hover': {
+                        backgroundColor: activeRole === 'citizen' ? '#0052cc' : isDark ? 'rgba(255,255,255,0.08)' : '#ebecf0',
+                      },
+                    }}
+                  >
+                    Citizen Account
+                  </Button>
+
+                  <Button
+                    fullWidth
+                    onClick={() => {
+                      setActiveRole('admin');
+                      setServerError('');
+                    }}
+                    sx={{
+                      py: 0.8,
+                      borderRadius: 2,
+                      fontSize: '0.86rem',
+                      fontWeight: activeRole === 'admin' ? 700 : 600,
+                      textTransform: 'none',
+                      backgroundColor: activeRole === 'admin' ? primaryBrandBlue : 'transparent',
+                      color: activeRole === 'admin' ? '#ffffff' : brandMutedText,
+                      boxShadow: activeRole === 'admin' ? '0 2px 6px rgba(0, 101, 255, 0.3)' : 'none',
+                      transition: 'all 0.18s ease',
+                      '&:hover': {
+                        backgroundColor: activeRole === 'admin' ? '#0052cc' : isDark ? 'rgba(255,255,255,0.08)' : '#ebecf0',
+                      },
+                    }}
+                  >
+                    Administrator Account
+                  </Button>
                 </Box>
 
                 {/* Server Error Banner */}
@@ -741,6 +835,74 @@ export default function Signup() {
                 {/* Registration Form */}
                 <Box component="form" onSubmit={handleSubmit} noValidate>
                   <Stack spacing={2}>
+                    {/* Admin ID Field (Only for Administrator Role) */}
+                    {activeRole === 'admin' && (
+                      <Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
+                          <Typography
+                            sx={{
+                              color: brandDarkNavy,
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                            }}
+                          >
+                            Admin ID (12 characters) <Box component="span" sx={{ color: '#ef4444' }}>*</Box>
+                          </Typography>
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={generateRandomAdminId}
+                            sx={{
+                              textTransform: 'none',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              p: 0,
+                              minWidth: 'auto',
+                              color: primaryBrandBlue,
+                              '&:hover': { textDecoration: 'underline' }
+                            }}
+                          >
+                            ⚡ Generate Unique ID
+                          </Button>
+                        </Box>
+                        <TextField
+                          fullWidth
+                          id="signup-admin-id"
+                          name="adminId"
+                          placeholder="e.g. NETRA0012121"
+                          value={formData.adminId}
+                          onChange={(e) => handleInputChange('adminId', e.target.value.toUpperCase())}
+                          error={Boolean(fieldErrors.adminId)}
+                          helperText={
+                            fieldErrors.adminId ||
+                            "Constraint: Exactly 12 characters starting with 'NETRA' + 7 digits (e.g. NETRA0012121)"
+                          }
+                          variant="outlined"
+                          size="small"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: inputBg,
+                              borderRadius: 2,
+                              color: brandDarkNavy,
+                              fontSize: '0.88rem',
+                              fontWeight: 650,
+                              letterSpacing: '0.05em',
+                              '& fieldset': { borderColor: inputBorder },
+                              '&:hover fieldset': { borderColor: primaryBrandBlue },
+                              '&.Mui-focused fieldset': {
+                                borderColor: primaryBrandBlue,
+                                borderWidth: '1.5px',
+                              },
+                            },
+                            '& .MuiFormHelperText-root': {
+                              ml: 0.5,
+                              fontSize: '0.72rem',
+                              color: fieldErrors.adminId ? '#ef4444' : brandMutedText
+                            }
+                          }}
+                        />
+                      </Box>
+                    )}
                     {/* Row 1: Full Name & Email */}
                     <Grid container spacing={2}>
                       <Grid size={{ xs: 12, sm: 6 }}>

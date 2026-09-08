@@ -39,8 +39,8 @@ export default function Login() {
 
   // ONLY 2 Roles: 'citizen' and 'admin'
   const [activeRole, setActiveRole] = useState('citizen');
-  const [identifier, setIdentifier] = useState('citizen@aapdanetra.in');
-  const [password, setPassword] = useState('password123');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -69,31 +69,44 @@ export default function Login() {
   const handleRoleChange = (role) => {
     setActiveRole(role);
     setError('');
-    if (role === 'citizen') {
-      setIdentifier('citizen@aapdanetra.in');
-      setPassword('password123');
-    } else {
-      setIdentifier('admin@aapdanetra.in');
-      setPassword('password123');
-    }
+    setIdentifier('');
+    setPassword('');
   };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (!identifier.trim() || !password.trim()) {
+    const cleanIdentifier = identifier.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanIdentifier || !cleanPassword) {
       setError(
         activeRole === 'citizen'
           ? 'Please enter your email or mobile number and password.'
-          : 'Please enter your Admin ID and password.'
+          : 'Please enter your Admin ID (e.g. NETRA0012121) and password.'
       );
       return;
+    }
+
+    // Enforce 12-char constraint if entering an Admin ID
+    if (activeRole === 'admin' && !cleanIdentifier.includes('@')) {
+      const normalizedAdminId = cleanIdentifier.toUpperCase();
+      const adminIdRegex = /^NETRA\d{7}$/;
+      if (!adminIdRegex.test(normalizedAdminId)) {
+        setError("Admin ID must be exactly 12 characters: fixed 'NETRA' followed by 7 digits (e.g. NETRA0012121).");
+        return;
+      }
     }
 
     setLoading(true);
     setError('');
 
     try {
-      const response = await loginUser({ email: identifier, password });
+      const normalizedPayloadId =
+        activeRole === 'admin' && !cleanIdentifier.includes('@')
+          ? cleanIdentifier.toUpperCase()
+          : cleanIdentifier;
+
+      const response = await loginUser({ email: normalizedPayloadId, password: cleanPassword });
       const { token, ...user } = response.data.data;
       setAuthToken(token, user, rememberMe);
       navigate('/dashboard', { replace: true });
@@ -638,7 +651,7 @@ export default function Login() {
                         fontSize: '0.82rem',
                       }}
                     >
-                      {activeRole === 'citizen' ? 'Email or Mobile Number' : 'Admin ID'}
+                      {activeRole === 'citizen' ? 'Email or Mobile Number' : 'Admin ID (12 characters)'}
                     </Typography>
                     <TextField
                       fullWidth
@@ -646,12 +659,17 @@ export default function Login() {
                       placeholder={
                         activeRole === 'citizen'
                           ? 'Enter your email or mobile number'
-                          : 'Enter your Admin ID or email'
+                          : 'e.g. NETRA0012121'
                       }
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
                       variant="outlined"
                       size="small"
+                      helperText={
+                        activeRole === 'admin'
+                          ? "Format: Fixed 'NETRA' + 7 digits (e.g. NETRA0012121)"
+                          : ""
+                      }
                       sx={{
                         '& .MuiOutlinedInput-root': {
                           backgroundColor: inputBg,
@@ -665,6 +683,11 @@ export default function Login() {
                             borderWidth: '1.5px',
                           },
                         },
+                        '& .MuiFormHelperText-root': {
+                          ml: 0.5,
+                          fontSize: '0.72rem',
+                          color: brandMutedText
+                        }
                       }}
                     />
                   </Box>

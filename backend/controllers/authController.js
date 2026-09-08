@@ -14,9 +14,17 @@ const generateToken = (id, role) => {
 // Register
 const register = async (req, res) => {
     try {
-        const { name, email, password, phone, district, state, receiveAlerts } = req.body;
+        const { name, email, password, phone, district, state, receiveAlerts, role, adminId } = req.body;
 
-        const existingUser = await User.findOne({ email });
+        const normalizedEmail = (email || "").trim().toLowerCase();
+        if (!normalizedEmail) {
+            return res.status(400).json({
+                success: false,
+                message: "Email is required"
+            });
+        }
+
+        const existingUser = await User.findOne({ email: normalizedEmail });
         if (existingUser) {
             return res.status(400).json({
                 success: false,
@@ -24,16 +32,49 @@ const register = async (req, res) => {
             });
         }
 
+        let assignedRole = "CITIZEN";
+        let normalizedAdminId = undefined;
+
+        if (role === "ADMIN") {
+            if (!adminId || typeof adminId !== "string") {
+                return res.status(400).json({
+                    success: false,
+                    message: "Admin ID is required for administrator registration."
+                });
+            }
+
+            normalizedAdminId = adminId.trim().toUpperCase();
+
+            // Constraint: Exactly 12 characters, fixed 'NETRA' prefix + 7 digits (e.g. NETRA0012121)
+            const adminIdRegex = /^NETRA\d{7}$/;
+            if (!adminIdRegex.test(normalizedAdminId)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid Admin ID. Admin ID must be exactly 12 characters starting with 'NETRA' followed by 7 digits (e.g. NETRA0012121)."
+                });
+            }
+
+            const existingAdmin = await User.findOne({ adminId: normalizedAdminId });
+            if (existingAdmin) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Admin ID '${normalizedAdminId}' is already registered. Each Admin ID must be unique and distinct.`
+                });
+            }
+
+            assignedRole = "ADMIN";
+        }
+
         const salt = await bcrypt.genSalt(12);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Security: Public registration is strictly constrained to CITIZEN role
         const user = await User.create({
-            name,
-            email,
+            name: (name || "").trim(),
+            email: normalizedEmail,
             password: hashedPassword,
-            phone,
-            role: "CITIZEN",
+            phone: phone ? phone.trim() : undefined,
+            adminId: normalizedAdminId,
+            role: assignedRole,
             district,
             state,
             receiveAlerts: receiveAlerts !== false
@@ -53,6 +94,14 @@ const register = async (req, res) => {
 
         const token = generateToken(user._id, user.role);
 
+        // Set auth cookie
+        res.cookie("an_auth_token", token, {
+            httpOnly: false,
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production"
+        });
+
         res.status(201).json({
             success: true,
             message: "Registration successful",
@@ -60,9 +109,11 @@ const register = async (req, res) => {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
+                adminId: user.adminId,
                 role: user.role,
                 district: user.district,
                 state: user.state,
+                phone: user.phone,
                 receiveAlerts: user.receiveAlerts,
                 coordinates: { latitude: coords.lat, longitude: coords.lng },
                 token
@@ -85,7 +136,8 @@ const login = async (req, res) => {
         const user = await User.findOne({
             $or: [
                 { email: normalized.toLowerCase() },
-                { phone: normalized }
+                { phone: normalized },
+                { adminId: normalized.toUpperCase() }
             ]
         });
         if (!user) {
@@ -114,6 +166,14 @@ const login = async (req, res) => {
         const { resolveDistrictCoordinates } = require("../services/districtProvisioner");
         const coords = await resolveDistrictCoordinates(user.district || "Central Delhi", user.state || "Delhi");
 
+        // Set auth cookie
+        res.cookie("an_auth_token", token, {
+            httpOnly: false,
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production"
+        });
+
         res.status(200).json({
             success: true,
             message: "Login successful",
@@ -121,6 +181,7 @@ const login = async (req, res) => {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
+                adminId: user.adminId,
                 role: user.role,
                 district: user.district,
                 state: user.state,

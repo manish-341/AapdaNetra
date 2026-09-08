@@ -43,6 +43,14 @@ const userSchema = new mongoose.Schema(
       type: String
     },
 
+    adminId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      uppercase: true
+    },
+
     role: {
       type: String,
       enum: [
