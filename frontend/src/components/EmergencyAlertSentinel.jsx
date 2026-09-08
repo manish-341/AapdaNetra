@@ -125,24 +125,31 @@ export default function EmergencyAlertSentinel() {
 
         setAlerts(alertsList);
 
-        // 1. Check for any verified active critical disaster alert across the system
-        const activeCriticalAlerts = alertsList.filter((a) => a.isActive !== false && a.severity === 'CRITICAL');
+        const currentLocKey = (location?.district || location?.name || '').toLowerCase().trim();
 
-        // Prefer critical alert for the active location if available, otherwise any active critical emergency
-        const matchedCritical = activeCriticalAlerts.find((a) => alertMatchesLocation(a, location));
-        const activeCritical = matchedCritical || activeCriticalAlerts[0] || null;
+        // 1. MUST strictly match current user's location AND must be severity === 'CRITICAL' AND active
+        const localCriticalAlert = alertsList.find((a) =>
+          a.isActive !== false &&
+          a.severity === 'CRITICAL' &&
+          alertMatchesLocation(a, location)
+        );
 
         // Local non-critical alerts for current user jurisdiction (HIGH, WARNING, INFO)
-        const localNonCriticals = alertsList.filter((a) => a.isActive !== false && a.severity !== 'CRITICAL' && alertMatchesLocation(a, location));
+        const localNonCriticals = alertsList.filter((a) =>
+          a.isActive !== false &&
+          a.severity !== 'CRITICAL' &&
+          alertMatchesLocation(a, location)
+        );
         const rank = { HIGH: 3, WARNING: 2, INFO: 1 };
         localNonCriticals.sort((a, b) => (rank[b.severity] || 0) - (rank[a.severity] || 0));
         const primaryAreaAlert = localNonCriticals[0] || null;
 
         // STRICT LIFE-SAFETY SIREN RULE:
-        // ONLY CRITICAL emergencies sound the siren. If there is NO active critical emergency:
+        // ONLY sound if the user's active location is in a verified CRITICAL hazard zone.
+        // If current location is NOT in a critical hazard zone:
         // - IMMEDIATELY SILENCE ANY SIREN
         // - DO NOT SOUND ANY ALARM
-        if (!activeCritical) {
+        if (!localCriticalAlert) {
           if (isSirenActive()) {
             stopEmergencySiren();
           }
@@ -167,10 +174,10 @@ export default function EmergencyAlertSentinel() {
           return;
         }
 
-        // --- CRITICAL EMERGENCY ACTIVE ---
-        const critAlertId = activeCritical._id || activeCritical.id || activeCritical.title;
-        setActiveAreaAlert(activeCritical);
-        setActiveCriticalAlert(activeCritical);
+        // --- CURRENT LOCATION IS UNDER CRITICAL HAZARD ZONE ---
+        const critAlertId = localCriticalAlert._id || localCriticalAlert.id || localCriticalAlert.title;
+        setActiveAreaAlert(localCriticalAlert);
+        setActiveCriticalAlert(localCriticalAlert);
         setBannerDismissed(false);
 
         let acknowledgedIds = [];
@@ -183,21 +190,26 @@ export default function EmergencyAlertSentinel() {
           setToastPopupOpen(true);
         }
 
-        // Sound acoustic civil defense siren strictly on arrival of verified critical situations
-        if (!isAcknowledged && lastSoundedAlertIdRef.current !== critAlertId) {
+        // Check if siren already sounded for this location in this session
+        const lastSoundedLoc = sessionStorage.getItem('an_last_sounded_hazard_loc');
+
+        // Trigger acoustic siren ONLY when user enters/changes location into a critical hazard zone
+        // Never re-trigger when user is simply switching sidebar links or pages!
+        if (!isAcknowledged && lastSoundedLoc !== currentLocKey) {
+          sessionStorage.setItem('an_last_sounded_hazard_loc', currentLocKey);
           lastSoundedAlertIdRef.current = critAlertId;
 
           if (notifConfig.audioSiren !== false) {
-            console.log(`[Emergency Sentinel] 🚨 CRITICAL DISASTER ALERT DETECTED for ${activeCritical.district || 'National'}: ${activeCritical.title}`);
+            console.log(`[Emergency Sentinel] 🚨 USER LOCATION UNDER HAZARD ZONE: ${localCriticalAlert.district || currentLocKey}. Siren triggered.`);
             playEmergencySiren(8000);
             setSirenPlaying(true);
           }
 
-          const alertTitle = activeCritical.title || 'Critical Disaster Alert';
+          const alertTitle = localCriticalAlert.title || 'Critical Disaster Alert';
           const alertDesc =
-            activeCritical.message ||
-            activeCritical.description ||
-            `Immediate emergency action required in ${activeCritical.district || location?.district || 'your region'}.`;
+            localCriticalAlert.message ||
+            localCriticalAlert.description ||
+            `Immediate emergency evacuation action required in ${location?.district || 'your area'}.`;
 
           triggerDisasterNotification({
             title: alertTitle,
@@ -212,10 +224,10 @@ export default function EmergencyAlertSentinel() {
                 recipientEmail: user.email,
                 recipientName: user.name || (isAdmin ? 'Disaster Operations Admin' : 'Citizen Resident'),
                 title: alertTitle,
-                hazardType: activeCritical.hazardType || 'FLOOD',
+                hazardType: localCriticalAlert.hazardType || 'FLOOD',
                 severity: 'CRITICAL',
-                district: activeCritical.district || location?.district || 'Active Monitored Zone',
-                state: activeCritical.state || location?.state || 'India',
+                district: location?.district || 'Active Monitored Zone',
+                state: location?.state || 'India',
                 instructions: alertDesc
               }).catch(() => {});
             }

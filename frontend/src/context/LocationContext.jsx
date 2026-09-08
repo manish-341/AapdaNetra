@@ -195,9 +195,10 @@ export function LocationProvider({ children }) {
   }, []);
 
   const switchLocation = async (district, state = '') => {
-    // Instantly terminate any active civil defense siren on location change
+    // Instantly terminate any active civil defense siren on location change and arm for new hazard location
     try {
       stopEmergencySiren();
+      sessionStorage.removeItem('an_last_sounded_hazard_loc');
     } catch {}
 
     // Support object or string argument
@@ -281,6 +282,7 @@ export function LocationProvider({ children }) {
 
       try {
         stopEmergencySiren();
+        sessionStorage.removeItem('an_last_sounded_hazard_loc');
       } catch {}
 
       setGpsLoading(true);
