@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const axios = require("axios");
 const User = require("../models/User");
 
 // Active reusable transporter
@@ -42,15 +43,15 @@ const getTransporter = async () => {
             try {
                 candidate = nodemailer.createTransport({
                     ...transportConfig,
-                    connectionTimeout: 12000,
-                    greetingTimeout: 12000,
-                    socketTimeout: 15000,
+                    connectionTimeout: 8000,
+                    greetingTimeout: 8000,
+                    socketTimeout: 10000,
                     tls: {
                         rejectUnauthorized: false
                     }
                 });
                 const verifyPromise = candidate.verify();
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP verification timeout (10s)")), 10000));
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP verification timeout (6s)")), 6000));
                 await Promise.race([verifyPromise, timeoutPromise]);
 
                 transporter = candidate;
@@ -91,7 +92,157 @@ const getTransporter = async () => {
     return transporterInitPromise;
 };
 
-// Transporter initializes lazily on first email dispatch
+/**
+ * Unified email dispatcher:
+ * 1. Checks for BREVO_API_KEY (REST API via HTTPS port 443 — works seamlessly on Render free tier!)
+ * 2. Checks for RESEND_API_KEY (REST API via HTTPS port 443)
+ * 3. Falls back to Brevo SMTP Relay via Nodemailer (works locally and on hosts with open port 587)
+ */
+const dispatchUnifiedEmail = async ({
+    to,
+    toName = "Citizen",
+    subject,
+    html,
+    fromName = "AapdaNetra Operations",
+    replyToEmail = null
+}) => {
+    const adminEmail = (process.env.ADMIN_ALERT_EMAIL || "ayuyyysh0714@gmail.com").trim();
+    const cleanTo = (to || "").trim();
+    const effectiveRecipient = (!cleanTo || cleanTo.endsWith("@aapdanetra.in")) ? adminEmail : cleanTo;
+    const effectiveReplyTo = replyToEmail || adminEmail;
+
+    // 1. Try Brevo REST API (HTTPS port 443 — bypasses Render port 587 block!)
+    const brevoApiKey = (process.env.BREVO_API_KEY || "").trim();
+    if (brevoApiKey) {
+        try {
+            const senderEmail = (process.env.BREVO_SENDER_EMAIL || adminEmail).trim();
+            const res = await axios.post(
+                "https://api.brevo.com/v3/smtp/email",
+                {
+                    sender: { name: fromName, email: senderEmail },
+                    to: [{ email: effectiveRecipient, name: toName }],
+                    replyTo: { email: effectiveReplyTo, name: fromName },
+                    subject: subject,
+                    htmlContent: html
+                },
+                {
+                    headers: {
+                        "accept": "application/json",
+                        "api-key": brevoApiKey,
+                        "content-type": "application/json"
+                    },
+                    timeout: 10000
+                }
+            );
+
+            const msgId = res.data?.messageId || "brevo-" + Date.now();
+            console.log(`[Email Service] Delivered via Brevo REST API (HTTPS:443) to ${effectiveRecipient}. ID: ${msgId}`);
+            return {
+                sent: true,
+                mode: "BREVO_HTTPS_API",
+                messageId: msgId,
+                recipient: effectiveRecipient
+            };
+        } catch (apiErr) {
+            console.warn(`[Email Service] Brevo REST API attempt failed (${apiErr.response?.data?.message || apiErr.message}). Falling back...`);
+        }
+    }
+
+    // 2. Try Resend REST API (HTTPS port 443 — bypasses Render port 587 block!)
+    const resendApiKey = (process.env.RESEND_API_KEY || "").trim();
+    if (resendApiKey) {
+        try {
+            const senderAddress = process.env.RESEND_FROM || `${fromName} <onboarding@resend.dev>`;
+            const res = await axios.post(
+                "https://api.resend.com/emails",
+                {
+                    from: senderAddress,
+                    to: [effectiveRecipient],
+                    reply_to: effectiveReplyTo,
+                    subject: subject,
+                    html: html
+                },
+                {
+                    headers: {
+                        "Authorization": `Bearer ${resendApiKey}`,
+                        "Content-Type": "application/json"
+                    },
+                    timeout: 10000
+                }
+            );
+
+            const msgId = res.data?.id || "resend-" + Date.now();
+            console.log(`[Email Service] Delivered via Resend REST API (HTTPS:443) to ${effectiveRecipient}. ID: ${msgId}`);
+            return {
+                sent: true,
+                mode: "RESEND_HTTPS_API",
+                messageId: msgId,
+                recipient: effectiveRecipient
+            };
+        } catch (resendErr) {
+            console.warn(`[Email Service] Resend API attempt failed (${resendErr.response?.data?.message || resendErr.message}). Falling back...`);
+        }
+    }
+
+    // 3. Fallback: SMTP Relay (Port 587)
+    let activeTransporter = null;
+    try {
+        activeTransporter = await getTransporter();
+    } catch (tErr) {
+        console.warn(`[Email Service] Could not get SMTP transporter: ${tErr.message}`);
+    }
+
+    if (activeTransporter) {
+        try {
+            const fromAddress = process.env.SMTP_FROM || `"${fromName}" <${process.env.SMTP_USER || "b7f58f001@smtp-brevo.com"}>`;
+            const sendPromise = activeTransporter.sendMail({
+                from: fromAddress,
+                replyTo: effectiveReplyTo,
+                to: effectiveRecipient,
+                subject: subject,
+                html: html
+            });
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("SMTP connection timed out (Render free tier blocks port 587)")), 8000)
+            );
+            const info = await Promise.race([sendPromise, timeoutPromise]);
+            const previewUrl = nodemailer.getTestMessageUrl(info);
+
+            console.log(`[Email Service] Delivered via SMTP relay to ${effectiveRecipient}. MessageId: ${info.messageId} ${previewUrl ? `(Preview: ${previewUrl})` : ''}`);
+            return {
+                sent: true,
+                mode: previewUrl ? "ETHEREAL_TEST_DELIVERY" : "BREVO_SMTP_RELAY",
+                messageId: info.messageId,
+                previewUrl: previewUrl || null,
+                recipient: effectiveRecipient
+            };
+        } catch (smtpErr) {
+            const isTimeout = smtpErr.message.includes("timed out") ||
+                              smtpErr.message.includes("ETIMEDOUT") ||
+                              smtpErr.message.includes("ECONNREFUSED") ||
+                              smtpErr.code === "ETIMEDOUT" ||
+                              smtpErr.code === "ECONNREFUSED";
+
+            console.warn(`[Email Service] SMTP send failed for ${effectiveRecipient}: ${smtpErr.message}`);
+
+            return {
+                sent: false,
+                mode: isTimeout ? "RENDER_SMTP_BLOCKED" : "SMTP_ERROR",
+                error: isTimeout
+                    ? "Render Free Tier blocks outbound SMTP port 587. To send real emails from Render, configure BREVO_API_KEY (starts with xkeysib-...) or RESEND_API_KEY in Render, or run AapdaNetra backend locally."
+                    : smtpErr.message,
+                recipient: effectiveRecipient
+            };
+        }
+    }
+
+    return {
+        sent: false,
+        mode: "NO_TRANSPORTER",
+        error: "No email transporter available. Please configure BREVO_API_KEY or verify SMTP credentials.",
+        recipient: effectiveRecipient
+    };
+};
 
 /**
  * Send critical disaster emergency email bulletin to citizen or administrative users
@@ -224,51 +375,17 @@ const sendEmergencyDisasterEmail = async ({
 
     console.log(`[Emergency Alert Email] Dispatching ${severity} alert for ${hazardType} to ${effectiveRecipient} (original: ${recipientEmail})`);
 
-    const activeTransporter = await getTransporter();
-
-    if (activeTransporter) {
-        try {
-            const fromAddress = process.env.SMTP_FROM || `"AapdaNetra Disaster Alert" <${process.env.SMTP_USER || "b7f58f001@smtp-brevo.com"}>`;
-            const replyTo = process.env.SMTP_REPLY_TO || adminRealEmail;
-            const sendPromise = activeTransporter.sendMail({
-                from: fromAddress,
-                replyTo: replyTo,
-                to: effectiveRecipient,
-                subject: `🚨 [CRITICAL ALERT] ${title} - Immediate Action Required`,
-                html: htmlContent
-            });
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP send timeout (15s)")), 15000));
-            const info = await Promise.race([sendPromise, timeoutPromise]);
-
-            const previewUrl = nodemailer.getTestMessageUrl(info);
-            console.log(`[Emergency Alert Email] Delivered to ${effectiveRecipient}. MessageId: ${info.messageId} ${previewUrl ? `(Preview: ${previewUrl})` : ''}`);
-
-            return {
-                sent: true,
-                mode: previewUrl ? "ETHEREAL_TEST_DELIVERY" : "SMTP_DISPATCH",
-                messageId: info.messageId,
-                previewUrl: previewUrl || null,
-                recipient: effectiveRecipient,
-                timestamp
-            };
-        } catch (err) {
-            console.warn(`[Emergency Alert Email] SMTP send failed for ${effectiveRecipient} (${err.message}). Logging verified dispatch bulletin.`);
-        }
-    }
-
-    // Console fallback verification
-    console.log(`\n======================================================`);
-    console.log(`🚨 [AAPDANETRA EMERGENCY EMAIL BROADCAST DISPATCHED]`);
-    console.log(`To: ${recipientEmail} (${recipientName})`);
-    console.log(`Subject: 🚨 [CRITICAL ALERT] ${title}`);
-    console.log(`Hazard: ${hazardType} | District: ${district}, ${state}`);
-    console.log(`Timestamp: ${timestamp}`);
-    console.log(`======================================================\n`);
+    const dispatchResult = await dispatchUnifiedEmail({
+        to: effectiveRecipient,
+        toName: recipientName,
+        subject: `🚨 [CRITICAL ALERT] ${title} - Immediate Action Required`,
+        html: htmlContent,
+        fromName: "AapdaNetra Disaster Operations",
+        replyToEmail: adminRealEmail
+    });
 
     return {
-        sent: true,
-        mode: "VERIFIED_BROADCAST",
-        recipient: recipientEmail,
+        ...dispatchResult,
         timestamp,
         advisory: { title, severity, district, hazardType }
     };
@@ -380,44 +497,16 @@ const sendWelcomeAlertEmail = async ({
 
     console.log(`[Welcome Email] Dispatching alert activation welcome email to: ${recipientEmail}`);
 
-    const activeTransporter = await getTransporter();
-
-    if (activeTransporter) {
-        try {
-            const info = await activeTransporter.sendMail({
-                from: process.env.SMTP_FROM || (process.env.SMTP_USER ? `"AapdaNetra Emergency Network" <${process.env.SMTP_USER}>` : '"AapdaNetra Alerts" <alerts@aapdanetra.in>'),
-                to: recipientEmail,
-                subject: `🛡️ AapdaNetra Disaster Alert Registration Confirmed — ${recipientName}`,
-                html: htmlContent
-            });
-
-            const previewUrl = nodemailer.getTestMessageUrl(info);
-            console.log(`[Welcome Email] Successfully sent to ${recipientEmail}. MessageId: ${info.messageId} ${previewUrl ? `(Preview: ${previewUrl})` : ''}`);
-
-            return {
-                sent: true,
-                mode: previewUrl ? "ETHEREAL_TEST_DELIVERY" : "SMTP_DISPATCH",
-                messageId: info.messageId,
-                previewUrl: previewUrl || null,
-                recipient: recipientEmail,
-                timestamp
-            };
-        } catch (err) {
-            console.warn(`[Welcome Email] SMTP delivery failed for ${recipientEmail} (${err.message}). Logging confirmation.`);
-        }
-    }
-
-    console.log(`\n======================================================`);
-    console.log(`🛡️ [AAPDANETRA WELCOME & ALERT ACTIVATION EMAIL DISPATCHED]`);
-    console.log(`To: ${recipientEmail} (${recipientName})`);
-    console.log(`District: ${district}, ${state}`);
-    console.log(`Timestamp: ${timestamp}`);
-    console.log(`======================================================\n`);
+    const dispatchResult = await dispatchUnifiedEmail({
+        to: recipientEmail,
+        toName: recipientName,
+        subject: `🛡️ AapdaNetra Disaster Alert Registration Confirmed — ${recipientName}`,
+        html: htmlContent,
+        fromName: "AapdaNetra Emergency Network"
+    });
 
     return {
-        sent: true,
-        mode: "VERIFIED_CONFIRMATION",
-        recipient: recipientEmail,
+        ...dispatchResult,
         timestamp
     };
 };
@@ -517,37 +606,50 @@ const broadcastEmergencyToAllUsers = async ({
 
     let successCount = 0;
     let failedCount = 0;
+    let isSmtpBlocked = false;
     const recipientSummary = [];
 
     results.forEach((res, idx) => {
         const target = users[idx];
-        if (res.status === "fulfilled" && res.value?.sent) {
+        const val = res.status === "fulfilled" ? res.value : null;
+        if (val && val.sent) {
             successCount++;
             recipientSummary.push({
                 email: target.email,
                 name: target.name,
                 status: "DELIVERED",
-                mode: res.value.mode,
-                previewUrl: res.value.previewUrl || null
+                mode: val.mode,
+                messageId: val.messageId || null,
+                previewUrl: val.previewUrl || null
             });
         } else {
             failedCount++;
+            const mode = val?.mode || "FAILED";
+            if (mode === "RENDER_SMTP_BLOCKED" || res.reason?.message?.includes("timed out") || val?.error?.includes("Render")) {
+                isSmtpBlocked = true;
+            }
             recipientSummary.push({
                 email: target.email,
                 name: target.name,
                 status: "FAILED",
-                error: res.reason?.message || "Delivery error"
+                mode: mode,
+                error: val?.error || res.reason?.message || "Delivery error"
             });
         }
     });
 
-    console.log(`[Emergency Broadcast Complete] Dispatched: ${successCount} successful, ${failedCount} failed across ${users.length} citizens.`);
+    console.log(`[Emergency Broadcast Complete] Dispatched: ${successCount} successful, ${failedCount} failed across ${users.length} citizens. Mode: ${isSmtpBlocked ? 'RENDER_SMTP_BLOCKED' : 'STANDARD'}`);
 
     return {
-        success: true,
+        success: successCount > 0,
         totalRecipients: users.length,
         successCount,
         failedCount,
+        isRenderSmtpBlocked: isSmtpBlocked,
+        deliveryMode: successCount > 0 ? (recipientSummary[0]?.mode || "DISPATCHED") : (isSmtpBlocked ? "RENDER_SMTP_BLOCKED" : "FAILED"),
+        diagnosticMessage: isSmtpBlocked
+            ? "Outbound SMTP port 587 was blocked by Render Free Tier firewall. To enable live email delivery from Render, add BREVO_API_KEY (xkeysib-...) to your Render Environment Variables, or run AapdaNetra backend locally."
+            : undefined,
         recipients: recipientSummary,
         broadcastTime: new Date().toISOString()
     };
@@ -656,51 +758,17 @@ const sendEmergencyResolvedEmail = async ({
 
     console.log(`[Emergency Resolved Email] Dispatching All Clear notification to ${effectiveRecipient} (original: ${recipientEmail})`);
 
-    const activeTransporter = await getTransporter();
-
-    if (activeTransporter) {
-        try {
-            const fromAddress = process.env.SMTP_FROM || `"AapdaNetra Operations" <${process.env.SMTP_USER || "b7f58f001@smtp-brevo.com"}>`;
-            const replyTo = process.env.SMTP_REPLY_TO || adminRealEmail;
-            const sendPromise = activeTransporter.sendMail({
-                from: fromAddress,
-                replyTo: replyTo,
-                to: effectiveRecipient,
-                subject: `✅ [ALL CLEAR] Critical Emergency Resolved — ${district}`,
-                html: htmlContent
-            });
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP send timeout (15s)")), 15000));
-            const info = await Promise.race([sendPromise, timeoutPromise]);
-
-            const previewUrl = nodemailer.getTestMessageUrl(info);
-            console.log(`[Emergency Resolved Email] Delivered to ${effectiveRecipient}. MessageId: ${info.messageId} ${previewUrl ? `(Preview: ${previewUrl})` : ''}`);
-
-            return {
-                sent: true,
-                mode: previewUrl ? "ETHEREAL_TEST_DELIVERY" : "SMTP_DISPATCH",
-                messageId: info.messageId,
-                previewUrl: previewUrl || null,
-                recipient: effectiveRecipient,
-                timestamp
-            };
-        } catch (err) {
-            console.warn(`[Emergency Resolved Email] SMTP send failed for ${effectiveRecipient} (${err.message}). Logging verified dispatch bulletin.`);
-        }
-    }
-
-    // Console fallback verification
-    console.log(`\n======================================================`);
-    console.log(`✅ [AAPDANETRA EMERGENCY RESOLVED BROADCAST DISPATCHED]`);
-    console.log(`To: ${recipientEmail} (${recipientName})`);
-    console.log(`Subject: ✅ [ALL CLEAR] Critical Emergency Resolved — ${district}`);
-    console.log(`Status: THREAT NEUTRALIZED / ALL CLEAR`);
-    console.log(`Timestamp: ${timestamp}`);
-    console.log(`======================================================\n`);
+    const dispatchResult = await dispatchUnifiedEmail({
+        to: effectiveRecipient,
+        toName: recipientName,
+        subject: `✅ [ALL CLEAR] Critical Emergency Resolved — ${district}`,
+        html: htmlContent,
+        fromName: "AapdaNetra Disaster Operations",
+        replyToEmail: adminRealEmail
+    });
 
     return {
-        sent: true,
-        mode: "VERIFIED_BROADCAST",
-        recipient: recipientEmail,
+        ...dispatchResult,
         timestamp,
         advisory: { title, status: "RESOLVED", district }
     };
@@ -795,37 +863,50 @@ const broadcastEmergencyResolvedToAllUsers = async ({
 
     let successCount = 0;
     let failedCount = 0;
+    let isSmtpBlocked = false;
     const recipientSummary = [];
 
     results.forEach((res, idx) => {
         const target = users[idx];
-        if (res.status === "fulfilled" && res.value?.sent) {
+        const val = res.status === "fulfilled" ? res.value : null;
+        if (val && val.sent) {
             successCount++;
             recipientSummary.push({
                 email: target.email,
                 name: target.name,
                 status: "DELIVERED",
-                mode: res.value.mode,
-                previewUrl: res.value.previewUrl || null
+                mode: val.mode,
+                messageId: val.messageId || null,
+                previewUrl: val.previewUrl || null
             });
         } else {
             failedCount++;
+            const mode = val?.mode || "FAILED";
+            if (mode === "RENDER_SMTP_BLOCKED" || res.reason?.message?.includes("timed out") || val?.error?.includes("Render")) {
+                isSmtpBlocked = true;
+            }
             recipientSummary.push({
                 email: target.email,
                 name: target.name,
                 status: "FAILED",
-                error: res.reason?.message || "Delivery error"
+                mode: mode,
+                error: val?.error || res.reason?.message || "Delivery error"
             });
         }
     });
 
-    console.log(`[Emergency Resolved Broadcast Complete] Dispatched: ${successCount} successful, ${failedCount} failed across ${users.length} citizens.`);
+    console.log(`[Emergency Resolved Broadcast Complete] Dispatched: ${successCount} successful, ${failedCount} failed across ${users.length} citizens. Mode: ${isSmtpBlocked ? 'RENDER_SMTP_BLOCKED' : 'STANDARD'}`);
 
     return {
-        success: true,
+        success: successCount > 0,
         totalRecipients: users.length,
         successCount,
         failedCount,
+        isRenderSmtpBlocked: isSmtpBlocked,
+        deliveryMode: successCount > 0 ? (recipientSummary[0]?.mode || "DISPATCHED") : (isSmtpBlocked ? "RENDER_SMTP_BLOCKED" : "FAILED"),
+        diagnosticMessage: isSmtpBlocked
+            ? "Outbound SMTP port 587 was blocked by Render Free Tier firewall. To enable live email delivery from Render, add BREVO_API_KEY (xkeysib-...) to your Render Environment Variables, or run AapdaNetra backend locally."
+            : undefined,
         recipients: recipientSummary,
         broadcastTime: new Date().toISOString()
     };

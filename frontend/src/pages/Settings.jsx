@@ -294,7 +294,11 @@ export default function Settings() {
       const data = res?.data?.data || {};
       setBroadcastStats(data);
       setEmergencyModalOpen(false);
-      showToast(`🚨 Emergency broadcast sent to all ${data.totalRecipients || ''} registered users regarding ${targetDist}!`, 'success');
+      if (data.isRenderSmtpBlocked) {
+        showToast(`⚠️ Broadcast processed, but Render Free Tier blocked SMTP port 587. See status card below.`, 'warning');
+      } else {
+        showToast(`🚨 Emergency broadcast sent to all ${data.totalRecipients || ''} registered users regarding ${targetDist}!`, 'success');
+      }
     } catch (err) {
       console.warn('Broadcast error:', err);
       showToast(err.response?.data?.message || 'Emergency alert broadcast failed. Check server logs.', 'error');
@@ -334,7 +338,11 @@ export default function Settings() {
 
       const broadcastData = res.data?.broadcast || {};
       const count = broadcastData.totalRecipients || 6;
-      showToast(`✅ Emergency resolved for ${targetDist}! All-Clear email broadcast sent to all ${count} registered users.`, 'success');
+      if (broadcastData.isRenderSmtpBlocked) {
+        showToast(`⚠️ All-Clear processed, but Render Free Tier blocked SMTP port 587. See status card below.`, 'warning');
+      } else {
+        showToast(`✅ Emergency resolved for ${targetDist}! All-Clear email broadcast sent to all ${count} registered users.`, 'success');
+      }
       setActiveCriticalAlert(null);
       setBroadcastStats({ ...broadcastData, mode: 'RESOLVED', targetDistrict: targetDist });
       sessionStorage.removeItem('an_sounded_critical_alerts');
@@ -994,16 +1002,38 @@ export default function Settings() {
                       </Stack>
 
                       {broadcastStats && (
-                        <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, bgcolor: broadcastStats.mode === 'RESOLVED' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)', border: `1px solid ${broadcastStats.mode === 'RESOLVED' ? '#10b981' : '#ef4444'}` }}>
+                        <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: broadcastStats.isRenderSmtpBlocked ? 'rgba(245, 158, 11, 0.1)' : (broadcastStats.mode === 'RESOLVED' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)'), border: `1px solid ${broadcastStats.isRenderSmtpBlocked ? '#f59e0b' : (broadcastStats.mode === 'RESOLVED' ? '#10b981' : '#ef4444')}` }}>
                           <Box display="flex" alignItems="center" gap={1}>
-                            {broadcastStats.mode === 'RESOLVED' ? <CheckCircle2 size={18} color="#10b981" /> : <Mail size={18} color="#ef4444" />}
-                            <Typography variant="body2" fontWeight={800} sx={{ color: broadcastStats.mode === 'RESOLVED' ? '#10b981' : '#ef4444' }}>
-                              {broadcastStats.mode === 'RESOLVED' ? `All-Clear Bulletin Emailed to All Users` : `Emergency Alert Broadcast Delivered to All Users`}
+                            {broadcastStats.isRenderSmtpBlocked ? (
+                              <AlertTriangle size={18} color="#d97706" />
+                            ) : broadcastStats.mode === 'RESOLVED' ? (
+                              <CheckCircle2 size={18} color="#10b981" />
+                            ) : (
+                              <Mail size={18} color="#ef4444" />
+                            )}
+                            <Typography variant="body2" fontWeight={800} sx={{ color: broadcastStats.isRenderSmtpBlocked ? '#d97706' : (broadcastStats.mode === 'RESOLVED' ? '#10b981' : '#ef4444') }}>
+                              {broadcastStats.isRenderSmtpBlocked
+                                ? `Outbound SMTP Port 587 Blocked by Render Free Tier`
+                                : broadcastStats.mode === 'RESOLVED'
+                                ? `All-Clear Bulletin Emailed to All Users`
+                                : `Emergency Alert Broadcast Delivered to All Users`}
                             </Typography>
                           </Box>
                           <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5 }}>
-                            📡 <strong>Email Dispatch:</strong> {broadcastStats.successCount || broadcastStats.totalRecipients || 6} registered citizen(s) & responders notified regarding <strong>{broadcastStats.targetDistrict || broadcastDistrict}</strong> ({broadcastStats.broadcastTime ? new Date(broadcastStats.broadcastTime).toLocaleTimeString() : 'Just now'}).
+                            📡 <strong>Delivery Status:</strong> {broadcastStats.successCount > 0 ? `${broadcastStats.successCount} delivered successfully (${broadcastStats.deliveryMode || 'SMTP'})` : `${broadcastStats.totalRecipients || 6} recipients targeted`}. Target: <strong>{broadcastStats.targetDistrict || broadcastDistrict}</strong> ({broadcastStats.broadcastTime ? new Date(broadcastStats.broadcastTime).toLocaleTimeString() : 'Just now'}).
                           </Typography>
+                          {broadcastStats.isRenderSmtpBlocked && (
+                            <Box sx={{ mt: 1, p: 1.25, borderRadius: 1.5, bgcolor: isDark ? 'rgba(0,0,0,0.3)' : '#ffffff', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                              <Typography variant="caption" sx={{ color: textPrimary, fontWeight: 700, display: 'block' }}>
+                                💡 Why did this happen & how to send real emails:
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5, lineHeight: 1.5 }}>
+                                • <strong>Render Free Tier Policy:</strong> Render blocks outbound ports 25, 465, and 587 to prevent spam.<br />
+                                • <strong>Fix 1 (Direct HTTPS delivery on Render):</strong> In your Brevo account, go to <em>SMTP & API → API Keys</em>, generate an API key (starts with <code>xkeysib-...</code>), and add <code>BREVO_API_KEY</code> to Render Environment Variables.<br />
+                                • <strong>Fix 2 (Instant Delivery Locally):</strong> Run the backend locally with <code>npm run dev</code> where Brevo SMTP is already verified and sends real emails immediately.
+                              </Typography>
+                            </Box>
+                          )}
                         </Box>
                       )}
                     </>
