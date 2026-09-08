@@ -37,6 +37,10 @@ class RiskPredictionRequest(BaseModel):
     pressure: Optional[float] = 1013.0
     slope_angle_deg: Optional[float] = 15.0
     elevation_m: Optional[float] = 150.0
+    annual_rainfall_mm: Optional[float] = None
+    earthquake_frequency: Optional[float] = None
+    erosion_index: Optional[float] = None
+    mining_activity: Optional[str] = "No"
 
 class ForecastRequest(BaseModel):
     indicator: str

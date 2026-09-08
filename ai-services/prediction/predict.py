@@ -52,7 +52,14 @@ class RiskPredictor:
             # Build feature vector with defaults if missing
             row = {}
             for col in feature_cols:
-                row[col] = data.get(col, self._get_default_val(col, data))
+                raw_val = data.get(col, self._get_default_val(col, data))
+                if col == "mining_activity":
+                    row[col] = 1.0 if str(raw_val).strip().lower() in ["yes", "1", "true", "y"] else 0.0
+                else:
+                    try:
+                        row[col] = float(raw_val)
+                    except (ValueError, TypeError):
+                        row[col] = float(self._get_default_val(col, data))
 
             df_input = pd.DataFrame([row])
             prob = float(model.predict_proba(df_input)[0, 1])
@@ -65,12 +72,14 @@ class RiskPredictor:
                 for idx in top_idx:
                     importance[feature_cols[idx]] = round(float(fi[idx]), 3)
 
+            best_model_name = self.comparisons.get(hazard, {}).get("best", "RandomForest" if hazard == "landslide" else "XGBoost")
+
             return {
                 "hazard_type": hazard.upper(),
                 "probability": round(prob, 4),
                 "risk_score": int(prob * 100),
                 "confidence": 0.88 if hazard in self.comparisons else 0.75,
-                "model_used": self.comparisons.get(hazard, {}).get("best", "XGBoost"),
+                "model_used": best_model_name,
                 "top_factors": importance
             }
         else:
@@ -79,19 +88,25 @@ class RiskPredictor:
 
     def _get_default_val(self, col, data):
         defaults = {
+            "latitude": data.get("latitude", data.get("lat", 20.5937)),
+            "longitude": data.get("longitude", data.get("lon", data.get("lng", 78.9629))),
+            "elevation_m": data.get("elevation_m", data.get("elevation", 500.0)),
+            "annual_rainfall_mm": data.get("annual_rainfall_mm", data.get("rainfall_annual", data.get("rainfall", 20.0) * 35.0)),
+            "earthquake_frequency": data.get("earthquake_frequency", data.get("seismic_activity", 2.5)),
+            "erosion_index": data.get("erosion_index", data.get("soil_type_score", 5.0)),
+            "mining_activity": 1.0 if str(data.get("mining_activity", "No")).strip().lower() in ["yes", "1", "true", "y"] else 0.0,
             "rainfall_mm": data.get("rainfall", 20.0),
             "water_level_m": 5.0,
             "humidity_pct": data.get("humidity", 65.0),
             "soil_moisture_pct": 50.0,
-            "elevation_m": 150.0,
             "river_distance_km": 3.0,
             "drainage_capacity": 0.5,
             "urbanization_pct": 50.0,
-            "slope_deg": 15.0,
+            "slope_deg": data.get("slope_deg", data.get("slope_angle_deg", 15.0)),
             "historical_floods": 2,
-            "temperature_c": data.get("temperature", 30.0),
+            "temperature_c": data.get("temperature", data.get("temperature_c", 28.0)),
             "wind_speed_ms": data.get("wind_speed", 10.0),
-            "slope_angle_deg": 25.0,
+            "slope_angle_deg": data.get("slope_angle_deg", 25.0),
             "seismic_activity": 1.0,
             "drainage_proximity_km": 2.0,
             "soil_type_score": 0.5,
@@ -135,7 +150,7 @@ class RiskPredictor:
             result[h] = self.predict_hazard(h, data)
         return result
 
-    def get_comparison_metrics() -> dict:
+    def get_comparison_metrics(self) -> dict:
         res = {}
         for h in ["flood", "landslide", "wildfire"]:
             comp_path = os.path.join(MODEL_DIR, f"{h}_comparison.json")
