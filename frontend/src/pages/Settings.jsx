@@ -260,15 +260,15 @@ export default function Settings() {
       const targetDist = broadcastDistrict || activeCriticalAlert?.district || location?.district || 'Bhopal';
       const targetSt = broadcastState || activeCriticalAlert?.state || location?.state || 'Madhya Pradesh';
 
-      // Ensure no acoustic sirens play on broadcast
-      stopEmergencySiren();
-      setSirenPlaying(false);
+      // Critical emergency situation declared — trigger emergency siren sound!
       try {
-        sessionStorage.setItem('an_suppress_siren', 'true');
-        window.dispatchEvent(new CustomEvent('emergency-siren-stopped'));
+        sessionStorage.removeItem('an_suppress_siren');
+        sessionStorage.removeItem('an_acknowledged_critical_alerts');
       } catch {}
+      playEmergencySiren(8000);
+      setSirenPlaying(true);
 
-      // 1. Trigger native OS / browser notification WITHOUT siren
+      // 1. Trigger native OS / browser notification
       await triggerDisasterNotification({
         title: broadcastTitle || `🚨 CRITICAL DISASTER ALERT BROADCAST — ${targetDist}`,
         body: `URGENT: Official emergency warning dispatched to ALL registered citizens regarding critical emergency in ${targetDist}.`,
@@ -323,7 +323,8 @@ export default function Settings() {
       stopEmergencySiren();
       setSirenPlaying(false);
       try {
-        sessionStorage.setItem('an_suppress_siren', 'true');
+        sessionStorage.removeItem('an_acknowledged_critical_alerts');
+        sessionStorage.removeItem('an_suppress_siren');
         window.dispatchEvent(new CustomEvent('emergency-siren-stopped'));
       } catch {}
 

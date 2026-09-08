@@ -75,31 +75,8 @@ export function alertMatchesLocation(alert, userLoc) {
  */
 export function isTrueCriticalAlert(alert) {
   if (!alert || alert.isActive === false) return false;
-  if (alert.severity !== 'CRITICAL') return false;
-
-  const title = (alert.title || '').toLowerCase();
-  const message = (alert.message || alert.description || '').toLowerCase();
-
-  // Explicit non-critical keywords in title or message
-  const advisoryKeywords = [
-    'watch',
-    'early warning',
-    'advisory',
-    'forecast',
-    'monitoring',
-    'precaution',
-    'waterlogging',
-    'elevated risk',
-    'preparedness'
-  ];
-
-  for (const kw of advisoryKeywords) {
-    if (title.includes(kw)) {
-      return false; // Title explicitly indicates Watch / Early Warning / Advisory
-    }
-  }
-
-  return true;
+  // Strictly verified: only alerts with CRITICAL severity trigger the emergency siren
+  return alert.severity === 'CRITICAL';
 }
 
 /**
