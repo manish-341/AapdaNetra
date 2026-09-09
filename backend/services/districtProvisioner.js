@@ -14,6 +14,7 @@ const DISTRICT_COORDINATES = {
     "sidhi": { lat: 24.4033, lng: 81.8791, state: "Madhya Pradesh", name: "Sidhi" },
     "singrauli": { lat: 24.1992, lng: 82.6645, state: "Madhya Pradesh", name: "Singrauli" },
     "bhopal": { lat: 23.2599, lng: 77.4126, state: "Madhya Pradesh", name: "Bhopal" },
+    "chitrakoot": { lat: 25.1764, lng: 80.8643, state: "Madhya Pradesh", name: "Chitrakoot" },
     "indore": { lat: 22.7196, lng: 75.8577, state: "Madhya Pradesh", name: "Indore" },
     "jabalpur": { lat: 23.1815, lng: 79.9864, state: "Madhya Pradesh", name: "Jabalpur" },
     "gwalior": { lat: 26.2183, lng: 78.1828, state: "Madhya Pradesh", name: "Gwalior" },
@@ -211,8 +212,66 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
 
         console.log(`Auto-provisioning localized disaster intelligence infrastructure for: ${districtName} (${coords.state}) at [${lat}, ${lng}]...`);
 
+        const isChitrakoot = districtName.toLowerCase().includes("chitrakoot");
+
         // 1. Create Localized Habitations
-        const habs = await Habitation.insertMany([
+        const habitationData = isChitrakoot ? [
+            {
+                name: "Ramghat Riverside & Pilgrim Corridor",
+                district: districtName,
+                state: stateName || coords.state,
+                population: 18500,
+                vulnerablePopulation: 5200,
+                vulnerabilityScore: 94,
+                currentRiskScore: 94,
+                riskCategory: "CRITICAL",
+                location: { type: "Point", coordinates: [lng + 0.008, lat - 0.004] }
+            },
+            {
+                name: "Sitapur Low Basin & Mandakini Confluence",
+                district: districtName,
+                state: stateName || coords.state,
+                population: 24200,
+                vulnerablePopulation: 6800,
+                vulnerabilityScore: 88,
+                currentRiskScore: 91,
+                riskCategory: "CRITICAL",
+                location: { type: "Point", coordinates: [lng - 0.012, lat + 0.006] }
+            },
+            {
+                name: "Karwi Lowland Railway Sub-colony",
+                district: districtName,
+                state: stateName || coords.state,
+                population: 19800,
+                vulnerablePopulation: 4900,
+                vulnerabilityScore: 82,
+                currentRiskScore: 84,
+                riskCategory: "CRITICAL",
+                location: { type: "Point", coordinates: [lng - 0.018, lat - 0.012] }
+            },
+            {
+                name: "Naya Gaon Riverbank Settlement",
+                district: districtName,
+                state: stateName || coords.state,
+                population: 11500,
+                vulnerablePopulation: 3100,
+                vulnerabilityScore: 86,
+                currentRiskScore: 88,
+                riskCategory: "CRITICAL",
+                location: { type: "Point", coordinates: [lng + 0.015, lat + 0.012] }
+            },
+            {
+                name: "Kamadgiri Foothills Outer Sector",
+                district: districtName,
+                state: stateName || coords.state,
+                population: 8000,
+                vulnerablePopulation: 1200,
+                vulnerabilityScore: 52,
+                currentRiskScore: 48,
+                riskCategory: "AMBER",
+                location: { type: "Point", coordinates: [lng + 0.025, lat - 0.020] }
+            }
+        ] : [
             {
                 name: `${districtName} Riverfront Settlement`,
                 district: districtName,
@@ -246,10 +305,57 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                 riskCategory: "AMBER",
                 location: { type: "Point", coordinates: [lng + 0.022, lat + 0.018] }
             }
-        ]);
+        ];
+        const habs = await Habitation.insertMany(habitationData);
 
         // 2. Create Localized Relief Shelters
-        const shelters = await Shelter.insertMany([
+        const shelterData = isChitrakoot ? [
+            {
+                name: "Chitrakoot Multi-purpose Disaster Relief Center",
+                district: districtName,
+                state: stateName || coords.state,
+                address: `Civil Lines Emergency Hub, ${districtName}`,
+                capacity: 4500,
+                currentOccupancy: 650,
+                availableCapacity: 3850,
+                status: "AVAILABLE",
+                facilities: ["water", "electricity", "medical", "food", "sanitation", "generator"],
+                accessibility: "FULL",
+                riskScore: 6,
+                contactNumber: "112 / 1078",
+                location: { type: "Point", coordinates: [lng - 0.006, lat + 0.005] }
+            },
+            {
+                name: "Sitapur Community Evacuation Camp",
+                district: districtName,
+                state: stateName || coords.state,
+                address: `Sitapur High School Road, ${districtName}`,
+                capacity: 3200,
+                currentOccupancy: 450,
+                availableCapacity: 2750,
+                status: "AVAILABLE",
+                facilities: ["water", "electricity", "food", "sanitation"],
+                accessibility: "FULL",
+                riskScore: 8,
+                contactNumber: "112 / 1078",
+                location: { type: "Point", coordinates: [lng + 0.018, lat - 0.012] }
+            },
+            {
+                name: "Karwi Stadium Relief Hub",
+                district: districtName,
+                state: stateName || coords.state,
+                address: `Karwi Stadium Complex, ${districtName}`,
+                capacity: 5000,
+                currentOccupancy: 900,
+                availableCapacity: 4100,
+                status: "AVAILABLE",
+                facilities: ["water", "electricity", "medical", "food", "sanitation", "generator"],
+                accessibility: "FULL",
+                riskScore: 5,
+                contactNumber: "112 / 1078",
+                location: { type: "Point", coordinates: [lng - 0.022, lat - 0.015] }
+            }
+        ] : [
             {
                 name: `${districtName} District Disaster Relief Center`,
                 district: districtName,
@@ -280,19 +386,20 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                 contactNumber: "112 / 1078",
                 location: { type: "Point", coordinates: [lng + 0.018, lat - 0.012] }
             }
-        ]);
+        ];
+        const shelters = await Shelter.insertMany(shelterData);
 
         // 3. Create Localized Hazard Zones
         await HazardZone.insertMany([
             {
-                name: `${districtName} Basin Inundation Sector`,
+                name: isChitrakoot ? "Mandakini River Inundation Zone" : `${districtName} Basin Inundation Sector`,
                 hazardType: "FLOOD",
                 district: districtName,
                 state: stateName || coords.state,
-                severity: 85,
-                riskScore: 82,
+                severity: 92,
+                riskScore: 91,
                 riskCategory: "CRITICAL",
-                probability: 0.78,
+                probability: 0.88,
                 geometry: {
                     type: "Polygon",
                     coordinates: [[[lng - 0.03, lat - 0.03], [lng + 0.03, lat - 0.03], [lng + 0.03, lat + 0.03], [lng - 0.03, lat + 0.03], [lng - 0.03, lat - 0.03]]]
@@ -300,19 +407,19 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                 source: "District Disaster Management Authority"
             },
             {
-                name: `${districtName} Slope Instability Zone`,
-                hazardType: "LANDSLIDE",
+                name: isChitrakoot ? "Karwi Low Basin Inundation Fringe" : `${districtName} Slope Instability Zone`,
+                hazardType: isChitrakoot ? "FLOOD" : "LANDSLIDE",
                 district: districtName,
                 state: stateName || coords.state,
-                severity: 70,
-                riskScore: 68,
-                riskCategory: "RED",
-                probability: 0.55,
+                severity: 80,
+                riskScore: 78,
+                riskCategory: "CRITICAL",
+                probability: 0.72,
                 geometry: {
                     type: "Polygon",
                     coordinates: [[[lng - 0.05, lat + 0.02], [lng - 0.02, lat + 0.02], [lng - 0.02, lat + 0.05], [lng - 0.05, lat + 0.05], [lng - 0.05, lat + 0.02]]]
                 },
-                source: "Geological Survey Analysis"
+                source: "Hydrological Survey Analysis"
             }
         ]);
 
@@ -324,25 +431,44 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                 coordinates: habs[0].location.coordinates
             },
             destinationShelter: shelters[0]._id,
-            populationToRelocate: 950,
+            populationToRelocate: isChitrakoot ? 5200 : 950,
             priority: "IMMEDIATE",
-            status: "PLANNED",
-            reason: `Urgent evacuation due to monsoon water surge in ${districtName} basin`
+            status: "IN_PROGRESS",
+            reason: `Urgent evacuation due to critical Mandakini river flood surge in ${districtName}`
         });
 
-        // 5. Create Local Alert (Advisory/Warning level, NOT critical alarm)
-        await Alert.create({
-            title: `EARLY WARNING — Flood & Inundation Watch (${districtName})`,
-            message: `Hydrological gauge thresholds in ${districtName} approaching warning marks. Responders on monitoring status.`,
-            severity: "WARNING",
-            hazardType: "FLOOD",
-            source: "OFFICIAL",
-            verificationStatus: "VERIFIED",
-            location: { type: "Point", coordinates: [lng, lat] },
-            affectedRadius: 15,
-            isActive: true,
-            expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000)
-        });
+        // 5. Create Local Alert (CRITICAL for Chitrakoot, Advisory for others)
+        if (isChitrakoot) {
+            await Alert.create({
+                title: `🚨 CRITICAL FLASH FLOOD & EVACUATION ORDER — ${districtName}`,
+                message: `Mandakini River flowing 3.3m above high flood level (HFL). Ramghat, Sitapur, and Karwi low-lying riverfronts submerged. Immediate mandatory evacuation ordered to designated relief shelters.`,
+                severity: "CRITICAL",
+                district: districtName,
+                state: stateName || coords.state,
+                hazardType: "FLOOD",
+                source: "OFFICIAL",
+                verificationStatus: "VERIFIED",
+                location: { type: "Point", coordinates: [lng, lat] },
+                affectedRadius: 25,
+                isActive: true,
+                expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000)
+            });
+        } else {
+            await Alert.create({
+                title: `EARLY WARNING — Flood & Inundation Watch (${districtName})`,
+                message: `Hydrological gauge thresholds in ${districtName} approaching warning marks. Responders on monitoring status.`,
+                severity: "WARNING",
+                district: districtName,
+                state: stateName || coords.state,
+                hazardType: "FLOOD",
+                source: "OFFICIAL",
+                verificationStatus: "VERIFIED",
+                location: { type: "Point", coordinates: [lng, lat] },
+                affectedRadius: 15,
+                isActive: true,
+                expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000)
+            });
+        }
 
         console.log(`District ${districtName} successfully provisioned!`);
     } catch (err) {

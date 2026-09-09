@@ -12,41 +12,50 @@ export function getDistanceKm(lat1, lon1, lat2, lon2) {
 export function alertMatchesLocation(alert, userLoc) {
   if (!userLoc) return false;
 
-  const alertDistrict = (alert.district || '').trim().toLowerCase();
+  const alertDistrict = (alert.district || '').replace(/\(.*?\)/g, '').trim().toLowerCase();
   const alertTitle = (alert.title || '').toLowerCase();
   const alertMsg = (alert.message || alert.description || '').toLowerCase();
 
-  const userDistrict = (userLoc.district || '').trim().toLowerCase();
-  const userName = (userLoc.name || '').toLowerCase();
+  const rawDistrict = (userLoc.district || '').toLowerCase();
+  const rawName = (userLoc.name || '').toLowerCase();
+  const cleanDistrict = rawDistrict.replace(/\(.*?\)/g, '').trim();
+  const cleanName = rawName.replace(/\(.*?\)/g, '').trim();
 
   // 1. Direct district match
-  if (alertDistrict && userDistrict && (alertDistrict.includes(userDistrict) || userDistrict.includes(alertDistrict))) {
+  if (alertDistrict && cleanDistrict && (alertDistrict.includes(cleanDistrict) || cleanDistrict.includes(alertDistrict))) {
     return true;
   }
 
   // 2. Title & Message keyword inspection
-  if (userDistrict && (alertTitle.includes(userDistrict) || alertMsg.includes(userDistrict))) {
+  if (cleanDistrict && (alertTitle.includes(cleanDistrict) || alertMsg.includes(cleanDistrict))) {
+    return true;
+  }
+  if (cleanName && (alertTitle.includes(cleanName) || alertMsg.includes(cleanName))) {
     return true;
   }
 
-  // Regional aliases (e.g. Bhopal, Delhi/Yamuna, Noida/Hindon, Mumbai, Dehradun)
-  if ((userDistrict.includes('delhi') || userName.includes('delhi')) &&
+  // Regional aliases (e.g. Chitrakoot, Bhopal, Delhi/Yamuna, Noida/Hindon, Mumbai, Dehradun)
+  if ((cleanDistrict.includes('chitrakoot') || cleanName.includes('chitrakoot')) &&
+      (alertTitle.includes('chitrakoot') || alertMsg.includes('chitrakoot') || alertDistrict.includes('chitrakoot') || alertTitle.includes('mandakini'))) {
+    return true;
+  }
+  if ((cleanDistrict.includes('delhi') || cleanName.includes('delhi')) &&
       (alertTitle.includes('delhi') || alertTitle.includes('yamuna') || alertMsg.includes('delhi') || alertMsg.includes('yamuna'))) {
     return true;
   }
-  if ((userDistrict.includes('noida') || userDistrict.includes('gautam buddha') || userName.includes('noida')) &&
+  if ((cleanDistrict.includes('noida') || cleanDistrict.includes('gautam buddha') || cleanName.includes('noida')) &&
       (alertTitle.includes('noida') || alertTitle.includes('hindon') || alertMsg.includes('noida') || alertMsg.includes('hindon'))) {
     return true;
   }
-  if ((userDistrict.includes('bhopal') || userName.includes('bhopal')) &&
+  if ((cleanDistrict.includes('bhopal') || cleanName.includes('bhopal')) &&
       (alertTitle.includes('bhopal') || alertMsg.includes('bhopal'))) {
     return true;
   }
-  if ((userDistrict.includes('mumbai') || userName.includes('mumbai')) &&
+  if ((cleanDistrict.includes('mumbai') || cleanName.includes('mumbai')) &&
       (alertTitle.includes('mumbai') || alertMsg.includes('mumbai'))) {
     return true;
   }
-  if ((userDistrict.includes('dehradun') || userName.includes('dehradun')) &&
+  if ((cleanDistrict.includes('dehradun') || cleanName.includes('dehradun')) &&
       (alertTitle.includes('dehradun') || alertMsg.includes('dehradun'))) {
     return true;
   }

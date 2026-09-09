@@ -227,6 +227,16 @@ const REGIONAL_TELEMETRY = {
         criticalSectors: 1,
         occupiedShelterCount: 380
     },
+    "chitrakoot": {
+        riverName: "Mandakini River (Ramghat Gauge)",
+        riverLevel: "145.80m (3.3m Above Danger Mark)",
+        riverTrend: "(+0.85m Flash Surge)",
+        riverStatus: "Critical",
+        rainfall: "114.2mm (Severe Cloudburst)",
+        activeSectors: 5,
+        criticalSectors: 4,
+        occupiedShelterCount: 4200
+    },
     "delhi": {
         riverName: "Yamuna Gauge",
         riverLevel: "204.10m",
@@ -358,12 +368,21 @@ const getDashboardStats = async (req, res) => {
 
         // 2. Build district query filter
         let filter = {};
+        let alertFilter = { isActive: true };
         if (districtName) {
             const regex = new RegExp(districtName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i");
             filter = {
                 $or: [
                     { district: regex },
                     { state: regex }
+                ]
+            };
+            alertFilter = {
+                isActive: true,
+                $or: [
+                    { district: regex },
+                    { state: regex },
+                    { title: regex }
                 ]
             };
         }
@@ -385,8 +404,8 @@ const getDashboardStats = async (req, res) => {
             mediumHazards,
             lowHazards
         ] = await Promise.all([
-            Alert.countDocuments({ isActive: true, ...filter }),
-            Alert.countDocuments({ isActive: true, severity: "CRITICAL", ...filter }),
+            Alert.countDocuments(alertFilter),
+            Alert.countDocuments({ ...alertFilter, severity: "CRITICAL" }),
             Shelter.countDocuments(filter),
             Shelter.countDocuments({ status: "AVAILABLE", ...filter }),
             Habitation.countDocuments(filter),
@@ -483,7 +502,15 @@ const getDashboardStats = async (req, res) => {
             availableShelters = 10;
         }
         if (populationAtRisk === 0 && districtName) {
-            populationAtRisk = habitationCount > 0 ? habitationCount * 500 : 0;
+            if (cleanKey.includes("chitrakoot")) {
+                populationAtRisk = 74000;
+            } else {
+                populationAtRisk = habitationCount > 0 ? habitationCount * 500 : 0;
+            }
+        }
+        if (cleanKey.includes("chitrakoot")) {
+            telemetry.activeSectors = habitationCount > 0 ? habitationCount : 5;
+            telemetry.criticalSectors = highRiskHabitations > 0 ? highRiskHabitations : 4;
         }
         if (reportCount === 0 && districtName) {
             reportCount = 0;

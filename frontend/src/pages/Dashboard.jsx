@@ -242,9 +242,11 @@ export default function Dashboard() {
     (p) =>
       p.id === location?.id ||
       (location?.district && p.district.toLowerCase() === location.district.toLowerCase()) ||
-      (location?.name && location.name.toLowerCase().includes(p.district.toLowerCase()))
+      (location?.name && location.name.toLowerCase().includes(p.district.toLowerCase())) ||
+      (location?.district && location.district.toLowerCase().includes(p.district.toLowerCase())) ||
+      (location?.name && location.name.toLowerCase().includes(p.id))
   );
-  const activePresetId = matchedPreset?.id || location?.id || 'delhi';
+  const activePresetId = matchedPreset?.id || (location?.id && (presets || PRESET_DISTRICTS).some(p => p.id === location.id) ? location.id : PRESET_DISTRICTS[0]?.id);
 
   useEffect(() => {
     const updateTime = () => {

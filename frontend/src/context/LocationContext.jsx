@@ -6,6 +6,7 @@ import { stopEmergencySiren } from '../utils/emergencyAudio';
 const LocationContext = createContext();
 
 export const PRESET_DISTRICTS = [
+  { id: 'chitrakoot', name: 'Chitrakoot (MP)', district: 'Chitrakoot', state: 'Madhya Pradesh', lat: 25.1764, lng: 80.8643 },
   { id: 'vindhya', name: 'Vindhya (MP)', district: 'Vindhya', state: 'Madhya Pradesh', lat: 24.5362, lng: 81.3038 },
   { id: 'ranchi', name: 'Ranchi (JH)', district: 'Ranchi', state: 'Jharkhand', lat: 23.3441, lng: 85.3096 },
   { id: 'delhi', name: 'Delhi (NCR)', district: 'Central Delhi', state: 'Delhi', lat: 28.6139, lng: 77.2090 },
@@ -30,18 +31,11 @@ export const PRESET_DISTRICTS = [
 ];
 
 export const INDIAN_DISTRICT_GAZETTEER = {
-  // Jharkhand
-  'ranchi': { lat: 23.3441, lng: 85.3096, state: 'Jharkhand', name: 'Ranchi' },
-  'jamshedpur': { lat: 22.8046, lng: 86.2029, state: 'Jharkhand', name: 'Jamshedpur' },
-  'dhanbad': { lat: 23.7957, lng: 86.4304, state: 'Jharkhand', name: 'Dhanbad' },
-  'bokaro': { lat: 23.6693, lng: 86.1511, state: 'Jharkhand', name: 'Bokaro' },
-  'deoghar': { lat: 24.4826, lng: 86.7003, state: 'Jharkhand', name: 'Deoghar' },
-  'hazaribagh': { lat: 23.9961, lng: 85.3637, state: 'Jharkhand', name: 'Hazaribagh' },
-
-  // Madhya Pradesh
-  'vindhya': { lat: 24.5362, lng: 81.3038, state: 'Madhya Pradesh', name: 'Vindhya / Rewa' },
-  'rewa': { lat: 24.5362, lng: 81.3038, state: 'Madhya Pradesh', name: 'Rewa' },
+  // Madhya Pradesh & Bundelkhand
+  'chitrakoot': { lat: 25.1764, lng: 80.8643, state: 'Madhya Pradesh', name: 'Chitrakoot' },
   'satna': { lat: 24.5805, lng: 80.8252, state: 'Madhya Pradesh', name: 'Satna' },
+  'rewa': { lat: 24.5362, lng: 81.3038, state: 'Madhya Pradesh', name: 'Rewa' },
+  'vindhya': { lat: 24.5362, lng: 81.3038, state: 'Madhya Pradesh', name: 'Vindhya / Rewa' },
   'sidhi': { lat: 24.4033, lng: 81.8791, state: 'Madhya Pradesh', name: 'Sidhi' },
   'singrauli': { lat: 24.1992, lng: 82.6645, state: 'Madhya Pradesh', name: 'Singrauli' },
   'bhopal': { lat: 23.2599, lng: 77.4126, state: 'Madhya Pradesh', name: 'Bhopal' },
