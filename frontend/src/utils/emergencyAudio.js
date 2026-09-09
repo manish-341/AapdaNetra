@@ -4,12 +4,14 @@
 
 let audioCtx = null;
 let activeOscillator = null;
+let activeHarmonic = null;
 let activeModulator = null;
 let activeGain = null;
 let activeAudioElement = null;
 let autoStopTimer = null;
 let isPlaying = false;
-let pendingTriggerRegistered = false;
+let pendingSirenDuration = 0;
+let gestureUnlockArmed = false;
 
 // Generate in-memory 2-second looping emergency siren WAV PCM
 function createSirenWavBlob() {
@@ -65,7 +67,7 @@ function getSirenAudioElement() {
       }
       activeAudioElement = new Audio(sirenBlobUrl);
       activeAudioElement.loop = true;
-      activeAudioElement.volume = 0.85;
+      activeAudioElement.volume = 0.9;
     } catch (e) {
       console.warn('[AapdaNetra Audio] Fallback audio element init failed:', e);
     }
@@ -87,6 +89,14 @@ export function getAudioContext() {
   return audioCtx;
 }
 
+export function unlockAudioContext() {
+  const ctx = getAudioContext();
+  if (ctx && ctx.state === 'suspended') {
+    return ctx.resume().catch(() => {});
+  }
+  return Promise.resolve();
+}
+
 // Automatically unlock AudioContext on ANY user micro-interaction
 export function initAudioUnlock() {
   if (typeof window === 'undefined') return;
@@ -97,102 +107,94 @@ export function initAudioUnlock() {
       if (ctx && ctx.state === 'suspended') {
         ctx.resume().then(() => {
           console.log('[AapdaNetra Audio] AudioContext unlocked.');
+          if (pendingSirenDuration > 0) {
+            const dur = pendingSirenDuration;
+            pendingSirenDuration = 0;
+            playEmergencySiren(dur, true);
+          }
         }).catch(() => {});
+      } else if (pendingSirenDuration > 0) {
+        const dur = pendingSirenDuration;
+        pendingSirenDuration = 0;
+        playEmergencySiren(dur, true);
       }
     } catch {}
-
-    window.removeEventListener('pointerdown', unlock, true);
-    window.removeEventListener('click', unlock, true);
-    window.removeEventListener('keydown', unlock, true);
-    window.removeEventListener('touchstart', unlock, true);
   };
 
-  window.addEventListener('pointerdown', unlock, true);
-  window.addEventListener('click', unlock, true);
-  window.addEventListener('keydown', unlock, true);
-  window.addEventListener('touchstart', unlock, true);
+  window.addEventListener('pointerdown', unlock, { capture: true, passive: true });
+  window.addEventListener('click', unlock, { capture: true, passive: true });
+  window.addEventListener('keydown', unlock, { capture: true, passive: true });
+  window.addEventListener('touchstart', unlock, { capture: true, passive: true });
 }
 
 if (typeof window !== 'undefined') {
   initAudioUnlock();
 }
 
-/**
- * Play high-priority Civil Defense Emergency Siren
- * @param {number} durationMs - Auto-stop duration in milliseconds (default: 7000ms - 7 seconds)
- * @returns {boolean} true if audio playback was initiated
- */
-export function playEmergencySiren(durationMs = 7000) {
-  if (typeof window === 'undefined') return false;
+function startWebAudioSirenNodes(durationMs = 8000) {
+  const ctx = getAudioContext();
+  if (!ctx) return false;
+
+  stopEmergencySirenInternal(false);
 
   try {
-    // Clear any previous stop timers
-    if (autoStopTimer) {
-      clearTimeout(autoStopTimer);
-      autoStopTimer = null;
+    const now = ctx.currentTime;
+
+    // Master volume gain
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.001, now);
+    masterGain.gain.linearRampToValueAtTime(0.55, now + 0.15);
+
+    // Primary carrier oscillator (Sawtooth tone for penetrating warning)
+    const carrier = ctx.createOscillator();
+    carrier.type = 'sawtooth';
+    carrier.frequency.setValueAtTime(720, now);
+
+    // Harmonic sub-oscillator for mechanical civil defense weight
+    const harmonic = ctx.createOscillator();
+    harmonic.type = 'square';
+    harmonic.frequency.setValueAtTime(1440, now);
+
+    const harmonicGain = ctx.createGain();
+    harmonicGain.gain.setValueAtTime(0.2, now);
+    harmonic.connect(harmonicGain);
+    harmonicGain.connect(masterGain);
+
+    // LFO modulator for warbling siren effect (1.8 Hz cycle)
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(1.8, now);
+
+    const modGain = ctx.createGain();
+    modGain.gain.setValueAtTime(240, now); // Swing +/- 240Hz
+    lfo.connect(modGain);
+    modGain.connect(carrier.frequency);
+
+    const modGainHarmonic = ctx.createGain();
+    modGainHarmonic.gain.setValueAtTime(480, now);
+    lfo.connect(modGainHarmonic);
+    modGainHarmonic.connect(harmonic.frequency);
+
+    carrier.connect(masterGain);
+    masterGain.connect(ctx.destination);
+
+    lfo.start(now);
+    carrier.start(now);
+    harmonic.start(now);
+
+    activeGain = masterGain;
+    activeOscillator = carrier;
+    activeHarmonic = harmonic;
+    activeModulator = lfo;
+    isPlaying = true;
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('emergency-siren-started'));
     }
 
-    // Stop existing nodes cleanly without race conditions
-    stopEmergencySirenInternal(false);
-
-    const ctx = getAudioContext();
-
-    // If browser suspended the AudioContext, attempt resume & arm one-touch trigger
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-      armImmediateInteractionSiren(durationMs);
-    }
-
-    if (ctx) {
-      const now = ctx.currentTime;
-
-      // Master volume gain
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.01, now);
-      gain.gain.exponentialRampToValueAtTime(0.4, now + 0.2);
-
-      // Primary carrier oscillator (Sawtooth tone for penetrating warning)
-      const carrier = ctx.createOscillator();
-      carrier.type = 'sawtooth';
-      carrier.frequency.setValueAtTime(750, now);
-
-      // LFO modulator for warbling siren effect (2 Hz cycle)
-      const modulator = ctx.createOscillator();
-      modulator.type = 'sine';
-      modulator.frequency.setValueAtTime(2.0, now);
-
-      const modGain = ctx.createGain();
-      modGain.gain.setValueAtTime(220, now); // Swing +/- 220Hz
-
-      modulator.connect(modGain);
-      modGain.connect(carrier.frequency);
-
-      carrier.connect(gain);
-      gain.connect(ctx.destination);
-
-      modulator.start(now);
-      carrier.start(now);
-
-      activeGain = gain;
-      activeOscillator = carrier;
-      activeModulator = modulator;
-      isPlaying = true;
-    }
-
-    // Fallback: Also trigger HTML5 Audio element
-    const audioElem = getSirenAudioElement();
-    if (audioElem) {
-      audioElem.currentTime = 0;
-      audioElem.play().then(() => {
-        isPlaying = true;
-      }).catch(() => {
-        // Autoplay policy prevented immediate playback; arm on-touch listener
-        armImmediateInteractionSiren(durationMs);
-      });
-    }
-
-    // Auto-stop after specified duration (7 seconds default)
+    // Auto-stop after specified duration (8 seconds default)
     if (durationMs > 0) {
+      if (autoStopTimer) clearTimeout(autoStopTimer);
       autoStopTimer = setTimeout(() => {
         stopEmergencySiren();
       }, durationMs);
@@ -200,65 +202,129 @@ export function playEmergencySiren(durationMs = 7000) {
 
     return true;
   } catch (err) {
-    console.warn('[AapdaNetra Audio] Emergency siren start warning:', err);
-    armImmediateInteractionSiren(durationMs);
+    console.warn('[AapdaNetra Audio] Web Audio node creation failed:', err);
     return false;
   }
 }
 
-let pendingTriggerHandler = null;
+function armOneTouchSirenUnlock(durationMs = 8000) {
+  if (gestureUnlockArmed || typeof window === 'undefined') return;
+  gestureUnlockArmed = true;
 
-function disarmImmediateInteractionSiren() {
-  if (pendingTriggerHandler && typeof window !== 'undefined') {
-    window.removeEventListener('pointerdown', pendingTriggerHandler, true);
-    window.removeEventListener('click', pendingTriggerHandler, true);
-    window.removeEventListener('keydown', pendingTriggerHandler, true);
-    window.removeEventListener('touchstart', pendingTriggerHandler, true);
-    pendingTriggerHandler = null;
-  }
-  pendingTriggerRegistered = false;
-}
-
-// Arm immediate start on the very next user gesture if autoplay was deferred
-function armImmediateInteractionSiren(durationMs = 7000) {
-  if (pendingTriggerRegistered || typeof window === 'undefined') return;
-  pendingTriggerRegistered = true;
-
-  pendingTriggerHandler = () => {
-    disarmImmediateInteractionSiren();
-
-    if (!isPlaying) return;
+  const onUserGesture = () => {
+    gestureUnlockArmed = false;
+    window.removeEventListener('pointerdown', onUserGesture, true);
+    window.removeEventListener('click', onUserGesture, true);
+    window.removeEventListener('keydown', onUserGesture, true);
+    window.removeEventListener('touchstart', onUserGesture, true);
 
     const ctx = getAudioContext();
     if (ctx && ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
-    const audioElem = getSirenAudioElement();
-    if (audioElem && isPlaying) {
-      audioElem.play().catch(() => {});
+      ctx.resume().then(() => {
+        startWebAudioSirenNodes(durationMs);
+      }).catch(() => {
+        startWebAudioSirenNodes(durationMs);
+      });
+    } else {
+      startWebAudioSirenNodes(durationMs);
     }
   };
 
-  window.addEventListener('pointerdown', pendingTriggerHandler, true);
-  window.addEventListener('click', pendingTriggerHandler, true);
-  window.addEventListener('keydown', pendingTriggerHandler, true);
-  window.addEventListener('touchstart', pendingTriggerHandler, true);
+  window.addEventListener('pointerdown', onUserGesture, true);
+  window.addEventListener('click', onUserGesture, true);
+  window.addEventListener('keydown', onUserGesture, true);
+  window.addEventListener('touchstart', onUserGesture, true);
+}
+
+/**
+ * Play high-priority Civil Defense Emergency Siren
+ * @param {number} durationMs - Auto-stop duration in milliseconds (default: 8000ms - 8 seconds)
+ * @param {boolean} userInitiated - true if triggered directly by user gesture
+ * @returns {boolean} true if audio playback was initiated
+ */
+export function playEmergencySiren(durationMs = 8000, userInitiated = false) {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    if (autoStopTimer) {
+      clearTimeout(autoStopTimer);
+      autoStopTimer = null;
+    }
+
+    const ctx = getAudioContext();
+
+    if (userInitiated && ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    // If context is running, synthesize immediately
+    if (ctx && ctx.state === 'running') {
+      pendingSirenDuration = 0;
+      return startWebAudioSirenNodes(durationMs);
+    }
+
+    // If suspended by browser autoplay policy
+    if (ctx && ctx.state === 'suspended') {
+      pendingSirenDuration = durationMs;
+      armOneTouchSirenUnlock(durationMs);
+
+      // Attempt resume in case policy allows
+      ctx.resume().then(() => {
+        if (ctx.state === 'running') {
+          pendingSirenDuration = 0;
+          startWebAudioSirenNodes(durationMs);
+        }
+      }).catch(() => {});
+
+      // Also trigger HTML5 Audio element fallback
+      const audioElem = getSirenAudioElement();
+      if (audioElem) {
+        audioElem.currentTime = 0;
+        audioElem.play().then(() => {
+          isPlaying = true;
+          pendingSirenDuration = 0;
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('emergency-siren-started'));
+          }
+          if (durationMs > 0) {
+            if (autoStopTimer) clearTimeout(autoStopTimer);
+            autoStopTimer = setTimeout(() => {
+              stopEmergencySiren();
+            }, durationMs);
+          }
+        }).catch(() => {
+          // Autoplay blocked fallback audio as well; armed for 1st touch
+        });
+      }
+
+      return false;
+    }
+
+    return startWebAudioSirenNodes(durationMs);
+  } catch (err) {
+    console.warn('[AapdaNetra Audio] Emergency siren start warning:', err);
+    armOneTouchSirenUnlock(durationMs);
+    return false;
+  }
 }
 
 function stopEmergencySirenInternal(resetState = true) {
-  disarmImmediateInteractionSiren();
+  pendingSirenDuration = 0;
+  gestureUnlockArmed = false;
 
   if (autoStopTimer) {
     clearTimeout(autoStopTimer);
     autoStopTimer = null;
   }
 
-  // Fade out and stop Web Audio nodes via local closure references
+  // Fade out and stop Web Audio nodes
   const prevOsc = activeOscillator;
+  const prevHarmonic = activeHarmonic;
   const prevMod = activeModulator;
   const prevGain = activeGain;
 
   activeOscillator = null;
+  activeHarmonic = null;
   activeModulator = null;
   activeGain = null;
 
@@ -272,6 +338,7 @@ function stopEmergencySirenInternal(resetState = true) {
 
   setTimeout(() => {
     try { prevOsc?.stop(); prevOsc?.disconnect(); } catch {}
+    try { prevHarmonic?.stop(); prevHarmonic?.disconnect(); } catch {}
     try { prevMod?.stop(); prevMod?.disconnect(); } catch {}
   }, 180);
 

@@ -19,6 +19,7 @@ import {
 import {
   AlertTriangle,
   VolumeX,
+  Volume2,
   ShieldAlert,
   X,
   MapPin,
@@ -35,7 +36,7 @@ import {
   CheckCheck
 } from 'lucide-react';
 import { getAlerts, dispatchEmergencyAlert } from '../services/api';
-import { playEmergencySiren, stopEmergencySiren, isSirenActive } from '../utils/emergencyAudio';
+import { playEmergencySiren, stopEmergencySiren, isSirenActive, unlockAudioContext } from '../utils/emergencyAudio';
 import { triggerDisasterNotification } from '../utils/emergencyNotification';
 import { useLocationContext } from '../context/LocationContext';
 import { useThemeMode } from '../context/ThemeContext';
@@ -87,13 +88,14 @@ export default function EmergencyAlertSentinel() {
     }
   }, [modalOpen, alerts]);
 
-  // Listen for siren stop event to automatically sync sirenPlaying state
+  // Listen for siren events to automatically sync sirenPlaying state
   useEffect(() => {
-    const handleSirenStopped = () => {
-      setSirenPlaying(false);
-    };
+    const handleSirenStarted = () => setSirenPlaying(true);
+    const handleSirenStopped = () => setSirenPlaying(false);
+    window.addEventListener('emergency-siren-started', handleSirenStarted);
     window.addEventListener('emergency-siren-stopped', handleSirenStopped);
     return () => {
+      window.removeEventListener('emergency-siren-started', handleSirenStarted);
       window.removeEventListener('emergency-siren-stopped', handleSirenStopped);
     };
   }, []);
@@ -105,6 +107,10 @@ export default function EmergencyAlertSentinel() {
     }
     setSirenPlaying(false);
     lastSoundedAlertIdRef.current = null;
+    try {
+      sessionStorage.removeItem('an_last_sounded_hazard_sig');
+      sessionStorage.removeItem('an_last_sounded_hazard_loc');
+    } catch {}
   }, [location?.district, location?.name]);
 
   // Poll alerts and automatically trigger alarm strictly on critical emergencies in active district
@@ -190,13 +196,13 @@ export default function EmergencyAlertSentinel() {
           setToastPopupOpen(true);
         }
 
-        // Check if siren already sounded for this location in this session
-        const lastSoundedLoc = sessionStorage.getItem('an_last_sounded_hazard_loc');
+        // Check if siren already sounded for this alert signature in this session
+        const currentAlertSig = `${currentLocKey}_${critAlertId}`;
+        const lastSoundedSig = sessionStorage.getItem('an_last_sounded_hazard_sig');
 
-        // Trigger acoustic siren ONLY when user enters/changes location into a critical hazard zone
-        // Never re-trigger when user is simply switching sidebar links or pages!
-        if (!isAcknowledged && lastSoundedLoc !== currentLocKey) {
-          sessionStorage.setItem('an_last_sounded_hazard_loc', currentLocKey);
+        // Trigger acoustic siren when user enters/changes location into a critical hazard zone or new critical alert arrives
+        if (!isAcknowledged && (lastSoundedSig !== currentAlertSig || lastSoundedAlertIdRef.current !== critAlertId)) {
+          sessionStorage.setItem('an_last_sounded_hazard_sig', currentAlertSig);
           lastSoundedAlertIdRef.current = critAlertId;
 
           if (notifConfig.audioSiren !== false) {
@@ -269,9 +275,17 @@ export default function EmergencyAlertSentinel() {
     }
   };
 
-  const handleSilenceOnly = () => {
+  const handleSilenceOnly = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
     stopEmergencySiren();
     setSirenPlaying(false);
+  };
+
+  const handlePlaySiren = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    unlockAudioContext();
+    playEmergencySiren(8000, true);
+    setSirenPlaying(true);
   };
 
   // Local alerts for the current district (clean and sorted by priority)
@@ -382,7 +396,7 @@ export default function EmergencyAlertSentinel() {
           </Box>
 
           <Box display="flex" alignItems="center" gap={1}>
-            {sirenPlaying && (
+            {sirenPlaying ? (
               <Button
                 size="small"
                 variant="contained"
@@ -391,14 +405,37 @@ export default function EmergencyAlertSentinel() {
                 sx={{
                   bgcolor: '#ffffff',
                   color: '#dc2626',
-                  fontWeight: 800,
-                  fontSize: '0.75rem',
+                  fontWeight: 900,
+                  fontSize: '0.78rem',
                   textTransform: 'none',
                   borderRadius: 2,
+                  px: 1.5,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
                   '&:hover': { bgcolor: '#fef2f2' }
                 }}
               >
                 Mute Siren
+              </Button>
+            ) : (
+              <Button
+                size="small"
+                variant="contained"
+                onClick={handlePlaySiren}
+                startIcon={<Volume2 size={16} />}
+                sx={{
+                  bgcolor: '#ffffff',
+                  color: '#dc2626',
+                  fontWeight: 900,
+                  fontSize: '0.78rem',
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  px: 1.8,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+                  animation: 'pulse 1.5s infinite',
+                  '&:hover': { bgcolor: '#fef2f2' }
+                }}
+              >
+                🚨 Ring Siren
               </Button>
             )}
 
@@ -529,17 +566,30 @@ export default function EmergencyAlertSentinel() {
             </Typography>
 
             <Box display="flex" alignItems="center" justifyContent="space-between" gap={1} pt={1} borderTop="1px solid var(--border-color)">
-              {sirenPlaying && (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  onClick={handleSilenceOnly}
-                  startIcon={<VolumeX size={13} />}
-                  sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', py: 0.3, px: 1, borderRadius: 1.5 }}
-                >
-                  Mute
-                </Button>
+              {isCrit && (
+                sirenPlaying ? (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    onClick={handleSilenceOnly}
+                    startIcon={<VolumeX size={13} />}
+                    sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', py: 0.3, px: 1, borderRadius: 1.5 }}
+                  >
+                    Mute
+                  </Button>
+                ) : (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="error"
+                    onClick={handlePlaySiren}
+                    startIcon={<Volume2 size={13} />}
+                    sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'none', py: 0.3, px: 1.2, borderRadius: 1.5 }}
+                  >
+                    🚨 Ring Siren
+                  </Button>
+                )
               )}
 
               <Button
@@ -632,17 +682,37 @@ export default function EmergencyAlertSentinel() {
             </Box>
 
             <Box display="flex" alignItems="center" gap={1}>
-              {sirenPlaying && (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  onClick={handleSilenceOnly}
-                  startIcon={<VolumeX size={15} />}
-                  sx={{ fontWeight: 800, textTransform: 'none', borderRadius: 2 }}
-                >
-                  Mute Siren
-                </Button>
+              {activeCriticalAlert && isTrueCriticalAlert(activeCriticalAlert) && (
+                sirenPlaying ? (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="error"
+                    onClick={handleSilenceOnly}
+                    startIcon={<VolumeX size={15} />}
+                    sx={{ fontWeight: 800, textTransform: 'none', borderRadius: 2 }}
+                  >
+                    Mute Siren
+                  </Button>
+                ) : (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="error"
+                    onClick={handlePlaySiren}
+                    startIcon={<Volume2 size={15} />}
+                    sx={{
+                      fontWeight: 800,
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      animation: 'pulse 1.5s infinite',
+                      bgcolor: '#dc2626',
+                      '&:hover': { bgcolor: '#b91c1c' }
+                    }}
+                  >
+                    🚨 Ring Siren
+                  </Button>
+                )
               )}
 
               <Button
