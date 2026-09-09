@@ -6,7 +6,9 @@ const {
     updateAlert,
     dispatchEmergencyAlert,
     broadcastEmergencyAlert,
-    resolveEmergencyAlerts
+    resolveEmergencyAlerts,
+    getCapAlerts,
+    getCapAlertById
 } = require("../controllers/alertController");
 const { protect, authorize } = require("../middleware/authMiddleware");
 
@@ -14,6 +16,11 @@ const router = express.Router();
 
 router.post("/", createAlert);
 router.get("/", getAlerts);
+
+// OASIS CAP v1.2 (Common Alerting Protocol) Feeds for National & Inter-Agency Integration
+router.get("/cap/feed.xml", getCapAlerts);
+router.get("/cap/feed.json", getCapAlerts);
+router.get("/:id/cap.xml", getCapAlertById);
 
 // Dispatch single emergency bulletin / diagnostic
 router.post("/dispatch-emergency", dispatchEmergencyAlert);

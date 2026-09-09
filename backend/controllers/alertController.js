@@ -358,6 +358,156 @@ const resolveEmergencyAlerts = async (req, res) => {
     }
 };
 
+/**
+ * OASIS CAP v1.2 (Common Alerting Protocol) Transformer
+ * Maps AapdaNetra alert document to ITU-T X.1303 / OASIS CAP v1.2 XML & JSON
+ */
+function toCapXml(alert) {
+    const severityMap = {
+        CRITICAL: "Extreme",
+        HIGH: "Severe",
+        WARNING: "Moderate",
+        INFO: "Minor"
+    };
+    const categoryMap = {
+        FLOOD: "Met",
+        LANDSLIDE: "Geo",
+        WILDFIRE: "Fire",
+        EARTHQUAKE: "Geo",
+        HEATWAVE: "Met"
+    };
+
+    const capSeverity = severityMap[alert.severity] || "Moderate";
+    const capCategory = categoryMap[alert.hazardType] || "Other";
+    const capUrgency = alert.severity === "CRITICAL" ? "Immediate" : (alert.severity === "HIGH" ? "Expected" : "Future");
+    const capCertainty = alert.verificationStatus === "VERIFIED" ? "Observed" : "Likely";
+
+    const id = alert._id ? alert._id.toString() : `AN-${Date.now()}`;
+    const sentDate = (alert.createdAt ? new Date(alert.createdAt) : new Date()).toISOString();
+    const expiryDate = (alert.expiresAt ? new Date(alert.expiresAt) : new Date(Date.now() + 24 * 3600 * 1000)).toISOString();
+    const district = alert.district || "Active Monitored Zone";
+    const state = alert.state || "India";
+    const coords = alert.location?.coordinates || [77.209, 28.6139];
+    const lat = coords[1] || 28.6139;
+    const lon = coords[0] || 77.209;
+    const radiusKm = alert.affectedRadius || 5.0;
+
+    const escapeXml = (unsafe) => {
+        if (!unsafe) return "";
+        return String(unsafe)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+    };
+
+    return `  <alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+    <identifier>AAPDANETRA-${escapeXml(id)}</identifier>
+    <sender>disaster-ops@aapdanetra.in</sender>
+    <sent>${sentDate}</sent>
+    <status>Actual</status>
+    <msgType>${alert.isActive ? "Alert" : "Cancel"}</msgType>
+    <scope>Public</scope>
+    <info>
+      <category>${capCategory}</category>
+      <event>${escapeXml(alert.title || "Disaster Emergency Bulletin")}</event>
+      <urgency>${capUrgency}</urgency>
+      <severity>${capSeverity}</severity>
+      <certainty>${capCertainty}</certainty>
+      <eventCode>
+        <valueName>SAME</valueName>
+        <value>${escapeXml(alert.hazardType || "FLW")}</value>
+      </eventCode>
+      <expires>${expiryDate}</expires>
+      <senderName>AapdaNetra Disaster Operations Command</senderName>
+      <headline>${escapeXml(alert.title)}</headline>
+      <description>${escapeXml(alert.message || alert.description)}</description>
+      <instruction>Follow civil defense directives. Evacuate to designated emergency shelters if ordered.</instruction>
+      <contact>emergency-control@aapdanetra.in</contact>
+      <area>
+        <areaDesc>${escapeXml(district)}, ${escapeXml(state)}</areaDesc>
+        <circle>${lat.toFixed(4)},${lon.toFixed(4)},${radiusKm.toFixed(1)}</circle>
+      </area>
+    </info>
+  </alert>`;
+}
+
+// Export All Active Alerts in OASIS CAP v1.2 Format (XML or JSON)
+const getCapAlerts = async (req, res) => {
+    try {
+        const alerts = await Alert.find({ isActive: true })
+            .populate("hazardZone")
+            .populate("habitation")
+            .sort({ createdAt: -1 });
+
+        if (req.query.format === "json" || req.headers.accept?.includes("application/json")) {
+            return res.status(200).json({
+                protocol: "OASIS CAP v1.2 / ITU-T X.1303",
+                feed: "AapdaNetra Common Alerting Protocol Service",
+                count: alerts.length,
+                timestamp: new Date().toISOString(),
+                alerts: alerts.map(a => ({
+                    identifier: `AAPDANETRA-${a._id}`,
+                    sender: "disaster-ops@aapdanetra.in",
+                    sent: a.createdAt,
+                    status: "Actual",
+                    msgType: a.isActive ? "Alert" : "Cancel",
+                    scope: "Public",
+                    info: {
+                        category: a.hazardType === "FLOOD" ? "Met" : (a.hazardType === "LANDSLIDE" ? "Geo" : "Other"),
+                        event: a.title,
+                        urgency: a.severity === "CRITICAL" ? "Immediate" : "Expected",
+                        severity: a.severity === "CRITICAL" ? "Extreme" : (a.severity === "HIGH" ? "Severe" : "Moderate"),
+                        certainty: a.verificationStatus === "VERIFIED" ? "Observed" : "Likely",
+                        headline: a.title,
+                        description: a.message,
+                        area: {
+                            areaDesc: `${a.district || "Regional"}, ${a.state || "India"}`,
+                            circle: `${a.location?.coordinates?.[1] || 28.6139},${a.location?.coordinates?.[0] || 77.209},${a.affectedRadius || 5}`
+                        }
+                    }
+                }))
+            });
+        }
+
+        const xmlList = alerts.map(toCapXml).join("\n");
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!-- AapdaNetra OASIS CAP v1.2 (Common Alerting Protocol) Emergency Feed -->
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>AapdaNetra Live CAP Emergency Broadcast Feed</title>
+  <updated>${new Date().toISOString()}</updated>
+  <author><name>AapdaNetra Autonomous Disaster Command</name></author>
+  <id>urn:aapdanetra:cap:feed</id>
+${xmlList}
+</feed>`;
+
+        res.set("Content-Type", "application/xml; charset=utf-8");
+        return res.status(200).send(xml);
+    } catch (error) {
+        console.error("CAP Export Error:", error);
+        res.status(500).send(`<error>${error.message}</error>`);
+    }
+};
+
+// Export Single Alert in OASIS CAP v1.2 XML
+const getCapAlertById = async (req, res) => {
+    try {
+        const alert = await Alert.findById(req.params.id);
+        if (!alert) {
+            return res.status(404).send("<error>Alert not found</error>");
+        }
+
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+${toCapXml(alert)}`;
+
+        res.set("Content-Type", "application/xml; charset=utf-8");
+        return res.status(200).send(xml);
+    } catch (error) {
+        res.status(500).send(`<error>${error.message}</error>`);
+    }
+};
+
 module.exports = {
     createAlert,
     getAlerts,
@@ -365,5 +515,7 @@ module.exports = {
     updateAlert,
     dispatchEmergencyAlert,
     broadcastEmergencyAlert,
-    resolveEmergencyAlerts
+    resolveEmergencyAlerts,
+    getCapAlerts,
+    getCapAlertById
 };
