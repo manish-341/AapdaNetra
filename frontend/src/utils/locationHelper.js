@@ -15,12 +15,23 @@ export function getDistanceKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+const NOIDA_CLUSTER = ['gautam buddha nagar', 'noida', 'greater noida', 'gb nagar', 'dadri', 'kasna', 'surajpur'];
+const DELHI_CLUSTER = ['delhi', 'central delhi', 'new delhi', 'south delhi', 'north delhi', 'east delhi', 'west delhi', 'yamuna floodplain', 'burari'];
+const BHOPAL_CLUSTER = ['bhopal', 'upper lake', 'halali', 'shahpura', 'tt nagar'];
+const CHITRAKOOT_CLUSTER = ['chitrakoot', 'chitrakut', 'karwi', 'mandakini', 'ramghat', 'sitapur'];
+
 const KNOWN_DISTRICTS = [
   'guwahati', 'delhi', 'vindhya', 'rewa', 'satna', 'sidhi',
   'bengaluru', 'bangalore', 'mumbai', 'bhopal', 'indore',
   'chennai', 'kolkata', 'jaipur', 'lucknow', 'dehradun',
-  'gautam buddha nagar', 'noida', 'greater noida'
+  'gautam buddha nagar', 'noida', 'greater noida', 'chitrakoot'
 ];
+
+function checkClusterMatch(d1, d2, cluster) {
+  const m1 = cluster.some((k) => d1.includes(k));
+  const m2 = cluster.some((k) => d2.includes(k));
+  return m1 && m2;
+}
 
 /**
  * Returns true if an item belongs strictly to the currently active operational location/district.
@@ -32,10 +43,14 @@ export function isItemInActiveLocation(item, activeLoc) {
   const activeDistrict = (activeLoc.district || '').toLowerCase().trim();
   const activeState = (activeLoc.state || '').toLowerCase().trim();
   const activeName = (activeLoc.name || '').toLowerCase().trim();
+  const fullActive = `${activeDistrict} ${activeName}`;
 
-  // 1. Direct district match
-  if (item.district) {
-    const itemDist = item.district.toLowerCase().trim();
+  // 1. Direct cluster match
+  const itemDist = (item.district || '').toLowerCase().trim();
+  const itemName = (item.name || '').toLowerCase().trim();
+  const fullItem = `${itemDist} ${itemName}`;
+
+  if (itemDist) {
     if (
       itemDist === activeDistrict ||
       itemDist.includes(activeDistrict) ||
@@ -43,7 +58,13 @@ export function isItemInActiveLocation(item, activeLoc) {
     ) {
       return true;
     }
-    // If the item specifically has another district, reject it
+
+    if (checkClusterMatch(fullItem, fullActive, NOIDA_CLUSTER)) return true;
+    if (checkClusterMatch(fullItem, fullActive, DELHI_CLUSTER)) return true;
+    if (checkClusterMatch(fullItem, fullActive, BHOPAL_CLUSTER)) return true;
+    if (checkClusterMatch(fullItem, fullActive, CHITRAKOOT_CLUSTER)) return true;
+
+    // If the item specifically has another district and doesn't share a cluster, reject it
     return false;
   }
 

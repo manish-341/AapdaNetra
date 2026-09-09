@@ -202,8 +202,8 @@ const HazardMap = forwardRef(({ visibleCategories, activeFilter = 'ALL', onReset
   useEffect(() => {
     let isMounted = true;
 
-    const fetchAll = async () => {
-      setLoading(true);
+    const fetchAll = async (isInitial = false) => {
+      if (isInitial) setLoading(true);
       const results = await Promise.allSettled([
         getHazards(),
         getHabitations(),
@@ -223,19 +223,19 @@ const HazardMap = forwardRef(({ visibleCategories, activeFilter = 'ALL', onReset
 
       if (hazardRes.status === "fulfilled") {
         setHazards(hazardRes.value?.data?.data || []);
-      } else {
+      } else if (isInitial) {
         nextErrors.hazards = "Failed to load hazard zones.";
       }
 
       if (habitationRes.status === "fulfilled") {
         setHabitations(habitationRes.value?.data?.data || []);
-      } else {
+      } else if (isInitial) {
         nextErrors.habitations = "Failed to load habitations.";
       }
 
       if (shelterRes.status === "fulfilled") {
         setShelters(shelterRes.value?.data?.data || []);
-      } else {
+      } else if (isInitial) {
         nextErrors.shelters = "Failed to load shelters.";
       }
 
@@ -243,14 +243,26 @@ const HazardMap = forwardRef(({ visibleCategories, activeFilter = 'ALL', onReset
         setCitizenReports(reportRes.value?.data?.data || []);
       }
 
-      setErrors(nextErrors);
-      setLoading(false);
+      if (isInitial) {
+        setErrors(nextErrors);
+        setLoading(false);
+      }
     };
 
-    fetchAll();
+    fetchAll(true);
+
+    // Dynamic real-time sync every 15 seconds
+    const interval = setInterval(() => {
+      fetchAll(false);
+    }, 15000);
+
+    const handleRefresh = () => fetchAll(false);
+    window.addEventListener('refresh-hazard-map', handleRefresh);
 
     return () => {
       isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('refresh-hazard-map', handleRefresh);
     };
   }, [location?.district, location?.lat, location?.lng, location?.name]);
 
@@ -307,6 +319,7 @@ const HazardMap = forwardRef(({ visibleCategories, activeFilter = 'ALL', onReset
 
   // 4. Filter Citizen Reports
   const filteredCitizenReports = localCitizenReports.filter((r) => {
+    if (r.status === 'RESOLVED' || r.status === 'REJECTED') return false;
     if (!activeFilter || activeFilter === 'ALL' || activeFilter === 'REPORTS') return true;
     if (activeFilter === 'FLOOD') return (r.disasterType || '').toUpperCase() === 'FLOOD';
     if (activeFilter === 'LANDSLIDE') return (r.disasterType || '').toUpperCase() === 'LANDSLIDE';
