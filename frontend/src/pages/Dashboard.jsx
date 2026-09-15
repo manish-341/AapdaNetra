@@ -6,14 +6,12 @@ import {
   Box,
   Button,
   Fade,
-  Tooltip,
   Select,
   MenuItem
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import HomeWorkOutlinedIcon from '@mui/icons-material/HomeWorkOutlined';
 import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
-import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -23,7 +21,6 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import PhoneInTalkOutlinedIcon from '@mui/icons-material/PhoneInTalkOutlined';
 import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
-import WaterDropOutlinedIcon from '@mui/icons-material/WaterDropOutlined';
 
 import Boilerplate from '../layouts/Boilerplate';
 import { getDashboardStats } from '../services/api';
@@ -33,22 +30,6 @@ import { useLocationContext, PRESET_DISTRICTS } from '../context/LocationContext
 import AdminOnlyModal from '../components/AdminOnlyModal';
 import EmergencyContactsModal from '../components/EmergencyContactsModal';
 import QuickActionModal from '../components/QuickActionModal';
-
-// Mini SVG Sparkline Component
-function MiniSparkline({ color, points = '0,18 12,12 24,19 36,9 48,15 60,6 72,11' }) {
-  return (
-    <svg width="76" height="26" viewBox="0 0 76 26" style={{ overflow: 'visible' }}>
-      <polyline
-        fill="none"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        points={points}
-      />
-    </svg>
-  );
-}
 
 // Pixel-perfect SVG Donut Chart that NEVER collapses
 function RiskDonutChart({ isDark, total = 322, low = 184, med = 84, high = 54 }) {
@@ -504,13 +485,13 @@ export default function Dashboard() {
     <Boilerplate>
       <Fade in timeout={300}>
         <Box sx={{ width: '100%', mx: 'auto', pb: 3 }}>
-          {/* ── 1. Top Cockpit Header — Rigid Flex Row ── */}
+          {/* ── 1. Top Cockpit Header ── */}
           <Box
             sx={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
-              mb: 2.5,
+              mb: 2.2,
               gap: 2,
             }}
           >
@@ -646,9 +627,9 @@ export default function Dashboard() {
             </Box>
           </Box>
 
-          {/* ── 2. TOP ROW: Quick Actions (5 Balanced Horizontal Cards) ── */}
-          <Box mb={3}>
-            <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: textPrimary, mb: 1.6 }}>
+          {/* ── 2. Quick Actions (Refined Spacing) ── */}
+          <Box mb={2.8}>
+            <Typography sx={{ fontSize: '1rem', fontWeight: 800, color: textPrimary, mb: 1.2 }}>
               Quick Actions
             </Typography>
 
@@ -656,7 +637,7 @@ export default function Dashboard() {
               sx={{
                 display: 'grid',
                 gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' },
-                gap: 1.8,
+                gap: 1.6,
               }}
             >
               {quickActionsList.map((act) => (
@@ -665,14 +646,14 @@ export default function Dashboard() {
                   elevation={0}
                   onClick={() => handleOpenQuickAction(act)}
                   sx={{
-                    p: 1.6,
+                    p: 1.4,
                     borderRadius: '12px',
                     bgcolor: cardBg,
                     border: cardBorder,
                     boxShadow: cardShadow,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 1.4,
+                    gap: 1.2,
                     cursor: 'pointer',
                     transition: 'all 0.18s ease',
                     '&:hover': {
@@ -684,8 +665,8 @@ export default function Dashboard() {
                 >
                   <Box
                     sx={{
-                      width: 38,
-                      height: 38,
+                      width: 36,
+                      height: 36,
                       borderRadius: '8px',
                       bgcolor: isDark ? act.bgDark : act.bgLight,
                       display: 'flex',
@@ -711,11 +692,11 @@ export default function Dashboard() {
             </Box>
           </Box>
 
-          {/* ── 3. Master KPI Row (4 Horizontal Cards) ── */}
+          {/* ── 3. Master KPI Row (3 Clean, Ready-To-Read Cards Without Sparkline Graphs) ── */}
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
               gap: 2.2,
               mb: 3,
             }}
@@ -734,60 +715,57 @@ export default function Dashboard() {
                 justifyContent: 'space-between',
               }}
             >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Box
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.8 }}>
+                <Box
+                  sx={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: '12px',
+                    bgcolor: isDark ? 'rgba(239,68,68,0.18)' : '#fee2e2',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <WarningAmberIcon sx={{ color: '#ef4444', fontSize: 26 }} />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography
                     sx={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: '12px',
-                      bgcolor: isDark ? 'rgba(239,68,68,0.18)' : '#fee2e2',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      color: textSecondary,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
                     }}
                   >
-                    <WarningAmberIcon sx={{ color: '#ef4444', fontSize: 24 }} />
-                  </Box>
-                  <Box>
-                    <Typography
+                    ACTIVE ALERTS
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.3 }}>
+                    <Typography sx={{ fontSize: '1.85rem', fontWeight: 800, color: textPrimary, lineHeight: 1 }}>
+                      {activeAlertsCount}
+                    </Typography>
+                    <Box
                       sx={{
-                        fontSize: '0.72rem',
+                        px: 1,
+                        py: 0.3,
+                        borderRadius: '10px',
+                        bgcolor: 'rgba(239,68,68,0.1)',
+                        color: '#ef4444',
                         fontWeight: 700,
-                        color: textSecondary,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
+                        fontSize: '0.72rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      ACTIVE ALERTS
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.2 }}>
-                      <Typography sx={{ fontSize: '1.75rem', fontWeight: 800, color: textPrimary, lineHeight: 1 }}>
-                        {activeAlertsCount}
-                      </Typography>
-                      <Box
-                        sx={{
-                          px: 0.9,
-                          py: 0.25,
-                          borderRadius: '12px',
-                          bgcolor: 'rgba(239,68,68,0.1)',
-                          color: '#ef4444',
-                          fontWeight: 700,
-                          fontSize: '0.72rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.4,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#ef4444' }} />
-                        {criticalAlertsCount} Critical
-                      </Box>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#ef4444' }} />
+                      {criticalAlertsCount} Critical
                     </Box>
                   </Box>
                 </Box>
-                <MiniSparkline color="#ef4444" points="0,18 12,12 24,19 36,9 48,15 60,6 72,11" />
               </Box>
 
               <Box
@@ -800,9 +778,11 @@ export default function Dashboard() {
                   alignItems: 'center',
                 }}
               >
-                <Typography sx={{ fontSize: '0.75rem', color: textMuted }}>Live feeds</Typography>
-                <Typography sx={{ fontSize: '0.75rem', color: textSecondary }}>
-                  {riverName} <strong style={{ color: isRiverCritical ? '#ef4444' : '#10b981' }}>{riverLevel} {riverTrend}</strong>
+                <Typography sx={{ fontSize: '0.76rem', color: textMuted, fontWeight: 500 }}>
+                  River Telemetry:
+                </Typography>
+                <Typography sx={{ fontSize: '0.76rem', color: textSecondary, fontWeight: 700 }}>
+                  {riverName} <span style={{ color: isRiverCritical ? '#ef4444' : '#10b981' }}>{riverLevel} {riverTrend}</span>
                 </Typography>
               </Box>
             </Paper>
@@ -821,61 +801,55 @@ export default function Dashboard() {
                 justifyContent: 'space-between',
               }}
             >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Box
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.8 }}>
+                <Box
+                  sx={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: '12px',
+                    bgcolor: isDark ? 'rgba(34,197,94,0.18)' : '#dcfce7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <HomeWorkOutlinedIcon sx={{ color: '#16a34a', fontSize: 26 }} />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography
                     sx={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: '12px',
-                      bgcolor: isDark ? 'rgba(34,197,94,0.18)' : '#dcfce7',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      color: textSecondary,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
                     }}
                   >
-                    <HomeWorkOutlinedIcon sx={{ color: '#16a34a', fontSize: 24 }} />
-                  </Box>
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        color: textSecondary,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                      }}
-                    >
-                      SHELTERS READY
+                    SHELTERS READY
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mt: 0.3 }}>
+                    <Typography sx={{ fontSize: '1.85rem', fontWeight: 800, color: textPrimary, lineHeight: 1 }}>
+                      {sheltersReady}
                     </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.4, mt: 0.2 }}>
-                      <Typography sx={{ fontSize: '1.75rem', fontWeight: 800, color: textPrimary, lineHeight: 1 }}>
-                        {sheltersReady}
-                      </Typography>
-                      <Typography sx={{ fontSize: '1.05rem', fontWeight: 600, color: textMuted }}>
-                        / {totalShelters}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        mt: 0.4,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        px: 0.8,
-                        py: 0.2,
-                        borderRadius: '10px',
-                        bgcolor: 'rgba(34,197,94,0.1)',
-                        color: '#16a34a',
-                        fontWeight: 700,
-                        fontSize: '0.7rem',
-                      }}
-                    >
-                      {shelterReadyPercent}% Ready
-                    </Box>
+                    <Typography sx={{ fontSize: '1.1rem', fontWeight: 600, color: textMuted }}>
+                      / {totalShelters} Operational
+                    </Typography>
                   </Box>
                 </Box>
-                <MiniSparkline color="#10b981" points="0,19 12,16 24,18 36,12 48,14 60,8 72,10" />
+                <Box
+                  sx={{
+                    px: 1,
+                    py: 0.4,
+                    borderRadius: '10px',
+                    bgcolor: 'rgba(34,197,94,0.12)',
+                    color: '#16a34a',
+                    fontWeight: 800,
+                    fontSize: '0.75rem',
+                  }}
+                >
+                  {shelterReadyPercent}% Ready
+                </Box>
               </Box>
 
               <Box
@@ -888,11 +862,11 @@ export default function Dashboard() {
                   alignItems: 'center',
                 }}
               >
-                <Typography sx={{ fontSize: '0.75rem', color: textSecondary, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography sx={{ fontSize: '0.76rem', color: textSecondary, display: 'flex', alignItems: 'center', gap: 0.6 }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981' }} />
-                  {shelterOccupied.toLocaleString()} Occupied
+                  <strong>{shelterOccupied.toLocaleString()}</strong> Bed Occupancy
                 </Typography>
-                <Typography sx={{ fontSize: '0.75rem', color: textSecondary }}>• Operational</Typography>
+                <Typography sx={{ fontSize: '0.76rem', color: textMuted }}>Operational Desk</Typography>
               </Box>
             </Paper>
 
@@ -910,50 +884,49 @@ export default function Dashboard() {
                 justifyContent: 'space-between',
               }}
             >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Box
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.8 }}>
+                <Box
+                  sx={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: '12px',
+                    bgcolor: isDark ? 'rgba(249,115,22,0.18)' : '#ffedd5',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <PeopleAltOutlinedIcon sx={{ color: '#f97316', fontSize: 26 }} />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography
                     sx={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: '12px',
-                      bgcolor: isDark ? 'rgba(249,115,22,0.18)' : '#ffedd5',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      color: textSecondary,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
                     }}
                   >
-                    <PeopleAltOutlinedIcon sx={{ color: '#f97316', fontSize: 24 }} />
-                  </Box>
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        color: textSecondary,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                      }}
-                    >
-                      POPULATION AT RISK
-                    </Typography>
-                    <Typography sx={{ fontSize: '1.75rem', fontWeight: 800, color: textPrimary, lineHeight: 1, mt: 0.2 }}>
+                    POPULATION AT RISK
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.3 }}>
+                    <Typography sx={{ fontSize: '1.85rem', fontWeight: 800, color: textPrimary, lineHeight: 1 }}>
                       {populationAtRisk.toLocaleString()}
                     </Typography>
                     <Box
                       sx={{
-                        mt: 0.4,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 0.4,
-                        px: 0.8,
-                        py: 0.2,
+                        px: 0.9,
+                        py: 0.3,
                         borderRadius: '10px',
                         bgcolor: 'rgba(249,115,22,0.1)',
                         color: '#ea580c',
                         fontWeight: 700,
-                        fontSize: '0.7rem',
+                        fontSize: '0.72rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.4,
                       }}
                     >
                       <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#ea580c' }} />
@@ -961,7 +934,6 @@ export default function Dashboard() {
                     </Box>
                   </Box>
                 </Box>
-                <MiniSparkline color="#f97316" points="0,20 12,18 24,14 36,16 48,10 60,7 72,12" />
               </Box>
 
               <Box
@@ -974,97 +946,11 @@ export default function Dashboard() {
                   alignItems: 'center',
                 }}
               >
-                <Typography sx={{ fontSize: '0.75rem', color: textSecondary }}>{activeSectors} Active Sectors</Typography>
-                <Typography sx={{ fontSize: '0.75rem', color: textSecondary }}>
+                <Typography sx={{ fontSize: '0.76rem', color: textSecondary }}>
+                  <strong>{activeSectors}</strong> Active Sectors
+                </Typography>
+                <Typography sx={{ fontSize: '0.76rem', color: textSecondary }}>
                   • <strong style={{ color: '#ef4444' }}>{criticalSectors} Critical</strong>
-                </Typography>
-              </Box>
-            </Paper>
-
-            {/* Card 4: REPORTS (24H) */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2.2,
-                borderRadius: '16px',
-                bgcolor: cardBg,
-                border: cardBorder,
-                boxShadow: cardShadow,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-              }}
-            >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Box
-                    sx={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: '12px',
-                      bgcolor: isDark ? 'rgba(59,130,246,0.18)' : '#dbeafe',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <BoltOutlinedIcon sx={{ color: '#3b82f6', fontSize: 24 }} />
-                  </Box>
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        color: textSecondary,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                      }}
-                    >
-                      REPORTS (24H)
-                    </Typography>
-                    <Typography sx={{ fontSize: '1.75rem', fontWeight: 800, color: textPrimary, lineHeight: 1, mt: 0.2 }}>
-                      {reportsCount}
-                    </Typography>
-                    <Box
-                      sx={{
-                        mt: 0.4,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 0.4,
-                        px: 0.8,
-                        py: 0.2,
-                        borderRadius: '10px',
-                        bgcolor: 'rgba(59,130,246,0.1)',
-                        color: '#2563eb',
-                        fontWeight: 700,
-                        fontSize: '0.7rem',
-                      }}
-                    >
-                      <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#2563eb' }} />
-                      {verifiedReportsCount} Verified
-                    </Box>
-                  </Box>
-                </Box>
-                <MiniSparkline color="#3b82f6" points="0,16 12,14 24,18 36,11 48,13 60,6 72,9" />
-              </Box>
-
-              <Box
-                sx={{
-                  mt: 2,
-                  pt: 1.4,
-                  borderTop: cardBorder,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <Typography sx={{ fontSize: '0.75rem', color: textSecondary, display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                  <WaterDropOutlinedIcon sx={{ fontSize: 13, color: '#3b82f6' }} />
-                  Rainfall
-                </Typography>
-                <Typography sx={{ fontSize: '0.75rem', color: textPrimary, fontWeight: 600 }}>
-                  {rainfall}
                 </Typography>
               </Box>
             </Paper>
