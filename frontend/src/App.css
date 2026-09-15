@@ -14,17 +14,48 @@
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-.sidebar {
+.sidebar-container {
   width: 260px;
   min-width: 260px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 260px;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
   background-color: var(--sidebar-bg);
   border-right: 1px solid var(--sidebar-border);
   color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
   padding: 1.25rem 1rem;
-  z-index: 20;
+  z-index: 100;
   transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+/* Sleek custom scrollbar for fixed sidebar */
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
 }
 
 .main-content {
@@ -34,6 +65,12 @@
   min-width: 0;
   background-color: var(--bg-primary);
   transition: background-color 0.25s ease;
+}
+
+.navbar-container {
+  position: sticky;
+  top: 0;
+  z-index: 80;
 }
 
 .top-navbar {
@@ -275,9 +312,16 @@
   .app-container {
     flex-direction: column;
   }
-  .sidebar {
+  .sidebar-container {
     width: 100%;
     min-width: 100%;
+  }
+  .sidebar {
+    position: static;
+    width: 100%;
+    min-width: 100%;
+    height: auto;
+    overflow-y: visible;
   }
   .top-navbar {
     padding: 1rem;
