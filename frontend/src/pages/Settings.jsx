@@ -108,8 +108,7 @@ export default function Settings() {
       severityThreshold: 70,
       audioSiren: true,
       emailAlerts: true,
-      smsAlerts: false,
-      whatsappAlerts: true,
+      smsAlerts: true,
       floodAlerts: true,
       cycloneAlerts: true,
       heatwaveAlerts: false,
@@ -581,42 +580,6 @@ export default function Settings() {
         {/* TAB 0: PROFILE & IDENTITY */}
         {activeTab === 0 && (
           <>
-            <Box
-              sx={{
-                mb: 3,
-                p: 2,
-                borderRadius: 2.5,
-                bgcolor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fee2e2',
-                border: '1px solid rgba(239, 68, 68, 0.35)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 1.5
-              }}
-            >
-              <Box display="flex" alignItems="center" gap={1.5}>
-                <AlertTriangle size={22} color="#ef4444" />
-                <Box>
-                  <Typography variant="subtitle2" fontWeight={800} sx={{ color: '#ef4444' }}>
-                    🚨 Emergency Email Broadcast Command Console
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: textSecondary }}>
-                    Dispatch live critical flood advisories (Bhopal, etc.) with sensor telemetry to all registered citizens via Gmail.
-                  </Typography>
-                </Box>
-              </Box>
-              <Button
-                size="small"
-                variant="contained"
-                color="error"
-                onClick={() => setActiveTab(1)}
-                sx={{ fontWeight: 800, textTransform: 'none', px: 2, py: 0.6, borderRadius: 2 }}
-              >
-                Go to Broadcast Controls &rarr;
-              </Button>
-            </Box>
-
             <Grid container spacing={3}>
             <Grid item xs={12} md={7}>
               <Paper
@@ -670,7 +633,7 @@ export default function Settings() {
                     value={profileForm.phone}
                     onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
                     fullWidth
-                    helperText="Used for high-priority SMS and WhatsApp flash disaster broadcasts."
+                    helperText="Used for high-priority SMS emergency broadcasts."
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -773,6 +736,7 @@ export default function Settings() {
         {/* TAB 1: EMERGENCY ALERTS & NOTIFICATIONS */}
         {activeTab === 1 && (
           <Grid container spacing={3}>
+            {/* ALERT SEVERITY & CHANNELS */}
             <Grid item xs={12} md={7}>
               <Paper
                 elevation={0}
@@ -780,102 +744,129 @@ export default function Settings() {
                   p: 3.5,
                   borderRadius: 3.5,
                   backgroundColor: cardBg,
-                  border: `1px solid ${borderColor}`
+                  border: `1px solid ${borderColor}`,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
                 }}
               >
-                <Typography variant="subtitle1" fontWeight={800} sx={{ color: textPrimary, mb: 0.5 }}>
-                  Disaster Alert Severity Threshold
-                </Typography>
-                <Typography variant="body2" sx={{ color: textSecondary, mb: 3 }}>
-                  Define the minimum ML hazard confidence level required before high-priority alarms trigger.
-                </Typography>
-
-                <Box sx={{ px: 2, mb: 4 }}>
-                  <Slider
-                    value={notifConfig.severityThreshold}
-                    onChange={(_, val) => setNotifConfig({ ...notifConfig, severityThreshold: val })}
-                    min={40}
-                    max={95}
-                    step={5}
-                    valueLabelDisplay="on"
-                    valueLabelFormat={(val) => `${val}% Risk`}
-                    sx={{
-                      color: notifConfig.severityThreshold >= 75 ? '#ef4444' : notifConfig.severityThreshold >= 60 ? '#f59e0b' : '#0284c7'
-                    }}
-                  />
-                  <Box display="flex" justifyContent="space-between" mt={1}>
-                    <Typography variant="caption" sx={{ color: textSecondary }}>40% (All Advisories)</Typography>
-                    <Typography variant="caption" sx={{ color: textSecondary, fontWeight: 700 }}>
-                      Current: {notifConfig.severityThreshold}% Severity
+                <Box>
+                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={1} flexWrap="wrap" gap={1}>
+                    <Typography variant="subtitle1" fontWeight={800} sx={{ color: textPrimary }}>
+                      Alert Trigger Threshold
                     </Typography>
-                    <Typography variant="caption" sx={{ color: textSecondary }}>95% (Extreme Emergencies Only)</Typography>
+                    <Chip
+                      label={`${notifConfig.severityThreshold}% Sensitivity`}
+                      size="small"
+                      sx={{
+                        fontWeight: 800,
+                        fontSize: '0.78rem',
+                        bgcolor: notifConfig.severityThreshold >= 75 ? 'rgba(239, 68, 68, 0.15)' : notifConfig.severityThreshold >= 60 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(2, 132, 199, 0.15)',
+                        color: notifConfig.severityThreshold >= 75 ? '#ef4444' : notifConfig.severityThreshold >= 60 ? '#d97706' : '#0284c7',
+                        border: `1px solid ${notifConfig.severityThreshold >= 75 ? 'rgba(239, 68, 68, 0.3)' : notifConfig.severityThreshold >= 60 ? 'rgba(245, 158, 11, 0.3)' : 'rgba(2, 132, 199, 0.3)'}`
+                      }}
+                    />
                   </Box>
-                </Box>
+                  <Typography variant="body2" sx={{ color: textSecondary, mb: 3.5 }}>
+                    Minimum hazard confidence level required before automated acoustic sirens and notifications activate.
+                  </Typography>
 
-                <Divider sx={{ my: 2.5, borderColor }} />
+                  <Box sx={{ px: 1, mb: 3 }}>
+                    <Slider
+                      value={notifConfig.severityThreshold}
+                      onChange={(_, val) => setNotifConfig({ ...notifConfig, severityThreshold: val })}
+                      min={40}
+                      max={95}
+                      step={5}
+                      valueLabelDisplay="auto"
+                      valueLabelFormat={(val) => `${val}% Risk`}
+                      sx={{
+                        color: notifConfig.severityThreshold >= 75 ? '#ef4444' : notifConfig.severityThreshold >= 60 ? '#f59e0b' : '#0284c7',
+                        height: 7
+                      }}
+                    />
+                    <Box display="flex" justifyContent="space-between" mt={1}>
+                      <Typography variant="caption" sx={{ color: textSecondary, fontWeight: 600 }}>
+                        40% (All Alerts)
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: textSecondary, fontWeight: 600 }}>
+                        95% (Extreme Disasters Only)
+                      </Typography>
+                    </Box>
+                  </Box>
 
-                <Typography variant="subtitle2" fontWeight={800} sx={{ color: textPrimary, mb: 1.5 }}>
-                  Dispatch Alert Channels
-                </Typography>
+                  <Divider sx={{ my: 3, borderColor }} />
 
-                <Stack spacing={1.5}>
-                  <FormControlLabel
-                    control={
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ color: textPrimary, mb: 2 }}>
+                    Dispatch Alert Channels
+                  </Typography>
+
+                  <Stack spacing={1.5}>
+                    {/* Channel 1: Audio Alarm */}
+                    <Box sx={{ p: 2, borderRadius: 2.5, bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc', border: `1px solid ${borderColor}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                      <Box display="flex" alignItems="center" gap={1.5}>
+                        <Box sx={{ p: 1, borderRadius: 2, bgcolor: isDark ? 'rgba(2, 132, 199, 0.15)' : '#e0f2fe', color: '#0284c7', flexShrink: 0 }}>
+                          <Volume2 size={18} />
+                        </Box>
+                        <Box>
+                          <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
+                            Audio Alarm & Siren
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: textSecondary, display: 'block' }}>
+                            Acoustic beacon when emergency evacuation orders occur in your district.
+                          </Typography>
+                        </Box>
+                      </Box>
                       <Switch
                         checked={notifConfig.audioSiren}
                         onChange={(e) => setNotifConfig({ ...notifConfig, audioSiren: e.target.checked })}
                       />
-                    }
-                    label={
-                      <Box>
-                        <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
-                          Audio Alarm & Visual Flash Siren
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: textSecondary }}>
-                          Plays sound beacon when critical evacuation alerts occur in your district.
-                        </Typography>
-                      </Box>
-                    }
-                  />
+                    </Box>
 
-                  <FormControlLabel
-                    control={
+                    {/* Channel 2: Email Bulletins */}
+                    <Box sx={{ p: 2, borderRadius: 2.5, bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc', border: `1px solid ${borderColor}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                      <Box display="flex" alignItems="center" gap={1.5}>
+                        <Box sx={{ p: 1, borderRadius: 2, bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7', color: '#10b981', flexShrink: 0 }}>
+                          <Mail size={18} />
+                        </Box>
+                        <Box>
+                          <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
+                            Automated Email Bulletins
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: textSecondary, display: 'block' }}>
+                            Sends incident situation reports and shelter maps to your verified email.
+                          </Typography>
+                        </Box>
+                      </Box>
                       <Switch
                         checked={notifConfig.emailAlerts}
                         onChange={(e) => setNotifConfig({ ...notifConfig, emailAlerts: e.target.checked })}
                       />
-                    }
-                    label={
-                      <Box>
-                        <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
-                          Automated Email Bulletins
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: textSecondary }}>
-                          Sends incident situation reports and shelter maps to your verified email.
-                        </Typography>
-                      </Box>
-                    }
-                  />
+                    </Box>
 
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={notifConfig.whatsappAlerts}
-                        onChange={(e) => setNotifConfig({ ...notifConfig, whatsappAlerts: e.target.checked })}
-                      />
-                    }
-                    label={
-                      <Box>
-                        <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
-                          Instant WhatsApp / SMS Flash Alerts
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: textSecondary }}>
-                          Immediate text alerts for flash floods, dam releases, and cyclonic warnings.
-                        </Typography>
+                    {/* Channel 3: Instant SMS Flash Alerts */}
+                    <Box sx={{ p: 2, borderRadius: 2.5, bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc', border: `1px solid ${borderColor}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                      <Box display="flex" alignItems="center" gap={1.5}>
+                        <Box sx={{ p: 1, borderRadius: 2, bgcolor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7', color: '#d97706', flexShrink: 0 }}>
+                          <Smartphone size={18} />
+                        </Box>
+                        <Box>
+                          <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
+                            Instant SMS Flash Alerts
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: textSecondary, display: 'block' }}>
+                            Emergency text messages for flash floods, dam releases, and cyclonic warnings.
+                          </Typography>
+                        </Box>
                       </Box>
-                    }
-                  />
-                </Stack>
+                      <Switch
+                        checked={notifConfig.smsAlerts}
+                        onChange={(e) => setNotifConfig({ ...notifConfig, smsAlerts: e.target.checked })}
+                      />
+                    </Box>
+                  </Stack>
+                </Box>
 
                 <Box pt={3}>
                   <Button
@@ -886,85 +877,154 @@ export default function Settings() {
                       fontWeight: 700,
                       textTransform: 'none',
                       px: 3.5,
-                      py: 1.2,
+                      py: 1,
                       borderRadius: 2
                     }}
                   >
-                    Save Notification Preferences
+                    Save Preferences
                   </Button>
                 </Box>
+              </Paper>
+            </Grid>
 
-                <Divider sx={{ my: 3, borderColor }} />
+            {/* SUBSCRIBED HAZARDS */}
+            <Grid item xs={12} md={5}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3.5,
+                  borderRadius: 3.5,
+                  backgroundColor: cardBg,
+                  border: `1px solid ${borderColor}`,
+                  height: '100%'
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight={800} sx={{ color: textPrimary, mb: 0.5 }}>
+                  Monitored Hazard Types
+                </Typography>
+                <Typography variant="body2" sx={{ color: textSecondary, mb: 3 }}>
+                  Select the types of natural hazards to track for your active district.
+                </Typography>
 
-                {/* EMERGENCY BROADCAST & SIREN SIMULATOR */}
-                <Box sx={{ p: 2.5, borderRadius: 2.5, bgcolor: isDark ? 'rgba(239, 68, 68, 0.08)' : '#fef2f2', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
-                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={1} flexWrap="wrap" gap={1}>
-                    <Box display="flex" alignItems="center" gap={1.2}>
-                      <AlertTriangle size={20} color="#ef4444" />
-                      <Typography variant="subtitle2" fontWeight={800} sx={{ color: '#ef4444' }}>
-                        {isAdmin ? '🚨 Admin Emergency Email Broadcast Command' : 'Emergency Alert Telemetry & Notification Status'}
+                <Stack spacing={2}>
+                  {[
+                    { key: 'floodAlerts', label: 'Floods & Inundation', desc: 'River basin surges, dam releases, urban waterlogging' },
+                    { key: 'cycloneAlerts', label: 'Cyclones & Severe Storms', desc: 'Extreme wind gusts and heavy monsoon rainfall' },
+                    { key: 'landslideAlerts', label: 'Landslides & Rockfalls', desc: 'Slope movement and mountain highway alerts' },
+                    { key: 'heatwaveAlerts', label: 'Atmospheric Heatwaves', desc: 'Extreme temperatures above 44°C and heat advisories' }
+                  ].map((hazard) => (
+                    <Box
+                      key={hazard.key}
+                      sx={{
+                        p: 2,
+                        borderRadius: 2.5,
+                        bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                        border: `1px solid ${borderColor}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 1.5
+                      }}
+                    >
+                      <Box pr={1}>
+                        <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
+                          {hazard.label}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.25 }}>
+                          {hazard.desc}
+                        </Typography>
+                      </Box>
+                      <Switch
+                        checked={notifConfig[hazard.key]}
+                        onChange={(e) => setNotifConfig({ ...notifConfig, [hazard.key]: e.target.checked })}
+                      />
+                    </Box>
+                  ))}
+                </Stack>
+              </Paper>
+            </Grid>
+
+            {/* FULL-WIDTH EMERGENCY BROADCAST CONSOLE */}
+            <Grid item xs={12}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3.5,
+                  borderRadius: 3.5,
+                  bgcolor: isDark ? 'rgba(239, 68, 68, 0.05)' : '#fff8f8',
+                  border: '1px solid rgba(239, 68, 68, 0.25)'
+                }}
+              >
+                <Box display="flex" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={1.5}>
+                  <Box display="flex" alignItems="center" gap={1.5}>
+                    <Box sx={{ p: 1, borderRadius: 2, bgcolor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>
+                      <AlertTriangle size={22} />
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#ef4444' }}>
+                        {isAdmin ? 'Emergency Citizen Broadcast Console' : 'Emergency Alert Telemetry Status'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: textSecondary }}>
+                        {isAdmin ? 'Dispatch critical disaster advisories and all-clear notices to registered citizens.' : 'Enrolled to receive real-time evacuation bulletins and alert tones.'}
                       </Typography>
                     </Box>
-                    <Chip
-                      size="small"
-                      label={isAdmin ? 'ADMIN AUTHORIZED' : 'CITIZEN SUBSCRIBER'}
-                      sx={{
-                        fontWeight: 800,
-                        fontSize: '0.72rem',
-                        bgcolor: isAdmin ? 'rgba(239, 68, 68, 0.18)' : 'rgba(2, 132, 199, 0.15)',
-                        color: isAdmin ? '#dc2626' : '#0284c7',
-                        border: `1px solid ${isAdmin ? 'rgba(239, 68, 68, 0.35)' : 'rgba(2, 132, 199, 0.3)'}`
-                      }}
-                    />
                   </Box>
+                  <Chip
+                    size="small"
+                    label={isAdmin ? 'ADMIN AUTHORIZED' : 'CITIZEN SUBSCRIBER'}
+                    sx={{
+                      fontWeight: 800,
+                      fontSize: '0.72rem',
+                      bgcolor: isAdmin ? 'rgba(239, 68, 68, 0.15)' : 'rgba(2, 132, 199, 0.15)',
+                      color: isAdmin ? '#dc2626' : '#0284c7',
+                      border: `1px solid ${isAdmin ? 'rgba(239, 68, 68, 0.3)' : 'rgba(2, 132, 199, 0.3)'}`
+                    }}
+                  />
+                </Box>
 
-                  {isAdmin ? (
-                    <>
-                      <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mb: 2 }}>
-                        Broadcast official critical disaster warnings directly to <strong>all registered citizens and responders</strong> across India via their registered Gmail accounts. <em>(Note: Acoustic disaster sirens trigger automatically during verified critical emergencies).</em>
-                      </Typography>
-
-                      {/* Active Critical Disaster Callout */}
-                      {activeCriticalAlert && (
-                        <Box sx={{ p: 1.5, mb: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2', border: '1px solid #ef4444' }}>
-                          <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
-                            <Box display="flex" alignItems="center" gap={1}>
-                              <AlertTriangle size={18} color="#ef4444" />
-                              <Typography variant="body2" fontWeight={800} sx={{ color: '#ef4444' }}>
-                                🚨 ACTIVE CRITICAL DISASTER: {activeCriticalAlert.district}, {activeCriticalAlert.state}
-                              </Typography>
-                            </Box>
-                            <Button
-                              size="small"
-                              variant="contained"
-                              color="error"
-                              onClick={() => {
-                                setBroadcastDistrict(activeCriticalAlert.district);
-                                setBroadcastState(activeCriticalAlert.state || 'Madhya Pradesh');
-                                setBroadcastTitle(activeCriticalAlert.title || `🚨 CRITICAL DISASTER WARNING — ${activeCriticalAlert.district}`);
-                                if (activeCriticalAlert.message) setBroadcastInstructions(activeCriticalAlert.message);
-                              }}
-                              sx={{ textTransform: 'none', fontWeight: 800, fontSize: '0.72rem', py: 0.2 }}
-                            >
-                              🎯 Target {activeCriticalAlert.district} (Critical Region)
-                            </Button>
+                {isAdmin ? (
+                  <Stack spacing={2.5}>
+                    {/* Active Emergency Callout if exists */}
+                    {activeCriticalAlert && (
+                      <Box sx={{ p: 2, borderRadius: 2.5, bgcolor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fee2e2', border: '1px solid rgba(239, 68, 68, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+                        <Box display="flex" alignItems="center" gap={1.25}>
+                          <AlertTriangle size={20} color="#dc2626" />
+                          <Box>
+                            <Typography variant="body2" fontWeight={800} sx={{ color: '#dc2626' }}>
+                              Active Critical Event: {activeCriticalAlert.district}, {activeCriticalAlert.state}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: textSecondary }}>
+                              {activeCriticalAlert.title}: {activeCriticalAlert.message}
+                            </Typography>
                           </Box>
-                          <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5 }}>
-                            <strong>{activeCriticalAlert.title}:</strong> {activeCriticalAlert.message}
-                          </Typography>
                         </Box>
-                      )}
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="error"
+                          onClick={() => {
+                            setBroadcastDistrict(activeCriticalAlert.district);
+                            setBroadcastState(activeCriticalAlert.state || 'Madhya Pradesh');
+                            setBroadcastTitle(activeCriticalAlert.title || `🚨 CRITICAL DISASTER WARNING — ${activeCriticalAlert.district}`);
+                            if (activeCriticalAlert.message) setBroadcastInstructions(activeCriticalAlert.message);
+                          }}
+                          sx={{ textTransform: 'none', fontWeight: 800, fontSize: '0.75rem', px: 2, py: 0.5, borderRadius: 2 }}
+                        >
+                          🎯 Set Target to {activeCriticalAlert.district}
+                        </Button>
+                      </Box>
+                    )}
 
-                      {/* Target District Selection */}
-                      <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#ffffff', border: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 1, color: isDark ? '#38bdf8' : '#0284c7' }}>
-                          Broadcast Target Region (Disaster Zone to Warn About):
+                    {/* Controls Row: Region Selector + SMS Gateway Status */}
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 0.75, color: textSecondary, textTransform: 'uppercase' }}>
+                          Target Disaster Region
                         </Typography>
                         <TextField
                           select
                           fullWidth
                           size="small"
-                          label="Target Critical Region"
                           value={broadcastDistrict}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -977,10 +1037,9 @@ export default function Settings() {
                             }
                             setBroadcastTitle(`🚨 CRITICAL FLASH FLOOD & EVACUATION ORDER — ${val}`);
                           }}
-                          sx={{ mb: 1 }}
                         >
                           <MenuItem value="Bhopal" sx={{ fontWeight: 700, color: '#dc2626' }}>
-                            🚨 Bhopal (MP) — [ACTIVE CRITICAL DISASTER ZONE]
+                            🚨 Bhopal (Madhya Pradesh) — Critical Alert Region
                           </MenuItem>
                           {PRESET_DISTRICTS.filter(p => p.district?.toLowerCase() !== 'bhopal').map((p) => (
                             <MenuItem key={p.id} value={p.district}>
@@ -988,274 +1047,97 @@ export default function Settings() {
                             </MenuItem>
                           ))}
                         </TextField>
-
-                        <Typography variant="caption" sx={{ color: textSecondary, display: 'block' }}>
-                          📡 <strong>Broadcast Scope:</strong> All 14 registered citizens & responders across all districts will receive this emergency email warning regarding <strong>{broadcastDistrict} ({broadcastState})</strong>.
+                        <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5 }}>
+                          All registered citizens and field responders will receive alerts for <strong>{broadcastDistrict} ({broadcastState})</strong>.
                         </Typography>
-                      </Box>
+                      </Grid>
 
-                      {/* Fast2SMS Automated Emergency SMS Alert Gateway */}
-                      <Box
-                        sx={{
-                          mb: 2.5,
-                          p: 2,
-                          borderRadius: 2.5,
-                          bgcolor: isDark ? 'rgba(14, 165, 233, 0.06)' : '#f0f9ff',
-                          border: '1px solid',
-                          borderColor: isDark ? 'rgba(56, 189, 248, 0.3)' : '#bae6fd'
-                        }}
-                      >
-                        <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} sx={{ mb: 1.5 }}>
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 0.75, color: textSecondary, textTransform: 'uppercase' }}>
+                          Mobile SMS Cell Broadcast Status
+                        </Typography>
+                        <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: isDark ? 'rgba(2, 132, 199, 0.08)' : '#f0f9ff', border: `1px solid ${isDark ? 'rgba(2, 132, 199, 0.25)' : '#bae6fd'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                           <Box display="flex" alignItems="center" gap={1.25}>
                             <Smartphone size={20} color="#0284c7" />
-                            <Typography variant="subtitle2" fontWeight={800} sx={{ color: isDark ? '#38bdf8' : '#0369a1' }}>
-                              Automated Emergency SMS Cell Broadcast (Fast2SMS Gateway)
-                            </Typography>
-                          </Box>
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <Chip
-                              size="small"
-                              label={
-                                smsGatewayStatus.configured
-                                  ? `🟢 Fast2SMS Active | ₹${smsGatewayStatus.wallet} (~${smsGatewayStatus.smsCount} SMS)`
-                                  : '⚪ Fast2SMS Simulation Active'
-                              }
-                              sx={{
-                                fontWeight: 800,
-                                fontSize: '0.72rem',
-                                bgcolor: smsGatewayStatus.configured ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)',
-                                color: smsGatewayStatus.configured ? '#10b981' : '#64748b',
-                                border: `1px solid ${smsGatewayStatus.configured ? 'rgba(16, 185, 129, 0.3)' : 'rgba(148, 163, 184, 0.3)'}`
-                              }}
-                            />
-                            <Tooltip title="Refresh Fast2SMS Wallet Balance">
-                              <IconButton size="small" onClick={fetchSmsStatus} disabled={isCheckingSms}>
-                                <RefreshCw size={14} className={isCheckingSms ? 'animate-spin' : ''} />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </Box>
-
-                        <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mb: 1.5, lineHeight: 1.6 }}>
-                          ⚡ <strong>Autonomous Citizen SMS Broadcast Engine:</strong> When hazard alerts, sensor telemetry breaches, or flash floods occur in any district, official NDMA-standard cell broadcast SMS warnings are <strong>autonomously dispatched</strong> directly to all registered citizens' mobile phones in that hazard zone with real-time evacuation orders and emergency numbers (1070 / 112).
-                        </Typography>
-
-                        <Box
-                          sx={{
-                            p: 1.5,
-                            borderRadius: 2,
-                            bgcolor: isDark ? 'rgba(0,0,0,0.2)' : '#ffffff',
-                            border: '1px solid',
-                            borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(2, 132, 199, 0.15)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: 1.5
-                          }}
-                        >
-                          <Box display="flex" alignItems="center" gap={1.25}>
-                            <Zap size={16} color="#0ea5e9" />
                             <Box>
-                              <Typography variant="caption" fontWeight={700} sx={{ color: textPrimary, display: 'block' }}>
-                                Automated Trigger Policy: Zero-Latency Instant Delivery
+                              <Typography variant="body2" fontWeight={700} sx={{ color: isDark ? '#38bdf8' : '#0369a1' }}>
+                                Fast2SMS Gateway: {smsGatewayStatus.configured ? `Active (₹${smsGatewayStatus.wallet} • ~${smsGatewayStatus.smsCount} SMS)` : 'Simulation Active'}
                               </Typography>
                               <Typography variant="caption" sx={{ color: textSecondary }}>
-                                Mobile SMS alerts require no manual admin dispatch — the AI and sensor telemetry engines dispatch SMS alerts automatically upon alert occurrence.
+                                Autonomous dispatch on sensor threshold breach
                               </Typography>
                             </Box>
                           </Box>
-                          <Chip
-                            size="small"
-                            label="AUTONOMOUS • ZERO-TOUCH"
-                            sx={{
-                              fontWeight: 800,
-                              fontSize: '0.68rem',
-                              bgcolor: 'rgba(14, 165, 233, 0.12)',
-                              color: '#0284c7',
-                              border: '1px solid rgba(14, 165, 233, 0.3)'
-                            }}
-                          />
+                          <Tooltip title="Refresh SMS balance">
+                            <IconButton size="small" onClick={fetchSmsStatus} disabled={isCheckingSms}>
+                              <RefreshCw size={15} className={isCheckingSms ? 'animate-spin' : ''} />
+                            </IconButton>
+                          </Tooltip>
                         </Box>
-                      </Box>
+                      </Grid>
+                    </Grid>
 
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                        <Button
-                          type="button"
-                          variant="contained"
-                          color="error"
-                          onClick={handleAdminBroadcastEmergency}
-                          disabled={isBroadcasting}
-                          startIcon={isBroadcasting ? <CircularProgress size={16} color="inherit" /> : <Mail size={16} />}
-                          sx={{
-                            fontWeight: 800,
-                            textTransform: 'none',
-                            px: 2.5,
-                            borderRadius: 2
-                          }}
-                        >
-                          {isBroadcasting ? `Dispatching Situation Bulletin for ${broadcastDistrict}...` : `📨 Dispatch Emergency Email Bulletin for ${broadcastDistrict} to All Citizens`}
-                        </Button>
-
-                        <Button
-                          type="button"
-                          variant="outlined"
-                          color="success"
-                          onClick={handleResolveEmergencyAlerts}
-                          disabled={isResolving}
-                          startIcon={isResolving ? <CircularProgress size={16} color="inherit" /> : <CheckCircle2 size={16} />}
-                          sx={{
-                            fontWeight: 800,
-                            textTransform: 'none',
-                            px: 2.5,
-                            borderRadius: 2,
-                            borderColor: '#10b981',
-                            color: '#10b981',
-                            '&:hover': {
-                              bgcolor: 'rgba(16, 185, 129, 0.08)',
-                              borderColor: '#10b981'
-                            }
-                          }}
-                        >
-                          {isResolving ? 'Sending All-Clear Bulletin...' : `✅ Resolve Emergency for ${broadcastDistrict}`}
-                        </Button>
-                      </Stack>
-
-                      {broadcastStats && (
-                        <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: broadcastStats.isRenderSmtpBlocked ? 'rgba(245, 158, 11, 0.1)' : (broadcastStats.mode === 'RESOLVED' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)'), border: `1px solid ${broadcastStats.isRenderSmtpBlocked ? '#f59e0b' : (broadcastStats.mode === 'RESOLVED' ? '#10b981' : '#ef4444')}` }}>
-                          <Box display="flex" alignItems="center" gap={1}>
-                            {broadcastStats.isRenderSmtpBlocked ? (
-                              <AlertTriangle size={18} color="#d97706" />
-                            ) : broadcastStats.mode === 'RESOLVED' ? (
-                              <CheckCircle2 size={18} color="#10b981" />
-                            ) : (
-                              <Mail size={18} color="#ef4444" />
-                            )}
-                            <Typography variant="body2" fontWeight={800} sx={{ color: broadcastStats.isRenderSmtpBlocked ? '#d97706' : (broadcastStats.mode === 'RESOLVED' ? '#10b981' : '#ef4444') }}>
-                              {broadcastStats.isRenderSmtpBlocked
-                                ? `Outbound SMTP Port 587 Blocked by Render Free Tier`
-                                : broadcastStats.mode === 'RESOLVED'
-                                ? `All-Clear Bulletin Emailed to All Users`
-                                : `Emergency Alert Broadcast Delivered to All Users`}
-                            </Typography>
-                          </Box>
-                          <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5 }}>
-                            📡 <strong>Delivery Status:</strong> {broadcastStats.successCount > 0 ? `${broadcastStats.successCount} delivered successfully (${broadcastStats.deliveryMode || 'SMTP'})` : `${broadcastStats.totalRecipients || 6} recipients targeted`}. Target: <strong>{broadcastStats.targetDistrict || broadcastDistrict}</strong> ({broadcastStats.broadcastTime ? new Date(broadcastStats.broadcastTime).toLocaleTimeString() : 'Just now'}).
-                          </Typography>
-                          {broadcastStats.smsResult && (
-                            <Typography variant="caption" sx={{ color: '#0284c7', fontWeight: 700, display: 'block', mt: 0.5 }}>
-                              📲 <strong>Mobile SMS Dispatch:</strong> {broadcastStats.smsResult.count > 0 ? `${broadcastStats.smsResult.count} citizen(s) alerted via Fast2SMS gateway` : (broadcastStats.smsResult.message || 'SMS broadcast completed')}
-                            </Typography>
-                          )}
-                          {broadcastStats.isRenderSmtpBlocked && (
-                            <Box sx={{ mt: 1, p: 1.25, borderRadius: 1.5, bgcolor: isDark ? 'rgba(0,0,0,0.3)' : '#ffffff', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                              <Typography variant="caption" sx={{ color: textPrimary, fontWeight: 700, display: 'block' }}>
-                                💡 Why did this happen & how to send real emails:
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5, lineHeight: 1.5 }}>
-                                • <strong>Render Free Tier Policy:</strong> Render blocks outbound ports 25, 465, and 587 to prevent spam.<br />
-                                • <strong>Fix 1 (Direct HTTPS delivery on Render):</strong> In your Brevo account, go to <em>SMTP & API → API Keys</em>, generate an API key (starts with <code>xkeysib-...</code>), and add <code>BREVO_API_KEY</code> to Render Environment Variables.<br />
-                                • <strong>Fix 2 (Instant Delivery Locally):</strong> Run the backend locally with <code>npm run dev</code> where Brevo SMTP is already verified and sends real emails immediately.
-                              </Typography>
-                            </Box>
-                          )}
-                        </Box>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mb: 2 }}>
-                        Your verified Gmail account (<strong>{currentUser?.email || 'your registered email'}</strong>) is enrolled to receive critical situation email bulletins and acoustic alarms during district emergencies.
-                      </Typography>
-
-                      <Box
-                        sx={{
-                          p: 1.5,
-                          borderRadius: 2,
-                          bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#ffffff',
-                          border: '1px dashed #cbd5e1',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          flexWrap: 'wrap',
-                          gap: 1
-                        }}
+                    {/* Action Buttons */}
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} pt={1}>
+                      <Button
+                        type="button"
+                        variant="contained"
+                        color="error"
+                        onClick={handleAdminBroadcastEmergency}
+                        disabled={isBroadcasting}
+                        startIcon={isBroadcasting ? <CircularProgress size={16} color="inherit" /> : <Mail size={16} />}
+                        sx={{ fontWeight: 800, textTransform: 'none', px: 3, py: 1.2, borderRadius: 2 }}
                       >
-                        <Typography variant="caption" sx={{ color: textSecondary }}>
-                          🔒 Mass disaster broadcast controls are strictly restricted to Disaster Management Administrators.
+                        {isBroadcasting ? `Dispatching Bulletin for ${broadcastDistrict}...` : `📨 Dispatch Emergency Bulletin (${broadcastDistrict})`}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outlined"
+                        color="success"
+                        onClick={handleResolveEmergencyAlerts}
+                        disabled={isResolving}
+                        startIcon={isResolving ? <CircularProgress size={16} color="inherit" /> : <CheckCircle2 size={16} />}
+                        sx={{ fontWeight: 800, textTransform: 'none', px: 3, py: 1.2, borderRadius: 2, borderColor: '#10b981', color: '#10b981', '&:hover': { borderColor: '#10b981', bgcolor: 'rgba(16, 185, 129, 0.08)' } }}
+                      >
+                        {isResolving ? 'Sending All-Clear...' : `✅ Resolve & Send All-Clear (${broadcastDistrict})`}
+                      </Button>
+                    </Stack>
+
+                    {/* Broadcast Stats Display */}
+                    {broadcastStats && (
+                      <Box sx={{ p: 2, borderRadius: 2, bgcolor: broadcastStats.mode === 'RESOLVED' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', border: `1px solid ${broadcastStats.mode === 'RESOLVED' ? '#10b981' : '#ef4444'}` }}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          {broadcastStats.mode === 'RESOLVED' ? <CheckCircle2 size={18} color="#10b981" /> : <Mail size={18} color="#ef4444" />}
+                          <Typography variant="body2" fontWeight={800} sx={{ color: broadcastStats.mode === 'RESOLVED' ? '#10b981' : '#ef4444' }}>
+                            {broadcastStats.mode === 'RESOLVED' ? 'All-Clear Bulletin Dispatched' : 'Emergency Bulletin Dispatched'}
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5 }}>
+                          Target: <strong>{broadcastStats.targetDistrict || broadcastDistrict}</strong> • Dispatched to {broadcastStats.totalRecipients || 6} registered recipients.
                         </Typography>
-                        <Tooltip title="Click to authorize Admin Broadcast Mode for testing or emergency dispatch">
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="error"
-                            onClick={() => {
-                              setAdminOverride(true);
-                              showToast('Admin Command Mode authorized. Broadcast controls unlocked.', 'success');
-                            }}
-                            sx={{ textTransform: 'none', fontWeight: 800, fontSize: '0.75rem', px: 2, borderRadius: 2 }}
-                          >
-                            🔓 Unlock Admin Broadcast Console
-                          </Button>
-                        </Tooltip>
                       </Box>
-                    </>
-                  )}
-                </Box>
-              </Paper>
-            </Grid>
-
-            <Grid item xs={12} md={5}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 3.5,
-                  borderRadius: 3.5,
-                  backgroundColor: cardBg,
-                  border: `1px solid ${borderColor}`
-                }}
-              >
-                <Typography variant="subtitle1" fontWeight={800} sx={{ color: textPrimary, mb: 1 }}>
-                  Subscribed Hazard Categories
-                </Typography>
-                <Typography variant="body2" sx={{ color: textSecondary, mb: 3 }}>
-                  Select the types of natural hazards monitored for your active district.
-                </Typography>
-
-                <Stack spacing={2}>
-                  {[
-                    { key: 'floodAlerts', label: 'Floods & River Basin Surges', desc: 'Inundation mapping for Yamuna and major waterways' },
-                    { key: 'cycloneAlerts', label: 'Severe Weather & Storms', desc: 'IMD rainfall telemetry and heavy precipitation alerts' },
-                    { key: 'landslideAlerts', label: 'Geological & Landslide Risks', desc: 'Slope stability and mountain corridor warnings' },
-                    { key: 'heatwaveAlerts', label: 'Atmospheric Heatwaves', desc: 'Extreme temperature thresholds above 44°C' }
-                  ].map((hazard) => (
-                    <Box
-                      key={hazard.key}
-                      sx={{
-                        p: 1.5,
-                        borderRadius: 2,
-                        bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
-                        border: `1px solid ${borderColor}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
+                    )}
+                  </Stack>
+                ) : (
+                  <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2} pt={1}>
+                    <Typography variant="body2" sx={{ color: textSecondary }}>
+                      Mass disaster broadcast controls are restricted to authorized Disaster Management Administrators.
+                    </Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="error"
+                      onClick={() => {
+                        setAdminOverride(true);
+                        showToast('Admin Command Mode unlocked.', 'success');
                       }}
+                      sx={{ textTransform: 'none', fontWeight: 800, fontSize: '0.75rem', px: 2.5, py: 0.75, borderRadius: 2 }}
                     >
-                      <Box pr={2}>
-                        <Typography variant="body2" fontWeight={700} sx={{ color: textPrimary }}>
-                          {hazard.label}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: textSecondary }}>
-                          {hazard.desc}
-                        </Typography>
-                      </Box>
-                      <Switch
-                        checked={notifConfig[hazard.key]}
-                        onChange={(e) => setNotifConfig({ ...notifConfig, [hazard.key]: e.target.checked })}
-                      />
-                    </Box>
-                  ))}
-                </Stack>
+                      🔓 Unlock Admin Console
+                    </Button>
+                  </Box>
+                )}
               </Paper>
             </Grid>
           </Grid>
