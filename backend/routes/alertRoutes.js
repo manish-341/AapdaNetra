@@ -8,7 +8,9 @@ const {
     broadcastEmergencyAlert,
     resolveEmergencyAlerts,
     getCapAlerts,
-    getCapAlertById
+    getCapAlertById,
+    sendTestSmsAlert,
+    getSmsGatewayStatus
 } = require("../controllers/alertController");
 const { protect, authorize } = require("../middleware/authMiddleware");
 
@@ -45,6 +47,12 @@ const optionalAuth = async (req, res, next) => {
 
 // Emergency email alert broadcast to ALL registered users
 router.post("/broadcast-emergency", optionalAuth, broadcastEmergencyAlert);
+
+// Fast2SMS Gateway Status & Balance
+router.get("/sms-status", getSmsGatewayStatus);
+
+// Live test emergency SMS dispatch
+router.post("/send-test-sms", optionalAuth, sendTestSmsAlert);
 
 // Resolve & clear active emergency alerts and email All-Clear to ALL registered users
 router.post("/resolve-emergency", optionalAuth, resolveEmergencyAlerts);

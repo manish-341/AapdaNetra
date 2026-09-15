@@ -26,7 +26,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Tooltip
 } from '@mui/material';
 import {
   User,
@@ -50,11 +51,24 @@ import {
   VolumeX,
   Lock,
   Compass,
-  Cpu
+  Cpu,
+  MessageSquare,
+  Smartphone,
+  Send,
+  Zap
 } from 'lucide-react';
 import Boilerplate from '../layouts/Boilerplate';
 import { getCurrentUser, getUserRole, clearAuthToken } from '../lib/auth';
-import { updateUser, getUserById, dispatchEmergencyAlert, broadcastEmergencyAlert, resolveEmergencyAlerts, getAlerts } from '../services/api';
+import {
+  updateUser,
+  getUserById,
+  dispatchEmergencyAlert,
+  broadcastEmergencyAlert,
+  resolveEmergencyAlerts,
+  getAlerts,
+  getSmsGatewayStatus,
+  sendTestSmsAlert
+} from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext, PRESET_DISTRICTS } from '../context/LocationContext';
 import { useNavigate } from 'react-router-dom';
@@ -221,6 +235,28 @@ export default function Settings() {
     'Extreme cloudburst surge detected in Upper Lake / Bada Talab basin. Water levels exceeding breach threshold. Civil defense sirens and mandatory evacuation in effect. Proceed to nearest safe concrete shelter immediately.'
   );
 
+  // Fast2SMS Automated Alert Gateway State
+  const [smsGatewayStatus, setSmsGatewayStatus] = useState({ configured: false, wallet: 0, smsCount: 0 });
+  const [isCheckingSms, setIsCheckingSms] = useState(false);
+  const [enableSmsBroadcast, setEnableSmsBroadcast] = useState(true);
+  const [testPhoneNumber, setTestPhoneNumber] = useState('');
+  const [isSendingTestSms, setIsSendingTestSms] = useState(false);
+  const [testSmsResult, setTestSmsResult] = useState(null);
+
+  const fetchSmsStatus = async () => {
+    setIsCheckingSms(true);
+    try {
+      const res = await getSmsGatewayStatus();
+      if (res?.data?.data) {
+        setSmsGatewayStatus(res.data.data);
+      }
+    } catch (err) {
+      console.warn('Failed to load SMS gateway status:', err);
+    } finally {
+      setIsCheckingSms(false);
+    }
+  };
+
   useEffect(() => {
     getAlerts()
       .then((res) => {
@@ -237,6 +273,8 @@ export default function Settings() {
         }
       })
       .catch((err) => console.warn('Failed to load active critical alerts:', err));
+
+    fetchSmsStatus();
   }, []);
 
   const [adminOverride, setAdminOverride] = useState(false);
@@ -246,6 +284,51 @@ export default function Settings() {
     currentUser?.role === 'ADMIN' ||
     currentUser?.email === 'ayuyyysh0714@gmail.com' ||
     currentUser?.email === 'admin@aapdanetra.in';
+
+  // Live Jury Demo / Direct Emergency SMS Dispatcher
+  const handleSendTestSms = async () => {
+    const raw = testPhoneNumber.trim().replace(/\D/g, '');
+    const cleanPhone =
+      raw.length === 12 && raw.startsWith('91')
+        ? raw.slice(2)
+        : raw.length === 11 && raw.startsWith('0')
+        ? raw.slice(1)
+        : raw;
+
+    if (cleanPhone.length !== 10) {
+      showToast('Please enter a valid 10-digit Indian mobile number (e.g., 9876543210)', 'warning');
+      return;
+    }
+
+    setIsSendingTestSms(true);
+    setTestSmsResult(null);
+    try {
+      const targetDist = broadcastDistrict || 'Bhopal';
+      const res = await sendTestSmsAlert({
+        phoneNumber: cleanPhone,
+        district: targetDist,
+        severity: 'CRITICAL',
+        hazardType: 'FLOOD',
+        instructions: `NDMA Evacuation Order: Severe flood surge warning for ${targetDist}. Move to nearest emergency shelter immediately.`
+      });
+
+      const data = res?.data;
+      if (data?.success) {
+        setTestSmsResult({ success: true, message: `Dispatched to +91 ${cleanPhone}`, data: data.data });
+        showToast(`📲 Real-time Emergency SMS successfully dispatched to +91 ${cleanPhone}! Check your phone.`, 'success');
+        fetchSmsStatus();
+      } else {
+        setTestSmsResult({ success: false, error: data?.message || 'Failed to dispatch SMS' });
+        showToast(data?.message || 'SMS delivery failed', 'error');
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'SMS dispatch failed';
+      setTestSmsResult({ success: false, error: msg });
+      showToast(`SMS Error: ${msg}`, 'error');
+    } finally {
+      setIsSendingTestSms(false);
+    }
+  };
 
   // Admin-Only Mass Broadcast to ALL Registered Users
   const handleAdminBroadcastEmergency = async (e) => {
@@ -275,7 +358,7 @@ export default function Settings() {
         sound: false
       });
 
-      // 2. Dispatch official situation bulletin with live satellite & sensor telemetry
+      // 2. Dispatch official situation bulletin with live satellite & sensor telemetry + SMS
       const res = await Promise.race([
         broadcastEmergencyAlert({
           district: targetDist,
@@ -286,7 +369,9 @@ export default function Settings() {
           instructions: broadcastInstructions,
           senderEmail: currentUser?.email,
           senderName: currentUser?.name || 'Administrator',
-          isActive: true
+          isActive: true,
+          sendSms: enableSmsBroadcast,
+          testPhoneNumber: testPhoneNumber.trim() ? testPhoneNumber.trim().replace(/\D/g, '') : undefined
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Broadcast request timed out after 35s")), 35000))
       ]);
@@ -294,10 +379,12 @@ export default function Settings() {
       const data = res?.data?.data || {};
       setBroadcastStats(data);
       setEmergencyModalOpen(false);
+      const smsSentCount = data?.smsResult?.count || 0;
+      const smsSuffix = smsSentCount > 0 ? ` & ${smsSentCount} Emergency SMS warning(s) dispatched!` : '';
       if (data.isRenderSmtpBlocked) {
-        showToast(`⚠️ Broadcast processed, but Render Free Tier blocked SMTP port 587. See status card below.`, 'warning');
+        showToast(`⚠️ Broadcast processed. Outbound SMTP blocked on Render, but ${smsSentCount} mobile SMS sent!`, 'warning');
       } else {
-        showToast(`🚨 Emergency broadcast sent to all ${data.totalRecipients || ''} registered users regarding ${targetDist}!`, 'success');
+        showToast(`🚨 Emergency broadcast sent to all ${data.totalRecipients || ''} registered users${smsSuffix}`, 'success');
       }
     } catch (err) {
       console.warn('Broadcast error:', err);
@@ -960,6 +1047,161 @@ export default function Settings() {
                         </Typography>
                       </Box>
 
+                      {/* Fast2SMS Automated Emergency SMS Alert Gateway */}
+                      <Box
+                        sx={{
+                          mb: 2.5,
+                          p: 2,
+                          borderRadius: 2.5,
+                          bgcolor: isDark ? 'rgba(14, 165, 233, 0.06)' : '#f0f9ff',
+                          border: '1px solid',
+                          borderColor: isDark ? 'rgba(56, 189, 248, 0.3)' : '#bae6fd'
+                        }}
+                      >
+                        <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} sx={{ mb: 1.5 }}>
+                          <Box display="flex" alignItems="center" gap={1.25}>
+                            <Smartphone size={20} color="#0284c7" />
+                            <Typography variant="subtitle2" fontWeight={800} sx={{ color: isDark ? '#38bdf8' : '#0369a1' }}>
+                              Automated Emergency SMS Cell Broadcast (Fast2SMS Gateway)
+                            </Typography>
+                          </Box>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Chip
+                              size="small"
+                              label={
+                                smsGatewayStatus.configured
+                                  ? `🟢 Fast2SMS Active | ₹${smsGatewayStatus.wallet} (~${smsGatewayStatus.smsCount} SMS)`
+                                  : '⚪ Fast2SMS Simulation Active'
+                              }
+                              sx={{
+                                fontWeight: 800,
+                                fontSize: '0.72rem',
+                                bgcolor: smsGatewayStatus.configured ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)',
+                                color: smsGatewayStatus.configured ? '#10b981' : '#64748b',
+                                border: `1px solid ${smsGatewayStatus.configured ? 'rgba(16, 185, 129, 0.3)' : 'rgba(148, 163, 184, 0.3)'}`
+                              }}
+                            />
+                            <Tooltip title="Refresh Fast2SMS Wallet Balance">
+                              <IconButton size="small" onClick={fetchSmsStatus} disabled={isCheckingSms}>
+                                <RefreshCw size={14} className={isCheckingSms ? 'animate-spin' : ''} />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </Box>
+
+                        <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mb: 1.5, lineHeight: 1.5 }}>
+                          Dispatches automated NDMA-standard emergency cell broadcast SMS alerts directly to citizens' mobile devices with hazard classification, safe shelter directions, and emergency helpline numbers.
+                        </Typography>
+
+                        {/* Broadcast Toggle */}
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={enableSmsBroadcast}
+                              onChange={(e) => setEnableSmsBroadcast(e.target.checked)}
+                              color="primary"
+                              size="small"
+                            />
+                          }
+                          label={
+                            <Typography variant="caption" fontWeight={700} sx={{ color: textPrimary }}>
+                              Auto-dispatch Emergency SMS alerts to registered citizens' mobile phones during alert broadcast
+                            </Typography>
+                          }
+                          sx={{ mb: 1.5, display: 'flex' }}
+                        />
+
+                        {/* SIH Live Jury Demonstration SMS Box */}
+                        <Box
+                          sx={{
+                            p: 1.75,
+                            borderRadius: 2,
+                            bgcolor: isDark ? 'rgba(0,0,0,0.25)' : '#ffffff',
+                            border: '1px dashed',
+                            borderColor: isDark ? 'rgba(56, 189, 248, 0.4)' : '#93c5fd'
+                          }}
+                        >
+                          <Box display="flex" alignItems="center" gap={1} sx={{ mb: 0.75 }}>
+                            <Zap size={16} color="#eab308" />
+                            <Typography variant="caption" fontWeight={800} sx={{ color: isDark ? '#facc15' : '#ca8a04', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                              ⚡ SIH Live Jury Demo — Send Instant Test SMS to Judge / Your Mobile:
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mb: 1.25 }}>
+                            Enter any 10-digit Indian mobile number to trigger an instant real-time live emergency SMS warning:
+                          </Typography>
+
+                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="stretch">
+                            <TextField
+                              size="small"
+                              placeholder="e.g. 9876543210"
+                              value={testPhoneNumber}
+                              onChange={(e) => setTestPhoneNumber(e.target.value)}
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <Typography variant="caption" fontWeight={800} sx={{ color: textSecondary }}>
+                                      +91
+                                    </Typography>
+                                  </InputAdornment>
+                                )
+                              }}
+                              sx={{
+                                flex: 1,
+                                '& .MuiInputBase-root': { fontSize: '0.85rem' }
+                              }}
+                            />
+                            <Button
+                              variant="contained"
+                              color="primary"
+                              onClick={handleSendTestSms}
+                              disabled={isSendingTestSms || !testPhoneNumber.trim()}
+                              startIcon={isSendingTestSms ? <CircularProgress size={14} color="inherit" /> : <Send size={14} />}
+                              sx={{
+                                textTransform: 'none',
+                                fontWeight: 800,
+                                fontSize: '0.8rem',
+                                px: 2,
+                                borderRadius: 1.5,
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {isSendingTestSms ? 'Dispatching SMS...' : '📲 Send Test Emergency SMS'}
+                            </Button>
+                          </Stack>
+
+                          {testSmsResult && (
+                            <Box
+                              sx={{
+                                mt: 1.25,
+                                p: 1,
+                                borderRadius: 1.5,
+                                bgcolor: testSmsResult.success ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                border: `1px solid ${testSmsResult.success ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1
+                              }}
+                            >
+                              {testSmsResult.success ? (
+                                <CheckCircle2 size={16} color="#10b981" />
+                              ) : (
+                                <AlertTriangle size={16} color="#ef4444" />
+                              )}
+                              <Typography
+                                variant="caption"
+                                fontWeight={700}
+                                sx={{ color: testSmsResult.success ? '#10b981' : '#ef4444' }}
+                              >
+                                {testSmsResult.success
+                                  ? `✅ Emergency SMS delivered successfully! Fast2SMS Request ID: ${testSmsResult.data?.requestId || 'Active'}. Check your mobile device.`
+                                  : `❌ SMS dispatch failed: ${testSmsResult.error}`}
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+
                       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                         <Button
                           type="button"
@@ -1023,6 +1265,11 @@ export default function Settings() {
                           <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5 }}>
                             📡 <strong>Delivery Status:</strong> {broadcastStats.successCount > 0 ? `${broadcastStats.successCount} delivered successfully (${broadcastStats.deliveryMode || 'SMTP'})` : `${broadcastStats.totalRecipients || 6} recipients targeted`}. Target: <strong>{broadcastStats.targetDistrict || broadcastDistrict}</strong> ({broadcastStats.broadcastTime ? new Date(broadcastStats.broadcastTime).toLocaleTimeString() : 'Just now'}).
                           </Typography>
+                          {broadcastStats.smsResult && (
+                            <Typography variant="caption" sx={{ color: '#0284c7', fontWeight: 700, display: 'block', mt: 0.5 }}>
+                              📲 <strong>Mobile SMS Dispatch:</strong> {broadcastStats.smsResult.count > 0 ? `${broadcastStats.smsResult.count} citizen(s) alerted via Fast2SMS gateway` : (broadcastStats.smsResult.message || 'SMS broadcast completed')}
+                            </Typography>
+                          )}
                           {broadcastStats.isRenderSmtpBlocked && (
                             <Box sx={{ mt: 1, p: 1.25, borderRadius: 1.5, bgcolor: isDark ? 'rgba(0,0,0,0.3)' : '#ffffff', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
                               <Typography variant="caption" sx={{ color: textPrimary, fontWeight: 700, display: 'block' }}>

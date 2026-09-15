@@ -1,5 +1,10 @@
 const Alert = require("../models/Alert");
 const Shelter = require("../models/Shelter");
+const {
+    getSmsWalletBalance,
+    sendEmergencySms,
+    broadcastEmergencySmsToCitizens
+} = require("../services/smsService");
 
 // Create Alert
 const createAlert = async (req, res) => {
@@ -289,11 +294,31 @@ const broadcastEmergencyAlert = async (req, res) => {
             console.warn("[Broadcast Alert] Notice saving Alert model:", dbErr.message);
         }
 
+        // 2. Parallel Emergency SMS Broadcast via Fast2SMS
+        let smsResult = null;
+        try {
+            const sendSms = req.body.sendSms !== false;
+            if (sendSms) {
+                smsResult = await broadcastEmergencySmsToCitizens({
+                    district: targetDistrict,
+                    title: finalTitle,
+                    instructions: finalInstructions,
+                    severity: finalSeverity,
+                    hazardType: finalHazard,
+                    directNumbers: req.body.testPhoneNumber ? [req.body.testPhoneNumber] : []
+                });
+            }
+        } catch (smsErr) {
+            console.warn("[Broadcast Alert] Notice dispatching SMS:", smsErr.message);
+            smsResult = { success: false, error: smsErr.message };
+        }
+
         res.status(200).json({
             success: true,
             message: `Emergency alert broadcast dispatched successfully to ${broadcastResult.totalRecipients} registered citizens regarding ${targetDistrict}!`,
             data: {
                 ...broadcastResult,
+                smsResult,
                 targetDistrict,
                 targetState,
                 alertRecordId: createdAlert?._id
@@ -508,6 +533,51 @@ ${toCapXml(alert)}`;
     }
 };
 
+// Send live test SMS to an individual phone number (ideal for live SIH jury demo)
+const sendTestSmsAlert = async (req, res) => {
+    try {
+        const { phoneNumber, district, severity, hazardType, instructions } = req.body;
+        if (!phoneNumber) {
+            return res.status(400).json({ success: false, message: "Valid 10-digit mobile number is required." });
+        }
+
+        const result = await sendEmergencySms({
+            phoneNumbers: [phoneNumber],
+            district: district || "Bhopal",
+            severity: severity || "CRITICAL",
+            hazardType: hazardType || "FLOOD",
+            instructions: instructions || "Mandatory evacuation order in effect. Extreme cloudburst surge detected. Proceed to verified shelter immediately."
+        });
+
+        if (result.success) {
+            return res.status(200).json({
+                success: true,
+                message: `Emergency SMS alert successfully dispatched to ${phoneNumber}!`,
+                data: result
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: result.error || "Fast2SMS dispatch encountered an issue",
+                data: result
+            });
+        }
+    } catch (err) {
+        console.error("sendTestSmsAlert error:", err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// Check Fast2SMS gateway status and remaining free wallet balance
+const getSmsGatewayStatus = async (req, res) => {
+    try {
+        const status = await getSmsWalletBalance();
+        return res.status(200).json({ success: true, data: status });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
 module.exports = {
     createAlert,
     getAlerts,
@@ -517,5 +587,7 @@ module.exports = {
     broadcastEmergencyAlert,
     resolveEmergencyAlerts,
     getCapAlerts,
-    getCapAlertById
+    getCapAlertById,
+    sendTestSmsAlert,
+    getSmsGatewayStatus
 };
