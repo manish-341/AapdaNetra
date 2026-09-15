@@ -69,7 +69,7 @@ export default function EmergencyAlertSentinel() {
   const [toastPopupOpen, setToastPopupOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [sirenPlaying, setSirenPlaying] = useState(false);
-  const [zoneCategory, setZoneCategory] = useState('ALL'); // 'ALL' | 'CRITICAL' | 'WARNING' | 'LOCAL' | 'ADVISORY'
+  const [zoneCategory, setZoneCategory] = useState('ALL'); // 'ALL' | 'CRITICAL' | 'RED' | 'AMBER' | 'GREEN' | 'LOCAL'
   const [selectedRegionZone, setSelectedRegionZone] = useState('ALL');
   const [notificationsVersion, setNotificationsVersion] = useState(0);
 
@@ -336,22 +336,43 @@ export default function EmergencyAlertSentinel() {
     });
   }, [unclearedAlerts]);
 
-  // Red Zone Alerts (Critical hazard zones)
+  // 1. CRITICAL Zone Alerts (Immediate Danger — #b71c1c)
+  const criticalZoneAlerts = React.useMemo(() => {
+    return recentAlerts.filter((a) => a.severity === 'CRITICAL' || a.riskCategory === 'CRITICAL' || isTrueCriticalAlert(a));
+  }, [recentAlerts]);
+
+  // 2. RED Zone Alerts (High Risk — #ef6c00)
   const redZoneAlerts = React.useMemo(() => {
-    return recentAlerts.filter((a) => a.severity === 'CRITICAL' || isTrueCriticalAlert(a));
+    return recentAlerts.filter((a) => 
+      !isTrueCriticalAlert(a) && 
+      a.severity !== 'CRITICAL' && 
+      a.riskCategory !== 'CRITICAL' &&
+      (a.severity === 'HIGH' || a.riskCategory === 'RED' || a.severity === 'RED')
+    );
   }, [recentAlerts]);
 
-  // Orange Zone Alerts (High / Warning risk zones)
-  const orangeZoneAlerts = React.useMemo(() => {
-    return recentAlerts.filter((a) => !isTrueCriticalAlert(a) && (a.severity === 'HIGH' || a.severity === 'WARNING'));
+  // 3. AMBER Zone Alerts (Moderate — #f9a825)
+  const amberZoneAlerts = React.useMemo(() => {
+    return recentAlerts.filter((a) => 
+      a.severity === 'WARNING' || 
+      a.severity === 'MEDIUM' || 
+      a.riskCategory === 'AMBER' || 
+      a.severity === 'AMBER'
+    );
   }, [recentAlerts]);
 
-  // Advisory Zone Alerts (Info / Low risk zones)
-  const advisoryZoneAlerts = React.useMemo(() => {
-    return recentAlerts.filter((a) => a.severity === 'INFO' || a.severity === 'ADVISORY' || a.severity === 'LOW');
+  // 4. GREEN Zone Alerts (Safe / Advisory — #2e7d32)
+  const greenZoneAlerts = React.useMemo(() => {
+    return recentAlerts.filter((a) => 
+      a.severity === 'INFO' || 
+      a.severity === 'LOW' || 
+      a.riskCategory === 'GREEN' || 
+      a.severity === 'GREEN' || 
+      a.severity === 'SAFE'
+    );
   }, [recentAlerts]);
 
-  // Local Zone Alerts (Current jurisdiction)
+  // 5. Local Zone Alerts (Current jurisdiction)
   const localZoneAlerts = React.useMemo(() => {
     return recentAlerts.filter((a) => alertMatchesLocation(a, location));
   }, [recentAlerts, location?.district, location?.name]);
@@ -370,11 +391,13 @@ export default function EmergencyAlertSentinel() {
   const filteredAlerts = React.useMemo(() => {
     let list = recentAlerts;
     if (zoneCategory === 'CRITICAL') {
+      list = criticalZoneAlerts;
+    } else if (zoneCategory === 'RED') {
       list = redZoneAlerts;
-    } else if (zoneCategory === 'WARNING') {
-      list = orangeZoneAlerts;
-    } else if (zoneCategory === 'ADVISORY') {
-      list = advisoryZoneAlerts;
+    } else if (zoneCategory === 'AMBER') {
+      list = amberZoneAlerts;
+    } else if (zoneCategory === 'GREEN') {
+      list = greenZoneAlerts;
     } else if (zoneCategory === 'LOCAL') {
       list = localZoneAlerts;
     }
@@ -383,7 +406,7 @@ export default function EmergencyAlertSentinel() {
       list = list.filter((a) => getAlertRegionName(a) === selectedRegionZone);
     }
     return list;
-  }, [recentAlerts, zoneCategory, redZoneAlerts, orangeZoneAlerts, advisoryZoneAlerts, localZoneAlerts, selectedRegionZone]);
+  }, [recentAlerts, zoneCategory, criticalZoneAlerts, redZoneAlerts, amberZoneAlerts, greenZoneAlerts, localZoneAlerts, selectedRegionZone]);
 
   return (
     <>
@@ -770,7 +793,7 @@ export default function EmergencyAlertSentinel() {
           </Box>
         </Box>
 
-        {/* Zone Category Tabs */}
+        {/* Zone Category Tabs - Aligned to AapdaNetra Official Risk Legend */}
         <Box sx={{ px: 2.5, mt: 1.5, borderBottom: '1px solid var(--border-color)' }}>
           <Tabs
             value={zoneCategory}
@@ -791,11 +814,12 @@ export default function EmergencyAlertSentinel() {
             }}
           >
             <Tab value="ALL" label={`All Zones (${recentAlerts.length})`} />
-            <Tab value="CRITICAL" label={`🔴 Red Zone (${redZoneAlerts.length})`} />
-            <Tab value="WARNING" label={`🟠 Orange Zone (${orangeZoneAlerts.length})`} />
+            <Tab value="CRITICAL" label={`🔴 Critical (${criticalZoneAlerts.length})`} />
+            <Tab value="RED" label={`🛑 Red (${redZoneAlerts.length})`} />
+            <Tab value="AMBER" label={`🟡 Amber (${amberZoneAlerts.length})`} />
             <Tab value="LOCAL" label={`📍 Local (${localZoneAlerts.length})`} />
-            {advisoryZoneAlerts.length > 0 && (
-              <Tab value="ADVISORY" label={`🟡 Advisory (${advisoryZoneAlerts.length})`} />
+            {greenZoneAlerts.length > 0 && (
+              <Tab value="GREEN" label={`🟢 Green (${greenZoneAlerts.length})`} />
             )}
           </Tabs>
         </Box>
@@ -846,16 +870,30 @@ export default function EmergencyAlertSentinel() {
               filteredAlerts.map((item) => {
                 const alertRegion = getAlertRegionName(item);
                 const isTrulyCritical = isTrueCriticalAlert(item);
-                const effectiveSev = isTrulyCritical
-                  ? 'CRITICAL'
-                  : item.severity === 'CRITICAL'
-                  ? 'WARNING'
-                  : item.severity || 'INFO';
-                const isCrit = effectiveSev === 'CRITICAL';
-                const isHigh = effectiveSev === 'HIGH';
-                const themeColor = isCrit ? '#ef4444' : isHigh ? '#f97316' : '#0284c7';
-                const zoneBadge = isCrit ? 'RED ZONE' : isHigh ? 'ORANGE ZONE' : 'ADVISORY ZONE';
-                const zoneBadgeBg = isCrit ? 'rgba(239, 68, 68, 0.12)' : isHigh ? 'rgba(249, 115, 22, 0.12)' : 'rgba(2, 132, 199, 0.12)';
+                
+                // Determine risk category according to AapdaNetra Risk Legend
+                let riskCategoryKey = 'GREEN';
+                let themeColor = '#2e7d32';
+                let zoneBadge = 'GREEN ZONE';
+                let zoneBadgeBg = 'rgba(46, 125, 50, 0.12)';
+
+                if (isTrulyCritical || item.severity === 'CRITICAL' || item.riskCategory === 'CRITICAL') {
+                  riskCategoryKey = 'CRITICAL';
+                  themeColor = '#b71c1c';
+                  zoneBadge = 'CRITICAL ZONE';
+                  zoneBadgeBg = 'rgba(183, 28, 28, 0.12)';
+                } else if (item.severity === 'HIGH' || item.riskCategory === 'RED' || item.severity === 'RED') {
+                  riskCategoryKey = 'RED';
+                  themeColor = '#ef6c00';
+                  zoneBadge = 'RED ZONE';
+                  zoneBadgeBg = 'rgba(239, 108, 0, 0.12)';
+                } else if (item.severity === 'WARNING' || item.severity === 'MEDIUM' || item.riskCategory === 'AMBER' || item.severity === 'AMBER') {
+                  riskCategoryKey = 'AMBER';
+                  themeColor = '#f9a825';
+                  zoneBadge = 'AMBER ZONE';
+                  zoneBadgeBg = 'rgba(249, 168, 37, 0.14)';
+                }
+
                 const isCurrentDistrict = alertMatchesLocation(item, location);
                 const isRead = isAlertRead(item);
 
