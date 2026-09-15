@@ -12,7 +12,6 @@ import {
   LinearProgress,
   IconButton,
   Tooltip,
-  Collapse,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -29,8 +28,6 @@ import {
   ShieldCheck,
   Navigation,
   ArrowRight,
-  ChevronDown,
-  ChevronUp,
   Maximize2,
   CloudRain,
   Waves,
@@ -42,10 +39,10 @@ import {
   Compass,
   Sparkles,
   X,
-  Sliders,
   Activity,
-  Layers,
-  Info
+  ChevronRight,
+  Radio,
+  FileText
 } from 'lucide-react';
 import Boilerplate from '../layouts/Boilerplate';
 import { postAIExplain, getShelterRecommendation } from '../services/api';
@@ -139,8 +136,7 @@ export default function RiskAnalysis() {
   const [riskData, setRiskData] = useState(null);
   const [shelterData, setShelterData] = useState(null);
 
-  // Interactive UI States: Accordion expansion & Popup modal
-  const [expandedQuestions, setExpandedQuestions] = useState({ 1: true, 3: true });
+  // Popup modal state: null or the selected question object
   const [popupQuestion, setPopupQuestion] = useState(null);
 
   // When location in Navbar changes, reset to the first hotspot of that district
@@ -172,17 +168,16 @@ export default function RiskAnalysis() {
 
   // Deterministic terrain hash for responsive fallback computation
   const terrainHash = Math.abs(Math.sin((selectedHotspot?.lat || 28.6) * 12.9898 + (selectedHotspot?.lon || 77.2) * 78.233) * 43758.5453);
-  const terrainVar = ((terrainHash % 1) - 0.5); // -0.5 to +0.5
+  const terrainVar = ((terrainHash % 1) - 0.5);
 
   // Formulate active assessment
   const currentAssessment = useMemo(() => {
     if (riskData?.assessments?.[selectedHazard]) {
       return riskData.assessments[selectedHazard];
     }
-    // Default score: 42 in normal regions or realistic calculation
     let baseScore = Math.min(88, Math.max(24, Math.round(42 + (terrainVar * 20))));
     if (/bhopal/i.test(selectedHotspot?.district || '')) {
-      baseScore = 78; // Active critical flood disaster zone
+      baseScore = 78;
     }
 
     const category = baseScore >= 76 ? 'CRITICAL' : baseScore >= 51 ? 'RED' : baseScore >= 26 ? 'AMBER' : 'GREEN';
@@ -208,24 +203,6 @@ export default function RiskAnalysis() {
     };
   }, [riskData, selectedHazard, selectedHotspot, terrainVar]);
 
-  // Toggle single question expansion
-  const toggleQuestion = (qId) => {
-    setExpandedQuestions((prev) => ({
-      ...prev,
-      [qId]: !prev[qId]
-    }));
-  };
-
-  // Toggle expand all
-  const allExpanded = [1, 2, 3, 4, 5, 6, 7].every((id) => expandedQuestions[id]);
-  const toggleExpandAll = () => {
-    if (allExpanded) {
-      setExpandedQuestions({});
-    } else {
-      setExpandedQuestions({ 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true });
-    }
-  };
-
   const resolvedShelterName = shelterData?.shelter?.name || shelterData?.name || `Nearest Verified Safe Concrete Shelter`;
   const resolvedShelterDist = shelterData?.distance || `1.8 km`;
   const resolvedShelterTime = shelterData?.estimatedTravelTime || `12 mins`;
@@ -249,260 +226,167 @@ export default function RiskAnalysis() {
     : 'rgba(22, 163, 74, 0.12)';
 
   // 7 Core Questions Content Definition
-  const questionsList = [
+  const questionsList = useMemo(() => [
     {
       id: 1,
-      icon: <AlertTriangle size={20} color="#0284c7" />,
+      icon: <AlertTriangle size={17} color="#0284c7" />,
       title: 'What is Happening?',
-      subtitle: 'Current Situation & Classification',
-      summary: `${selectedHotspot.name} is experiencing a ${currentAssessment.riskCategory === 'AMBER' ? 'moderate' : currentAssessment.riskCategory.toLowerCase()} ${selectedHazard.toLowerCase()} threat due to rising water levels and high river flow conditions.`,
-      badge: `${selectedHazard} HAZARD ALERT`,
-      badgeSub: `Classification Level: ${currentAssessment.riskCategory} (${currentAssessment.riskScore}/100)`,
+      subtitle: 'Current Situation & Hazard Level',
+      pill: `${currentAssessment.riskCategory} (${currentAssessment.riskScore}/100)`,
+      pillColor: scoreColor,
+      pillBg: scorePillBg,
+      summary: `${selectedHotspot.name} is experiencing an active ${currentAssessment.riskCategory.toLowerCase()} ${selectedHazard.toLowerCase()} threat driven by accelerated water accumulation and upstream river flow conditions.`,
       details: {
-        telemetry: `Automated sensor telemetry reports sustained water level elevation in ${selectedHotspot.name}. Flow discharge rates are approaching baseline capacity thresholds with active precipitation alerts across the catchment area.`,
-        classification: `Current assessment indicates an elevated threat level requiring institutional preparedness and frontline monitoring. Acoustic sirens remain pre-armed for rapid deployment.`,
-        keyStat: `Threat Index: ${currentAssessment.riskScore}/100 (${currentAssessment.riskCategory})`
+        alertBadge: `${selectedHazard} HAZARD ALERT`,
+        alertLevel: `Classification Level: ${currentAssessment.riskCategory} (${currentAssessment.riskScore}/100)`,
+        telemetry: `Automated hydrometric sensor telemetry reports sustained water level elevation in ${selectedHotspot.name}. Flow discharge rates are approaching baseline drainage capacity thresholds with active precipitation alerts across the catchment area.`,
+        classification: `Institutional preparedness Level 2 active. Acoustic sirens and SMS broadcast nodes remain pre-armed for rapid emergency deployment.`,
+        keyStat: `Threat Index: ${currentAssessment.riskScore}/100 (${currentAssessment.riskCategory})`,
+        metrics: [
+          { label: 'Risk Category', value: currentAssessment.riskCategory, color: scoreColor },
+          { label: 'Hazard Type', value: selectedHazard, color: '#0284c7' },
+          { label: 'Threat Score', value: `${currentAssessment.riskScore}/100`, color: scoreColor },
+          { label: 'Discharge Level', value: 'Elevated (92% capacity)', color: '#ea580c' }
+        ]
       }
     },
     {
       id: 2,
-      icon: <MapPin size={20} color="#0284c7" />,
+      icon: <MapPin size={17} color="#0284c7" />,
       title: 'Where is it Happening?',
-      subtitle: 'Location & Impact Area',
-      summary: null,
-      customPreview: (
-        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-          <Box display="flex" alignItems="center" gap={1}>
-            <MapPin size={14} color="#0284c7" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              <strong>Location:</strong> {selectedHotspot.name}
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Compass size={14} color="#0284c7" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              <strong>Hotspot Coordinates:</strong> {selectedHotspot.lat.toFixed(4)}, {selectedHotspot.lon.toFixed(4)}
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Users size={14} color="#0284c7" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              <strong>Impact Perimeter:</strong> ~{selectedHotspot.area || '4.8'} km² ({selectedHotspot.terrain})
-            </Typography>
-          </Box>
-        </Stack>
-      ),
+      subtitle: 'Location & Impact Perimeter',
+      pill: `~${selectedHotspot.area || '4.8'} km² Perimeter`,
+      pillColor: '#0284c7',
+      pillBg: isDark ? 'rgba(2,132,199,0.15)' : '#e0f2fe',
+      summary: `Impact zone spans ~${selectedHotspot.area || '4.8'} km² encompassing ${selectedHotspot.name} across ${selectedHotspot.terrain}.`,
       details: {
-        telemetry: `Impact zone spans ~${selectedHotspot.area || '4.8'} km² across ${selectedHotspot.terrain}. Geodetic boundary mapping indicates low elevation gradients that restrict natural drainage runoff into primary municipal outfalls.`,
-        classification: `Immediate risk encompasses riverbanks, low-lying culvert siphons, and settlements situated below the high-water contour line.`,
-        keyStat: `Catchment Perimeter: ${selectedHotspot.area || '4.8'} km² | Terrain: ${selectedHotspot.terrain}`
+        telemetry: `Geodetic boundary mapping indicates a restricted elevation gradient in ${selectedHotspot.terrain}. Low-lying culvert siphons restrict natural runoff discharge into primary municipal outfalls, causing backflow into vulnerable residential sectors.`,
+        classification: `Immediate risk perimeter covers riverbanks, low-elevation road intersections, and settlements situated below the high-water contour line.`,
+        keyStat: `Impact Perimeter: ~${selectedHotspot.area || '4.8'} km² | Terrain: ${selectedHotspot.terrain}`,
+        metrics: [
+          { label: 'Hotspot Area', value: `~${selectedHotspot.area || '4.8'} km²`, color: '#0284c7' },
+          { label: 'Coordinates', value: `${selectedHotspot.lat.toFixed(3)}, ${selectedHotspot.lon.toFixed(3)}`, color: textMain },
+          { label: 'Terrain Type', value: selectedHotspot.terrain, color: textMain },
+          { label: 'Drainage State', value: 'Restricted Inflow Siphon', color: '#ea580c' }
+        ]
       }
     },
     {
       id: 3,
-      icon: <TrendingUp size={20} color="#0284c7" />,
+      icon: <TrendingUp size={17} color="#0284c7" />,
       title: 'Why is the Risk Increasing?',
-      subtitle: 'Key Factors (Explainable)',
-      summary: null,
-      customPreview: (
-        <Grid container spacing={1.5} sx={{ mt: 0.5 }}>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', border: `1px solid ${cardBorder}`, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CloudRain size={18} color="#0284c7" />
-              <Box>
-                <Typography variant="caption" fontWeight={700} sx={{ color: textMain, display: 'block', fontSize: '0.72rem' }}>
-                  Heavy Rainfall
-                </Typography>
-                <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.65rem' }}>
-                  (Weather Patterns)
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', border: `1px solid ${cardBorder}`, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Waves size={18} color="#0284c7" />
-              <Box>
-                <Typography variant="caption" fontWeight={700} sx={{ color: textMain, display: 'block', fontSize: '0.72rem' }}>
-                  River Flow Rise
-                </Typography>
-                <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.65rem' }}>
-                  ({selectedHotspot.name.split(' ')[0]})
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', border: `1px solid ${cardBorder}`, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Mountain size={18} color="#0284c7" />
-              <Box>
-                <Typography variant="caption" fontWeight={700} sx={{ color: textMain, display: 'block', fontSize: '0.72rem' }}>
-                  Low Elevation
-                </Typography>
-                <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.65rem' }}>
-                  (Floodplain Basin)
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', border: `1px solid ${cardBorder}`, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Building2 size={18} color="#0284c7" />
-              <Box>
-                <Typography variant="caption" fontWeight={700} sx={{ color: textMain, display: 'block', fontSize: '0.72rem' }}>
-                  Infrastructure
-                </Typography>
-                <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.65rem' }}>
-                  Vulnerability
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-        </Grid>
-      ),
+      subtitle: 'Key Driving Factors (Explainable AI)',
+      pill: '4 Key Drivers (XAI)',
+      pillColor: '#d97706',
+      pillBg: isDark ? 'rgba(217,119,6,0.15)' : '#fef3c7',
+      summary: 'Explainable AI decomposition highlights 4 correlated drivers led by precipitation volume and upstream river flow surge.',
       details: {
-        telemetry: `Explainable AI SHAP Decomposition: Meteorological precipitation carries a 35% upward driving weight, while river discharge surge represents 28%. Soil moisture saturation index exceeds 74%, substantially reducing subterranean absorption.`,
-        classification: `Infrastructure bottlenecking in secondary storm drains causes surface runoff pooling rather than gradual canal dissipation.`,
-        keyStat: `Top Driver: Precipitation & Upstream Discharge (63% Aggregate Influence)`
+        telemetry: `Explainable AI SHAP Decomposition confirms meteorological precipitation carries a 35% upward driving weight, while river discharge surge represents 28%. Soil moisture saturation index exceeds 74%, substantially suppressing subterranean absorption.`,
+        classification: `Infrastructure bottlenecking in secondary stormwater canals causes surface runoff pooling rather than gradual canal dissipation.`,
+        keyStat: `Top Driver: Precipitation & River Discharge (63% Aggregate Influence)`,
+        factors: [
+          { title: 'Heavy Rainfall', subtitle: 'Weather Patterns', weight: '35% Impact', icon: <CloudRain size={20} color="#0284c7" /> },
+          { title: 'River Flow Rise', subtitle: selectedHotspot.name.split(' ')[0], weight: '28% Impact', icon: <Waves size={20} color="#0284c7" /> },
+          { title: 'Low Elevation', subtitle: 'Floodplain Basin', weight: '21% Impact', icon: <Mountain size={20} color="#0284c7" /> },
+          { title: 'Infrastructure', subtitle: 'Drain Siphon Bottle-neck', weight: '16% Impact', icon: <Building2 size={20} color="#0284c7" /> }
+        ]
       }
     },
     {
       id: 4,
-      icon: <Clock size={20} color="#0284c7" />,
+      icon: <Clock size={17} color="#0284c7" />,
       title: 'What Will Happen Next?',
-      subtitle: 'Time-series Prediction',
-      summary: null,
-      customPreview: (
-        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Clock size={14} color="#0284c7" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              <strong>Short-term:</strong> 1–3 days &rarr; Rising water levels likely across low apron
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            <TrendingUp size={14} color="#ea580c" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              <strong>Medium-term:</strong> 3–7 days &rarr; Increased flood extent if rainfall persists
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            <CheckCircle2 size={14} color="#16a34a" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              <strong>Long-term:</strong> 7–14 days &rarr; Stabilization & gradual culvert recession (if no more rainfall)
-            </Typography>
-          </Box>
-        </Stack>
-      ),
+      subtitle: 'Time-series Forecasting (1–14 Days)',
+      pill: 'Peak: +6h to +14h',
+      pillColor: '#ea580c',
+      pillBg: isDark ? 'rgba(234,88,12,0.15)' : '#ffedd5',
+      summary: 'Predictive GRU models anticipate peak water volume crest within +6h to +14h, followed by gradual recession if rainfall subsides.',
       details: {
-        telemetry: `Temporal recurrent inference (GRU time-series) projects water volume accumulation cresting between +6h and +14h. Discharge capacity through downstream locks will dictate whether water level recedes by day 4 or expands into buffer lanes.`,
-        classification: `Continuous satellite and radar telemetry sync every 15 minutes to recalibrate projection curves.`,
-        keyStat: `Forecast Peak: +6h to +14h Crest Window`
+        telemetry: `Temporal recurrent inference (GRU time-series) projects water volume accumulation cresting between +6h and +14h. Discharge capacity through downstream locks will dictate whether water level recedes by day 4 or expands into secondary buffer lanes.`,
+        classification: `Continuous radar sync every 15 minutes recalibrates temporal decay curves. Emergency services have 8 hours of critical prep runway.`,
+        keyStat: `Forecast Peak: +6h to +14h Crest Window`,
+        horizons: [
+          { title: 'Short-term (1–3 Days)', desc: 'Rising water levels likely across low-lying apron & road culverts', status: 'Rising', color: '#ea580c' },
+          { title: 'Medium-term (3–7 Days)', desc: 'Increased inundation extent if active rainfall persists in upper catchment', status: 'Sustained', color: '#d97706' },
+          { title: 'Long-term (7–14 Days)', desc: 'Stabilization & gradual culvert drainage recession (weather dependent)', status: 'Receding', color: '#16a34a' }
+        ]
       }
     },
     {
       id: 5,
-      icon: <Users size={20} color="#0284c7" />,
+      icon: <Users size={17} color="#0284c7" />,
       title: 'Who is Affected?',
-      subtitle: 'Vulnerable Population & Assets',
-      summary: null,
-      customPreview: (
-        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Users size={14} color="#0284c7" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              <strong>Vulnerable:</strong> ~17,750 residents (estimated demographic density)
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Shield size={14} color="#0284c7" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              <strong>Types:</strong> Low-income households, infants, elderly, mobility-impaired
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Building2 size={14} color="#0284c7" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              <strong>Assets:</strong> Residential homes, primary schools, power substations & culverts
-            </Typography>
-          </Box>
-        </Stack>
-      ),
+      subtitle: 'Vulnerable Demographics & Assets',
+      pill: '~17,750 Residents',
+      pillColor: '#7c3aed',
+      pillBg: isDark ? 'rgba(124,58,237,0.15)' : '#f3e8ff',
+      summary: '~17,750 residents identified in direct catchment contour, including ~3,370 vulnerable individuals requiring transport assistance.',
       details: {
-        telemetry: `Census GIS overlay registers 17,750 citizens within direct contour reach. Approximately 19% (~3,370 persons) represent vulnerable categories requiring assisted vehicle evacuation.`,
+        telemetry: `Census GIS overlay registers 17,750 citizens within direct contour reach. Approximately 19% (~3,370 persons) represent vulnerable categories (infants, elderly, mobility-impaired) requiring assisted vehicle evacuation.`,
         classification: `Key physical assets under active surveillance: 2 primary electrical sub-stations, 4 primary school buildings, and 1 community healthcare clinic.`,
-        keyStat: `Estimated Affected: ~17,750 Citizens | Critical Assets: 7 Facilities`
+        keyStat: `Affected: ~17,750 Citizens | Critical Assets: 7 Facilities`,
+        assets: [
+          { label: 'Total Population in Impact Zone', value: '~17,750 Citizens', icon: <Users size={16} color="#0284c7" /> },
+          { label: 'Priority Assisted Evacuees', value: '~3,370 Elderly & Children', icon: <Shield size={16} color="#ea580c" /> },
+          { label: 'Power Infrastructure', value: '2 Electrical Sub-stations', icon: <Building2 size={16} color="#d97706" /> },
+          { label: 'Civic Facilities', value: '4 Primary Schools & 1 Clinic', icon: <Home size={16} color="#16a34a" /> }
+        ]
       }
     },
     {
       id: 6,
-      icon: <ShieldCheck size={20} color="#0284c7" />,
+      icon: <ShieldCheck size={17} color="#0284c7" />,
       title: 'What Responders Do?',
-      subtitle: 'Preparedness & Actions',
-      summary: null,
-      customPreview: (
-        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-          <Box display="flex" alignItems="center" gap={1}>
-            <CheckCircle2 size={14} color="#16a34a" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              Early warning & autonomous SMS alert communication dispatched
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            <CheckCircle2 size={14} color="#16a34a" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              Evacuation routes activated & rescue response units placed on standby
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            <CheckCircle2 size={14} color="#16a34a" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              Resource allocation deployed (clean drinking water, medical kits, transport fleet)
-            </Typography>
-          </Box>
-        </Stack>
-      ),
+      subtitle: 'SOP Preparedness & Tactics',
+      pill: 'SOP Tier-2 Active',
+      pillColor: '#16a34a',
+      pillBg: isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7',
+      summary: 'Institutional SOP Tier-2 activated: Autonomous SMS cell broadcast, de-watering pump deployment, and rescue unit standby.',
       details: {
         telemetry: `Civil defense and emergency responders have deployed high-capacity mobile de-watering pumps to primary siphon corridors. Inflatable rescue boats and emergency transports are staged at municipal staging points.`,
         classification: `Autonomous SMS cell broadcast delivers direct instructions to citizen devices, directing traffic along elevated transit corridors.`,
-        keyStat: `Action Status: SOP Tier-2 Active Preparedness`
+        keyStat: `Status: SOP Tier-2 Active Emergency Mobilization`,
+        actions: [
+          'Early warning & autonomous SMS cell broadcast alert dispatched to citizen devices',
+          'Evacuation corridors mapped & emergency rescue response units placed on standby',
+          'High-capacity mobile de-watering pumps staged at primary outfalls',
+          'Critical relief supplies staged (clean drinking water, medical kits, transport fleet)'
+        ]
       }
     },
     {
       id: 7,
-      icon: <ArrowRight size={20} color="#0284c7" />,
+      icon: <ArrowRight size={17} color="#0284c7" />,
       title: 'Where People Go?',
-      subtitle: 'Relocation Plan',
-      summary: null,
-      customPreview: (
-        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Home size={14} color="#16a34a" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              <strong>Immediate:</strong> Nearest verified safe shelters ({resolvedShelterName})
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Tent size={14} color="#0284c7" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              <strong>Short-term:</strong> Temporary relief transit camps (1–7 days)
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Building2 size={14} color="#64748b" />
-            <Typography variant="caption" sx={{ color: textMain }}>
-              <strong>Medium-term:</strong> Permanent resettlement centers (if infrastructure damaged)
-            </Typography>
-          </Box>
-        </Stack>
-      ),
+      subtitle: 'Relocation Plan & Shelters',
+      pill: 'Nearest Safe Shelter',
+      pillColor: '#0284c7',
+      pillBg: isDark ? 'rgba(2,132,199,0.15)' : '#e0f2fe',
+      summary: `Primary shelter assigned: ${resolvedShelterName} (${resolvedShelterDist}, ${resolvedShelterBeds} beds available).`,
       details: {
         telemetry: `Primary Recommended Shelter: ${resolvedShelterName} (Distance: ${resolvedShelterDist}, Estimated Travel: ${resolvedShelterTime}). Currently has ${resolvedShelterBeds} verified vacant beds with backup generator power, medical triage, and clean food rations.`,
         classification: `Turn-by-turn flood-safe evacuation routes are continuously mapped to bypass submerged intersections.`,
-        keyStat: `Primary Shelter: ${resolvedShelterName} (${resolvedShelterBeds} Beds Available)`
+        keyStat: `Shelter: ${resolvedShelterName} (${resolvedShelterBeds} Beds)`,
+        shelterTiers: [
+          { tier: 'Immediate (0–24h)', name: resolvedShelterName, detail: `${resolvedShelterDist} away • ${resolvedShelterTime} travel • ${resolvedShelterBeds} vacant beds`, icon: <Home size={18} color="#16a34a" /> },
+          { tier: 'Short-term (1–7 Days)', name: 'Municipal Transit Camp Alpha', detail: 'Equipped with food rations, clean sanitation & emergency power', icon: <Tent size={18} color="#0284c7" /> },
+          { tier: 'Medium-term (7+ Days)', name: 'Permanent Resettlement Centers', detail: 'Pre-designated elevated civic facilities & regional stadiums', icon: <Building2 size={18} color="#64748b" /> }
+        ]
       }
     }
-  ];
+  ], [
+    currentAssessment,
+    selectedHotspot,
+    selectedHazard,
+    scoreColor,
+    scorePillBg,
+    isDark,
+    textMain,
+    resolvedShelterName,
+    resolvedShelterDist,
+    resolvedShelterTime,
+    resolvedShelterBeds
+  ]);
 
   return (
     <Boilerplate>
@@ -511,8 +395,8 @@ export default function RiskAnalysis() {
         <Box display="flex" alignItems="center" gap={1.75}>
           <Box
             sx={{
-              width: 48,
-              height: 48,
+              width: 46,
+              height: 46,
               borderRadius: 2.5,
               bgcolor: '#0284c7',
               color: '#ffffff',
@@ -522,14 +406,14 @@ export default function RiskAnalysis() {
               boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)'
             }}
           >
-            <Brain size={28} />
+            <Brain size={26} />
           </Box>
           <Box>
             <Typography variant="h5" fontWeight={800} sx={{ color: textMain, letterSpacing: -0.5 }}>
               Explainable AI (XAI) Decision Support
             </Typography>
             <Typography variant="body2" sx={{ color: textMuted, fontSize: '0.85rem' }}>
-              Transparent risk decomposition answering the 7 Core Questions: What, Where, Why, What Next, Who, What Responders Do, Where People Go.
+              Transparent risk decomposition answering the 7 Core Disaster Intelligence Questions.
             </Typography>
           </Box>
         </Box>
@@ -555,7 +439,7 @@ export default function RiskAnalysis() {
         <Grid container spacing={3}>
           {/* LEFT COLUMN: Hotspot Selection & Risk Model Card */}
           <Grid size={{ xs: 12, lg: 4.5 }}>
-            <Stack spacing={3}>
+            <Stack spacing={2.5}>
               {/* Card 1: Selected Evaluated Hotspot */}
               <Paper
                 elevation={0}
@@ -584,7 +468,7 @@ export default function RiskAnalysis() {
                           variant={isSelected ? 'contained' : 'outlined'}
                           onClick={() => setSelectedHotspot(spot)}
                           sx={{
-                            py: 1.25,
+                            py: 1.2,
                             px: 1,
                             borderRadius: 2,
                             textTransform: 'none',
@@ -614,7 +498,7 @@ export default function RiskAnalysis() {
                 {/* Active Hotspot Detail Card */}
                 <Box
                   sx={{
-                    p: 2,
+                    p: 1.75,
                     borderRadius: 2,
                     bgcolor: isDark ? 'rgba(2, 132, 199, 0.08)' : '#f0f9ff',
                     border: '1px solid',
@@ -642,7 +526,7 @@ export default function RiskAnalysis() {
                   </Box>
 
                   <Box display="flex" alignItems="center" gap={0.75}>
-                    <MapPin size={16} color="#0284c7" />
+                    <Compass size={16} color="#0284c7" />
                     <Box>
                       <Typography variant="caption" sx={{ color: textMuted, display: 'block', fontSize: '0.68rem' }}>
                         Coordinates
@@ -655,7 +539,7 @@ export default function RiskAnalysis() {
                 </Box>
               </Paper>
 
-              {/* Card 2: Flood Risk Model (matching reference layout exactly) */}
+              {/* Card 2: Flood Risk Model */}
               <Paper
                 elevation={0}
                 sx={{
@@ -665,7 +549,7 @@ export default function RiskAnalysis() {
                   border: `1px solid ${cardBorder}`
                 }}
               >
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2.5}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                   <Box display="flex" alignItems="center" gap={1}>
                     <ShieldCheck size={18} color="#0284c7" />
                     <Typography variant="subtitle1" fontWeight={800} sx={{ color: textMain }}>
@@ -694,12 +578,12 @@ export default function RiskAnalysis() {
                 </Box>
 
                 {/* Gauge & Legend Row */}
-                <Grid container spacing={2} alignItems="center" mb={2.5}>
+                <Grid container spacing={2} alignItems="center" mb={2}>
                   {/* Circular Ring Gauge */}
                   <Grid size={{ xs: 5 }}>
                     <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center">
-                      <Box position="relative" width={120} height={120} display="flex" alignItems="center" justifyContent="center">
-                        <svg width="120" height="120" viewBox="0 0 100 100">
+                      <Box position="relative" width={112} height={112} display="flex" alignItems="center" justifyContent="center">
+                        <svg width="112" height="112" viewBox="0 0 100 100">
                           <circle
                             cx="50"
                             cy="50"
@@ -733,38 +617,35 @@ export default function RiskAnalysis() {
                       </Box>
                       <Box
                         sx={{
-                          mt: 1,
-                          px: 1.5,
+                          mt: 0.75,
+                          px: 1.25,
                           py: 0.25,
                           borderRadius: 1,
                           bgcolor: scorePillBg,
                           color: scoreColor,
                           fontWeight: 800,
-                          fontSize: '0.72rem',
+                          fontSize: '0.7rem',
                           letterSpacing: 0.5
                         }}
                       >
                         {currentAssessment.riskCategory}
                       </Box>
-                      <Typography variant="caption" sx={{ color: textMuted, mt: 0.5, fontWeight: 600, fontSize: '0.72rem' }}>
-                        Flood Threat Index
-                      </Typography>
                     </Box>
                   </Grid>
 
                   {/* Legend Scale Table */}
                   <Grid size={{ xs: 7 }}>
-                    <Box sx={{ borderLeft: `1px solid ${cardBorder}`, pl: 2 }}>
-                      <Typography variant="caption" fontWeight={700} sx={{ color: textMuted, display: 'block', mb: 1, fontSize: '0.7rem' }}>
-                        Risk Level
+                    <Box sx={{ borderLeft: `1px solid ${cardBorder}`, pl: 1.5 }}>
+                      <Typography variant="caption" fontWeight={700} sx={{ color: textMuted, display: 'block', mb: 0.75, fontSize: '0.68rem' }}>
+                        Risk Scale
                       </Typography>
-                      <Stack spacing={0.75}>
+                      <Stack spacing={0.5}>
                         {[
-                          { range: '0 – 20', label: 'Low (Green)', color: '#16a34a', active: currentAssessment.riskScore <= 20 },
-                          { range: '21 – 40', label: 'Moderate (Yellow)', color: '#ca8a04', active: currentAssessment.riskScore > 20 && currentAssessment.riskScore <= 40 },
-                          { range: '41 – 60', label: 'High (Amber)', color: '#d97706', active: currentAssessment.riskScore > 40 && currentAssessment.riskScore <= 60 },
-                          { range: '61 – 80', label: 'Very High (Red)', color: '#ea580c', active: currentAssessment.riskScore > 60 && currentAssessment.riskScore <= 80 },
-                          { range: '81 – 100', label: 'Extreme (Red)', color: '#dc2626', active: currentAssessment.riskScore > 80 }
+                          { range: '0–20', label: 'Low', color: '#16a34a', active: currentAssessment.riskScore <= 20 },
+                          { range: '21–40', label: 'Moderate', color: '#ca8a04', active: currentAssessment.riskScore > 20 && currentAssessment.riskScore <= 40 },
+                          { range: '41–60', label: 'High (Amber)', color: '#d97706', active: currentAssessment.riskScore > 40 && currentAssessment.riskScore <= 60 },
+                          { range: '61–80', label: 'Very High', color: '#ea580c', active: currentAssessment.riskScore > 60 && currentAssessment.riskScore <= 80 },
+                          { range: '81–100', label: 'Extreme', color: '#dc2626', active: currentAssessment.riskScore > 80 }
                         ].map((tier, idx) => (
                           <Box
                             key={idx}
@@ -772,20 +653,20 @@ export default function RiskAnalysis() {
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'space-between',
-                              p: 0.5,
-                              px: 0.75,
+                              p: 0.4,
+                              px: 0.6,
                               borderRadius: 1,
                               bgcolor: tier.active ? (isDark ? 'rgba(217, 119, 6, 0.15)' : '#fef3c7') : 'transparent',
                               border: tier.active ? '1px solid #f59e0b' : '1px solid transparent'
                             }}
                           >
-                            <Box display="flex" alignItems="center" gap={1}>
-                              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: tier.color }} />
-                              <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.7rem', fontWeight: tier.active ? 800 : 500 }}>
+                            <Box display="flex" alignItems="center" gap={0.75}>
+                              <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: tier.color }} />
+                              <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.68rem', fontWeight: tier.active ? 800 : 500 }}>
                                 {tier.range}
                               </Typography>
                             </Box>
-                            <Typography variant="caption" sx={{ color: tier.active ? (isDark ? '#fbbf24' : '#b45309') : textMain, fontSize: '0.7rem', fontWeight: tier.active ? 800 : 600 }}>
+                            <Typography variant="caption" sx={{ color: tier.active ? (isDark ? '#fbbf24' : '#b45309') : textMain, fontSize: '0.68rem', fontWeight: tier.active ? 800 : 600 }}>
                               {tier.label}
                             </Typography>
                           </Box>
@@ -795,16 +676,16 @@ export default function RiskAnalysis() {
                   </Grid>
                 </Grid>
 
-                {/* Model Confidence & Progress Bar */}
+                {/* Model Confidence & Details */}
                 <Box pt={1.5} borderTop={`1px solid ${cardBorder}`}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.75}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
                     <Box display="flex" alignItems="center" gap={0.75}>
-                      <Activity size={14} color="#0284c7" />
-                      <Typography variant="caption" fontWeight={700} sx={{ color: textMain, fontSize: '0.75rem' }}>
+                      <Activity size={13} color="#0284c7" />
+                      <Typography variant="caption" fontWeight={700} sx={{ color: textMain, fontSize: '0.72rem' }}>
                         Model Confidence
                       </Typography>
                     </Box>
-                    <Typography variant="caption" fontWeight={800} sx={{ color: '#0284c7', fontSize: '0.75rem' }}>
+                    <Typography variant="caption" fontWeight={800} sx={{ color: '#0284c7', fontSize: '0.72rem' }}>
                       {Math.round(currentAssessment.confidence * 100)}% (Calibrated)
                     </Typography>
                   </Box>
@@ -812,19 +693,19 @@ export default function RiskAnalysis() {
                     variant="determinate"
                     value={currentAssessment.confidence * 100}
                     sx={{
-                      height: 6,
+                      height: 5,
                       borderRadius: 3,
-                      mb: 1.5,
+                      mb: 1,
                       bgcolor: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
                       '& .MuiLinearProgress-bar': { bgcolor: '#0284c7' }
                     }}
                   />
                   <Box display="flex" justifyContent="space-between" alignItems="center">
-                    <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.7rem' }}>
-                      Model: <strong>XGBoost</strong>
+                    <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.68rem' }}>
+                      Algorithm: <strong>XGBoost + SHAP</strong>
                     </Typography>
-                    <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.7rem' }}>
-                      District: <strong>{selectedHotspot?.district}</strong>
+                    <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.68rem' }}>
+                      Region: <strong>{selectedHotspot?.district}</strong>
                     </Typography>
                   </Box>
                 </Box>
@@ -832,276 +713,164 @@ export default function RiskAnalysis() {
             </Stack>
           </Grid>
 
-          {/* RIGHT COLUMN: The 7 Core Disaster Intelligence Answers */}
+          {/* RIGHT COLUMN: The 7 Core Disaster Intelligence Answers (Compact List) */}
           <Grid size={{ xs: 12, lg: 7.5 }}>
             <Paper
               elevation={0}
               sx={{
-                p: 3,
+                p: { xs: 2, sm: 2.5 },
                 borderRadius: 3,
                 bgcolor: cardBg,
                 border: `1px solid ${cardBorder}`
               }}
             >
-              {/* Header row with Brain icon & Expand/Collapse toggle */}
-              <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1.5} mb={2.5}>
+              {/* Header row: Title + Prompt to click */}
+              <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} mb={2}>
                 <Box display="flex" alignItems="center" gap={1.25}>
                   <Brain size={22} color="#0284c7" />
-                  <Typography variant="h6" fontWeight={800} sx={{ color: textMain, fontSize: '1.05rem' }}>
-                    The 7 Core Disaster Intelligence Answers
-                  </Typography>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={800} sx={{ color: textMain, lineHeight: 1.2 }}>
+                      The 7 Core Disaster Intelligence Answers
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.72rem' }}>
+                      Click any question to pop up in-depth telemetry and response directives.
+                    </Typography>
+                  </Box>
                 </Box>
-                <Button
+                <Chip
                   size="small"
-                  variant="outlined"
-                  onClick={toggleExpandAll}
-                  startIcon={allExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  icon={<Sparkles size={13} color="#0284c7" />}
+                  label="Interactive Q&A Modal"
                   sx={{
-                    textTransform: 'none',
                     fontWeight: 700,
-                    fontSize: '0.72rem',
-                    py: 0.25,
-                    px: 1.5,
-                    borderRadius: 1.5,
-                    borderColor: cardBorder,
-                    color: textMuted,
-                    '&:hover': {
-                      borderColor: '#0284c7',
-                      color: '#0284c7'
-                    }
+                    fontSize: '0.7rem',
+                    bgcolor: isDark ? 'rgba(2, 132, 199, 0.12)' : '#e0f2fe',
+                    color: '#0284c7',
+                    border: '1px solid rgba(2, 132, 199, 0.25)'
                   }}
-                >
-                  {allExpanded ? 'Collapse All' : 'Expand All Details'}
-                </Button>
+                />
               </Box>
 
-              {/* The 7 Questions List */}
-              <Stack spacing={2}>
-                {questionsList.map((q) => {
-                  const isExpanded = !!expandedQuestions[q.id];
-                  return (
-                    <Box
-                      key={q.id}
-                      sx={{
-                        p: 2,
-                        borderRadius: 2.5,
-                        bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#ffffff',
-                        border: '1px solid',
-                        borderColor: isExpanded ? (isDark ? '#0284c7' : '#93c5fd') : cardBorder,
-                        transition: 'all 0.2s ease-in-out',
-                        boxShadow: isExpanded ? '0 4px 12px rgba(2, 132, 199, 0.08)' : 'none',
-                        '&:hover': {
-                          borderColor: '#0284c7'
-                        }
-                      }}
-                    >
-                      {/* Main Question Row */}
-                      <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={2}>
-                        {/* Number & Icon Pill */}
-                        <Box display="flex" alignItems="center" gap={1.5}>
-                          <Box
-                            sx={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: 2,
-                              bgcolor: isDark ? 'rgba(2, 132, 199, 0.15)' : '#e0f2fe',
-                              color: '#0284c7',
-                              fontWeight: 800,
-                              fontSize: '0.95rem',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0
-                            }}
-                          >
-                            {q.id}
-                          </Box>
-                          <Box
-                            sx={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: 2,
-                              bgcolor: isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0
-                            }}
-                          >
-                            {q.icon}
-                          </Box>
-
-                          <Box>
-                            <Typography
-                              variant="subtitle2"
-                              fontWeight={800}
-                              sx={{ color: textMain, fontSize: '0.92rem', cursor: 'pointer' }}
-                              onClick={() => toggleQuestion(q.id)}
-                            >
-                              {q.title}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.72rem' }}>
-                              {q.subtitle}
-                            </Typography>
-                          </Box>
-                        </Box>
-
-                        {/* Right side: Badge (if present) & Action Buttons */}
-                        <Box display="flex" alignItems="center" gap={1}>
-                          {q.badge && (
-                            <Box
-                              sx={{
-                                display: { xs: 'none', sm: 'block' },
-                                p: 0.75,
-                                px: 1.25,
-                                borderRadius: 1.5,
-                                bgcolor: isDark ? 'rgba(217, 119, 6, 0.12)' : '#fef3c7',
-                                border: '1px solid #f59e0b',
-                                textAlign: 'right'
-                              }}
-                            >
-                              <Box display="flex" alignItems="center" gap={0.5} justifyContent="flex-end">
-                                <AlertTriangle size={12} color="#d97706" />
-                                <Typography variant="caption" fontWeight={800} sx={{ color: '#d97706', fontSize: '0.68rem' }}>
-                                  {q.badge}
-                                </Typography>
-                              </Box>
-                              <Typography variant="caption" sx={{ color: textMuted, display: 'block', fontSize: '0.62rem' }}>
-                                {q.badgeSub}
-                              </Typography>
-                            </Box>
-                          )}
-
-                          {/* Popup Dialog View Button */}
-                          <Tooltip title="View full breakdown in popup dialog">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPopupQuestion(q);
-                              }}
-                              sx={{
-                                color: textMuted,
-                                '&:hover': { color: '#0284c7', bgcolor: isDark ? 'rgba(2,132,199,0.1)' : '#e0f2fe' }
-                              }}
-                            >
-                              <Maximize2 size={15} />
-                            </IconButton>
-                          </Tooltip>
-
-                          {/* Dropdown Toggle Button */}
-                          <Tooltip title={isExpanded ? 'Collapse details' : 'Show details dropdown'}>
-                            <IconButton
-                              size="small"
-                              onClick={() => toggleQuestion(q.id)}
-                              sx={{
-                                color: textMuted,
-                                transform: isExpanded ? 'rotate(180deg)' : 'none',
-                                transition: 'transform 0.2s ease-in-out',
-                                '&:hover': { color: '#0284c7' }
-                              }}
-                            >
-                              <ChevronDown size={18} />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
+              {/* The 7 Compact Question Rows */}
+              <Stack spacing={1}>
+                {questionsList.map((q) => (
+                  <Box
+                    key={q.id}
+                    onClick={() => setPopupQuestion(q)}
+                    sx={{
+                      py: 1.1,
+                      px: 1.75,
+                      borderRadius: 2,
+                      bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc',
+                      border: '1px solid',
+                      borderColor: cardBorder,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 1.5,
+                      transition: 'all 0.18s ease-in-out',
+                      '&:hover': {
+                        bgcolor: isDark ? 'rgba(2, 132, 199, 0.08)' : '#f0f9ff',
+                        borderColor: '#0284c7',
+                        transform: 'translateX(3px)',
+                        boxShadow: '0 2px 10px rgba(2, 132, 199, 0.12)'
+                      }
+                    }}
+                  >
+                    {/* Left: Number badge + Icon + Question title + subtitle */}
+                    <Box display="flex" alignItems="center" gap={1.5} sx={{ minWidth: 0 }}>
+                      <Box
+                        sx={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 1.5,
+                          bgcolor: isDark ? 'rgba(2, 132, 199, 0.18)' : '#e0f2fe',
+                          color: '#0284c7',
+                          fontWeight: 800,
+                          fontSize: '0.8rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}
+                      >
+                        {q.id}
                       </Box>
-
-                      {/* Quick Summary or Custom Preview (Visible always, matches screenshot) */}
-                      {q.summary && (
-                        <Typography variant="body2" sx={{ color: textMuted, mt: 1, ml: { xs: 0, sm: 10.5 }, fontSize: '0.8rem', lineHeight: 1.4 }}>
-                          {q.summary}
-                        </Typography>
-                      )}
-
-                      {q.customPreview && (
-                        <Box sx={{ ml: { xs: 0, sm: 10.5 } }}>
-                          {q.customPreview}
-                        </Box>
-                      )}
-
-                      {/* Dropdown Expanded Details View */}
-                      <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                        <Box
+                      <Box sx={{ color: '#0284c7', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                        {q.icon}
+                      </Box>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                          variant="body2"
+                          fontWeight={700}
                           sx={{
-                            mt: 1.75,
-                            pt: 1.5,
-                            ml: { xs: 0, sm: 10.5 },
-                            borderTop: `1px dashed ${cardBorder}`
+                            color: textMain,
+                            fontSize: '0.86rem',
+                            lineHeight: 1.2,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
                           }}
                         >
-                          <Box
-                            sx={{
-                              p: 1.5,
-                              borderRadius: 2,
-                              bgcolor: isDark ? 'rgba(2, 132, 199, 0.06)' : '#f0fdf4',
-                              border: `1px solid ${isDark ? 'rgba(2, 132, 199, 0.2)' : '#bbf7d0'}`
-                            }}
-                          >
-                            <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.75}>
-                              <Box display="flex" alignItems="center" gap={0.75}>
-                                <Sparkles size={14} color="#0284c7" />
-                                <Typography variant="caption" fontWeight={800} sx={{ color: textMain }}>
-                                  XAI Intelligence Synthesis & Sensor Grounding:
-                                </Typography>
-                              </Box>
-                              <Chip
-                                size="small"
-                                label={q.details.keyStat}
-                                sx={{
-                                  fontWeight: 800,
-                                  fontSize: '0.68rem',
-                                  bgcolor: isDark ? 'rgba(255,255,255,0.06)' : '#ffffff',
-                                  color: '#0284c7',
-                                  border: '1px solid rgba(2, 132, 199, 0.3)'
-                                }}
-                              />
-                            </Box>
-                            <Typography variant="caption" sx={{ color: textMuted, display: 'block', lineHeight: 1.5, mb: 1 }}>
-                              {q.details.telemetry}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: textMain, fontWeight: 600, display: 'block' }}>
-                              &bull; <strong>Directive:</strong> {q.details.classification}
-                            </Typography>
-                          </Box>
-
-                          {/* Quick CTA inside Question 7 for Relocation Shelters */}
-                          {q.id === 7 && (
-                            <Box mt={1.5} display="flex" justifyContent="flex-end">
-                              <Button
-                                size="small"
-                                variant="contained"
-                                endIcon={<ArrowRight size={14} />}
-                                onClick={() => navigate('/carrying-capacity')}
-                                sx={{
-                                  bgcolor: '#16a34a',
-                                  fontWeight: 700,
-                                  fontSize: '0.72rem',
-                                  textTransform: 'none',
-                                  borderRadius: 1.5,
-                                  '&:hover': { bgcolor: '#15803d' }
-                                }}
-                              >
-                                View Verified Shelters & Routes
-                              </Button>
-                            </Box>
-                          )}
-                        </Box>
-                      </Collapse>
+                          {q.title}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: textMuted,
+                            fontSize: '0.7rem',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: 'block'
+                          }}
+                        >
+                          {q.subtitle}
+                        </Typography>
+                      </Box>
                     </Box>
-                  );
-                })}
+
+                    {/* Right: Quick Pill & Open Modal Trigger Icon */}
+                    <Box display="flex" alignItems="center" gap={1} flexShrink={0}>
+                      <Chip
+                        size="small"
+                        label={q.pill}
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: '0.68rem',
+                          height: 24,
+                          bgcolor: q.pillBg,
+                          color: q.pillColor,
+                          border: `1px solid ${q.pillColor}33`,
+                          display: { xs: 'none', sm: 'inline-flex' }
+                        }}
+                      />
+                      <IconButton
+                        size="small"
+                        sx={{
+                          p: 0.5,
+                          color: textMuted,
+                          bgcolor: isDark ? 'rgba(255,255,255,0.04)' : '#e2e8f0',
+                          '&:hover': { color: '#0284c7', bgcolor: isDark ? 'rgba(2,132,199,0.2)' : '#bae6fd' }
+                        }}
+                      >
+                        <Maximize2 size={13} />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                ))}
               </Stack>
 
-              {/* Bottom Footer Banner (matching screenshot exactly) */}
+              {/* Bottom Goal Banner */}
               <Box
                 sx={{
-                  mt: 3,
-                  p: 1.5,
+                  mt: 2,
+                  p: 1.25,
                   borderRadius: 2,
                   bgcolor: isDark ? 'rgba(22, 163, 74, 0.08)' : '#f0fdf4',
                   border: '1px solid',
-                  borderColor: isDark ? 'rgba(22, 163, 74, 0.25)' : '#bbf7d0',
+                  borderColor: isDark ? 'rgba(22, 163, 74, 0.2)' : '#bbf7d0',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -1109,13 +878,13 @@ export default function RiskAnalysis() {
                   gap: 1
                 }}
               >
-                <Box display="flex" alignItems="center" gap={1}>
+                <Box display="flex" alignItems="center" gap={0.75}>
                   <CheckCircle2 size={16} color="#16a34a" />
-                  <Typography variant="caption" fontWeight={700} sx={{ color: isDark ? '#4ade80' : '#15803d', fontSize: '0.75rem' }}>
-                    Goal: Minimize loss of life, reduce damage, and ensure a safe relocation for vulnerable communities.
+                  <Typography variant="caption" fontWeight={700} sx={{ color: isDark ? '#4ade80' : '#15803d', fontSize: '0.72rem' }}>
+                    Goal: Minimize loss of life, reduce damage, and ensure safe relocation for vulnerable communities.
                   </Typography>
                 </Box>
-                <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.72rem', fontStyle: 'italic' }}>
+                <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.68rem', fontStyle: 'italic' }}>
                   🍃 Smarter Data. Safer Communities.
                 </Typography>
               </Box>
@@ -1124,118 +893,446 @@ export default function RiskAnalysis() {
         </Grid>
       )}
 
-      {/* POPUP MODAL DIALOG for deep inspection of any of the 7 Questions */}
+      {/* POPUP MODAL DIALOG: Focused Details For One Question At A Time */}
       <Dialog
         open={Boolean(popupQuestion)}
         onClose={() => setPopupQuestion(null)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
         PaperProps={{
           sx: {
             borderRadius: 3.5,
             bgcolor: cardBg,
             border: `1px solid ${cardBorder}`,
-            p: 1
+            p: 1,
+            boxShadow: '0 20px 50px rgba(0,0,0,0.3)'
           }
         }}
       >
         {popupQuestion && (
           <>
+            {/* Modal Header */}
             <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box display="flex" alignItems="center" gap={1.25}>
+              <Box display="flex" alignItems="center" gap={1.5}>
                 <Box
                   sx={{
-                    width: 36,
-                    height: 36,
+                    width: 38,
+                    height: 38,
                     borderRadius: 2,
                     bgcolor: '#0284c7',
                     color: '#ffffff',
                     fontWeight: 800,
+                    fontSize: '1rem',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(2,132,199,0.35)'
                   }}
                 >
                   {popupQuestion.id}
                 </Box>
                 <Box>
-                  <Typography variant="subtitle1" fontWeight={800} sx={{ color: textMain }}>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Typography variant="caption" fontWeight={800} sx={{ color: '#0284c7', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Question {popupQuestion.id} of 7
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={popupQuestion.pill}
+                      sx={{
+                        fontWeight: 800,
+                        fontSize: '0.68rem',
+                        height: 20,
+                        bgcolor: popupQuestion.pillBg,
+                        color: popupQuestion.pillColor,
+                        border: `1px solid ${popupQuestion.pillColor}40`
+                      }}
+                    />
+                  </Box>
+                  <Typography variant="h6" fontWeight={800} sx={{ color: textMain, fontSize: '1.05rem', lineHeight: 1.2 }}>
                     {popupQuestion.title}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: textMuted }}>
-                    {popupQuestion.subtitle}
                   </Typography>
                 </Box>
               </Box>
-              <IconButton size="small" onClick={() => setPopupQuestion(null)}>
-                <X size={18} />
+              <IconButton
+                size="small"
+                onClick={() => setPopupQuestion(null)}
+                sx={{
+                  color: textMuted,
+                  '&:hover': { color: textMain, bgcolor: isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9' }
+                }}
+              >
+                <X size={20} />
               </IconButton>
             </DialogTitle>
 
-            <DialogContent dividers sx={{ borderColor: cardBorder }}>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" fontWeight={800} sx={{ color: '#0284c7', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Overview & Situation
-                </Typography>
-                {popupQuestion.summary ? (
-                  <Typography variant="body1" fontWeight={600} sx={{ color: textMain, mt: 0.5, lineHeight: 1.5 }}>
-                    {popupQuestion.summary}
-                  </Typography>
-                ) : (
-                  <Box sx={{ mt: 1 }}>{popupQuestion.customPreview}</Box>
-                )}
-              </Box>
-
+            <DialogContent dividers sx={{ borderColor: cardBorder, py: 2.5 }}>
+              {/* Executive Answer Card */}
               <Box
                 sx={{
                   p: 2,
-                  borderRadius: 2,
+                  borderRadius: 2.5,
                   bgcolor: isDark ? 'rgba(2, 132, 199, 0.08)' : '#f0f9ff',
                   border: '1px solid',
                   borderColor: isDark ? 'rgba(2, 132, 199, 0.25)' : '#bae6fd',
-                  mb: 2
+                  mb: 2.5
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={0.75} mb={0.75}>
+                  <Sparkles size={16} color="#0284c7" />
+                  <Typography variant="caption" fontWeight={800} sx={{ color: '#0284c7', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Executive Disaster Intelligence Summary
+                  </Typography>
+                </Box>
+                <Typography variant="body1" fontWeight={700} sx={{ color: textMain, lineHeight: 1.5, fontSize: '0.95rem' }}>
+                  {popupQuestion.summary}
+                </Typography>
+              </Box>
+
+              {/* Dynamic Question-Specific Rich Blocks */}
+              {popupQuestion.id === 1 && popupQuestion.details.metrics && (
+                <Box mb={2.5}>
+                  <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, display: 'block', mb: 1, textTransform: 'uppercase' }}>
+                    Hydrometric & Threat Telemetry:
+                  </Typography>
+                  <Grid container spacing={1.5}>
+                    {popupQuestion.details.metrics.map((m, idx) => (
+                      <Grid size={{ xs: 6, sm: 3 }} key={idx}>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 1.5,
+                            borderRadius: 2,
+                            bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc',
+                            border: `1px solid ${cardBorder}`
+                          }}
+                        >
+                          <Typography variant="caption" sx={{ color: textMuted, display: 'block', fontSize: '0.7rem' }}>
+                            {m.label}
+                          </Typography>
+                          <Typography variant="subtitle2" fontWeight={800} sx={{ color: m.color, mt: 0.25 }}>
+                            {m.value}
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              )}
+
+              {popupQuestion.id === 2 && popupQuestion.details.metrics && (
+                <Box mb={2.5}>
+                  <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, display: 'block', mb: 1, textTransform: 'uppercase' }}>
+                    GIS Geospatial & Boundary Telemetry:
+                  </Typography>
+                  <Grid container spacing={1.5}>
+                    {popupQuestion.details.metrics.map((m, idx) => (
+                      <Grid size={{ xs: 6, sm: 3 }} key={idx}>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 1.5,
+                            borderRadius: 2,
+                            bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc',
+                            border: `1px solid ${cardBorder}`
+                          }}
+                        >
+                          <Typography variant="caption" sx={{ color: textMuted, display: 'block', fontSize: '0.7rem' }}>
+                            {m.label}
+                          </Typography>
+                          <Typography variant="subtitle2" fontWeight={800} sx={{ color: m.color, mt: 0.25 }}>
+                            {m.value}
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              )}
+
+              {popupQuestion.id === 3 && popupQuestion.details.factors && (
+                <Box mb={2.5}>
+                  <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, display: 'block', mb: 1, textTransform: 'uppercase' }}>
+                    Explainable AI (SHAP) Driving Factors:
+                  </Typography>
+                  <Grid container spacing={1.5}>
+                    {popupQuestion.details.factors.map((factor, idx) => (
+                      <Grid size={{ xs: 6, sm: 3 }} key={idx}>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 1.5,
+                            borderRadius: 2,
+                            bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+                            border: `1px solid ${cardBorder}`,
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between'
+                          }}
+                        >
+                          <Box display="flex" alignItems="center" gap={1} mb={1}>
+                            {factor.icon}
+                            <Typography variant="caption" fontWeight={800} sx={{ color: textMain, fontSize: '0.78rem' }}>
+                              {factor.title}
+                            </Typography>
+                          </Box>
+                          <Box display="flex" alignItems="center" justifyContent="space-between">
+                            <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.68rem' }}>
+                              {factor.subtitle}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              label={factor.weight}
+                              sx={{
+                                fontWeight: 800,
+                                fontSize: '0.68rem',
+                                height: 20,
+                                bgcolor: isDark ? 'rgba(2,132,199,0.15)' : '#e0f2fe',
+                                color: '#0284c7'
+                              }}
+                            />
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              )}
+
+              {popupQuestion.id === 4 && popupQuestion.details.horizons && (
+                <Box mb={2.5}>
+                  <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, display: 'block', mb: 1, textTransform: 'uppercase' }}>
+                    Predictive Time-Series Horizon (GRU Sequence Forecast):
+                  </Typography>
+                  <Stack spacing={1.25}>
+                    {popupQuestion.details.horizons.map((h, idx) => (
+                      <Paper
+                        key={idx}
+                        elevation={0}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc',
+                          border: `1px solid ${cardBorder}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: 1
+                        }}
+                      >
+                        <Box display="flex" alignItems="center" gap={1.25}>
+                          <Clock size={16} color={h.color} />
+                          <Box>
+                            <Typography variant="subtitle2" fontWeight={800} sx={{ color: textMain, fontSize: '0.85rem' }}>
+                              {h.title}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.75rem' }}>
+                              {h.desc}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Chip
+                          size="small"
+                          label={h.status}
+                          sx={{
+                            fontWeight: 800,
+                            fontSize: '0.68rem',
+                            height: 22,
+                            bgcolor: `${h.color}15`,
+                            color: h.color,
+                            border: `1px solid ${h.color}40`
+                          }}
+                        />
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+
+              {popupQuestion.id === 5 && popupQuestion.details.assets && (
+                <Box mb={2.5}>
+                  <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, display: 'block', mb: 1, textTransform: 'uppercase' }}>
+                    Demographic Impact & At-Risk Assets:
+                  </Typography>
+                  <Grid container spacing={1.5}>
+                    {popupQuestion.details.assets.map((asset, idx) => (
+                      <Grid size={{ xs: 12, sm: 6 }} key={idx}>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 1.5,
+                            borderRadius: 2,
+                            bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc',
+                            border: `1px solid ${cardBorder}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1.25
+                          }}
+                        >
+                          {asset.icon}
+                          <Box>
+                            <Typography variant="caption" sx={{ color: textMuted, display: 'block', fontSize: '0.7rem' }}>
+                              {asset.label}
+                            </Typography>
+                            <Typography variant="subtitle2" fontWeight={800} sx={{ color: textMain }}>
+                              {asset.value}
+                            </Typography>
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              )}
+
+              {popupQuestion.id === 6 && popupQuestion.details.actions && (
+                <Box mb={2.5}>
+                  <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, display: 'block', mb: 1, textTransform: 'uppercase' }}>
+                    SOP Responder Action Checklist:
+                  </Typography>
+                  <Stack spacing={1}>
+                    {popupQuestion.details.actions.map((action, idx) => (
+                      <Box
+                        key={idx}
+                        sx={{
+                          p: 1.25,
+                          borderRadius: 2,
+                          bgcolor: isDark ? 'rgba(22, 163, 74, 0.06)' : '#f0fdf4',
+                          border: `1px solid ${isDark ? 'rgba(22, 163, 74, 0.2)' : '#bbf7d0'}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1.25
+                        }}
+                      >
+                        <CheckCircle2 size={16} color="#16a34a" style={{ flexShrink: 0 }} />
+                        <Typography variant="body2" fontWeight={600} sx={{ color: textMain, fontSize: '0.82rem' }}>
+                          {action}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+
+              {popupQuestion.id === 7 && popupQuestion.details.shelterTiers && (
+                <Box mb={2.5}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                    <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, textTransform: 'uppercase' }}>
+                      Relocation Tiers & Shelters:
+                    </Typography>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      endIcon={<ArrowRight size={13} />}
+                      onClick={() => {
+                        setPopupQuestion(null);
+                        navigate('/carrying-capacity');
+                      }}
+                      sx={{
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.72rem',
+                        py: 0.25,
+                        px: 1.2,
+                        borderRadius: 1.5,
+                        borderColor: '#0284c7',
+                        color: '#0284c7'
+                      }}
+                    >
+                      Inspect All Shelters
+                    </Button>
+                  </Box>
+                  <Stack spacing={1.25}>
+                    {popupQuestion.details.shelterTiers.map((tier, idx) => (
+                      <Paper
+                        key={idx}
+                        elevation={0}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc',
+                          border: `1px solid ${cardBorder}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1.5
+                        }}
+                      >
+                        {tier.icon}
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography variant="subtitle2" fontWeight={800} sx={{ color: textMain, fontSize: '0.85rem' }}>
+                              {tier.name}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              label={tier.tier}
+                              sx={{
+                                fontWeight: 800,
+                                fontSize: '0.65rem',
+                                height: 18,
+                                bgcolor: isDark ? 'rgba(2,132,199,0.15)' : '#e0f2fe',
+                                color: '#0284c7'
+                              }}
+                            />
+                          </Box>
+                          <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.72rem' }}>
+                            {tier.detail}
+                          </Typography>
+                        </Box>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+
+              {/* In-depth Telemetry & Operational Directive */}
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2.5,
+                  bgcolor: isDark ? 'rgba(255, 255, 255, 0.02)' : '#f8fafc',
+                  border: `1px solid ${cardBorder}`
                 }}
               >
                 <Typography variant="caption" fontWeight={800} sx={{ color: '#0284c7', display: 'block', mb: 0.5 }}>
-                  Detailed Telemetry & Inundation Analysis:
+                  Detailed Technical Telemetry & Drainage Physics:
                 </Typography>
-                <Typography variant="body2" sx={{ color: textMain, lineHeight: 1.6, mb: 1 }}>
+                <Typography variant="body2" sx={{ color: textMain, lineHeight: 1.6, mb: 1.5, fontSize: '0.85rem' }}>
                   {popupQuestion.details.telemetry}
                 </Typography>
-                <Divider sx={{ my: 1, borderColor: isDark ? 'rgba(2,132,199,0.2)' : '#bae6fd' }} />
-                <Typography variant="caption" sx={{ color: textMuted, display: 'block', mb: 0.25 }}>
-                  Operational Directive:
-                </Typography>
-                <Typography variant="body2" fontWeight={700} sx={{ color: textMain }}>
-                  {popupQuestion.details.classification}
-                </Typography>
-              </Box>
-
-              <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
-                <Chip
-                  size="small"
-                  label={popupQuestion.details.keyStat}
-                  sx={{
-                    fontWeight: 800,
-                    fontSize: '0.72rem',
-                    bgcolor: isDark ? 'rgba(255,255,255,0.06)' : '#e2e8f0',
-                    color: textMain
-                  }}
-                />
-                <Typography variant="caption" sx={{ color: textMuted }}>
-                  Region: <strong>{selectedHotspot?.district}</strong> &bull; Hotspot: <strong>{selectedHotspot?.name}</strong>
-                </Typography>
+                <Divider sx={{ my: 1, borderColor: cardBorder }} />
+                <Box display="flex" alignItems="flex-start" gap={1}>
+                  <Radio size={15} color="#ea580c" style={{ marginTop: 2, flexShrink: 0 }} />
+                  <Box>
+                    <Typography variant="caption" sx={{ color: textMuted, display: 'block', fontWeight: 700 }}>
+                      Institutional Operational Directive:
+                    </Typography>
+                    <Typography variant="body2" fontWeight={700} sx={{ color: textMain, fontSize: '0.85rem' }}>
+                      {popupQuestion.details.classification}
+                    </Typography>
+                  </Box>
+                </Box>
               </Box>
             </DialogContent>
 
-            <DialogActions sx={{ px: 2.5, py: 1.5, justifyContent: 'space-between' }}>
+            {/* Modal Actions with Prev / Next Question Navigation */}
+            <DialogActions sx={{ px: 2.5, py: 1.5, justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
               <Box display="flex" gap={1}>
                 {popupQuestion.id > 1 && (
                   <Button
                     size="small"
-                    variant="text"
+                    variant="outlined"
                     onClick={() => setPopupQuestion(questionsList[popupQuestion.id - 2])}
-                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.75rem',
+                      borderRadius: 1.5,
+                      borderColor: cardBorder,
+                      color: textMain
+                    }}
                   >
                     &larr; Question {popupQuestion.id - 1}
                   </Button>
@@ -1243,14 +1340,22 @@ export default function RiskAnalysis() {
                 {popupQuestion.id < 7 && (
                   <Button
                     size="small"
-                    variant="text"
+                    variant="outlined"
                     onClick={() => setPopupQuestion(questionsList[popupQuestion.id])}
-                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.75rem',
+                      borderRadius: 1.5,
+                      borderColor: '#0284c7',
+                      color: '#0284c7'
+                    }}
                   >
                     Question {popupQuestion.id + 1} &rarr;
                   </Button>
                 )}
               </Box>
+
               <Button
                 variant="contained"
                 size="small"
@@ -1259,11 +1364,13 @@ export default function RiskAnalysis() {
                   bgcolor: '#0284c7',
                   textTransform: 'none',
                   fontWeight: 700,
+                  fontSize: '0.75rem',
                   borderRadius: 1.5,
+                  px: 2.5,
                   '&:hover': { bgcolor: '#0369a1' }
                 }}
               >
-                Close View
+                Done
               </Button>
             </DialogActions>
           </>
