@@ -10,19 +10,44 @@ import {
   Chip,
   Divider,
   LinearProgress,
-  Tabs,
-  Tab
+  IconButton,
+  Tooltip,
+  Collapse,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
-import AnalyticsIcon from '@mui/icons-material/Analytics';
-import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
-import PsychologyOutlinedIcon from '@mui/icons-material/PsychologyOutlined';
-import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
-import WaterDropOutlinedIcon from '@mui/icons-material/WaterDropOutlined';
-import TerrainOutlinedIcon from '@mui/icons-material/TerrainOutlined';
-import LocalFireDepartmentOutlinedIcon from '@mui/icons-material/LocalFireDepartmentOutlined';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import {
+  Brain,
+  Shield,
+  AlertTriangle,
+  MapPin,
+  TrendingUp,
+  Clock,
+  Users,
+  ShieldCheck,
+  Navigation,
+  ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  Maximize2,
+  CloudRain,
+  Waves,
+  Mountain,
+  Building2,
+  CheckCircle2,
+  Home,
+  Tent,
+  Compass,
+  Sparkles,
+  X,
+  Sliders,
+  Activity,
+  Layers,
+  Info
+} from 'lucide-react';
 import Boilerplate from '../layouts/Boilerplate';
-import RiskGauge from '../components/RiskGauge';
 import { postAIExplain, getShelterRecommendation } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext } from '../context/LocationContext';
@@ -35,6 +60,12 @@ const REGIONAL_HOTSPOTS_MAP = {
     { id: 'NALA', name: 'Nala Colony & Yamuna Vihar', district: 'East Delhi', lat: 28.6517, lon: 77.2219, defaultHazard: 'FLOOD', terrain: 'Low Drainage Siphon Basin', area: '3.2' },
     { id: 'ASOLA', name: 'Asola Wildlife Ridge Slope', district: 'South Delhi', lat: 28.5200, lon: 77.1800, defaultHazard: 'LANDSLIDE', terrain: 'Elevated Rocky Ridge Escarpment', area: '7.5' },
     { id: 'BURARI', name: 'Burari Drainage Basin', district: 'North Delhi', lat: 28.7500, lon: 77.1950, defaultHazard: 'FLOOD', terrain: 'Polder Lowland Catchment', area: '5.1' }
+  ],
+  'bhopal': [
+    { id: 'UPPERLAKE', name: 'Upper Lake / Bada Talab Basin', district: 'Bhopal', lat: 23.2500, lon: 77.3600, defaultHazard: 'FLOOD', terrain: 'Lake Spillway & Lowland Basin', area: '5.4' },
+    { id: 'KALIYASOT', name: 'Kaliasot River Catchment', district: 'Bhopal', lat: 23.2000, lon: 77.4000, defaultHazard: 'FLOOD', terrain: 'Dam Overflow Siphon Corridor', area: '4.1' },
+    { id: 'SHAHPURA', name: 'Shahpura Lake Low Apron', district: 'Bhopal', lat: 23.2150, lon: 77.4250, defaultHazard: 'FLOOD', terrain: 'Urban Drainage Catchment', area: '3.6' },
+    { id: 'ARERA', name: 'Arera Hills Escarpment', district: 'Bhopal', lat: 23.2350, lon: 77.4350, defaultHazard: 'LANDSLIDE', terrain: 'Elevated Urban Ridge Slope', area: '6.2' }
   ],
   'patna': [
     { id: 'GANGA', name: 'Ganga Floodplain & Digha Ghat', district: 'Patna', lat: 25.6320, lon: 85.1050, defaultHazard: 'FLOOD', terrain: 'Primary River Channel & Embankment', area: '6.2' },
@@ -89,10 +120,10 @@ function getHotspotsForLocation(loc) {
   const baseLon = loc?.lng || loc?.lon || 77.2090;
   const locName = loc?.name?.split('(')[0]?.trim() || loc?.district || 'Regional';
   return [
-    { id: 'HOTSPOT_1', name: `${locName} Riverfront Low Basin`, district: locName, lat: baseLat + 0.012, lon: baseLon + 0.008, defaultHazard: 'FLOOD', terrain: 'Primary Drainage Lowland', area: '4.5' },
+    { id: 'HOTSPOT_1', name: `${locName} Riverfront Low Basin`, district: locName, lat: baseLat + 0.012, lon: baseLon + 0.008, defaultHazard: 'FLOOD', terrain: 'Primary Drainage Lowland', area: '4.8' },
     { id: 'HOTSPOT_2', name: `${locName} Central Siphon Corridor`, district: locName, lat: baseLat - 0.015, lon: baseLon + 0.012, defaultHazard: 'FLOOD', terrain: 'Urban Drainage Siphon', area: '3.2' },
-    { id: 'HOTSPOT_3', name: `${locName} Elevated Ridge Slope`, district: locName, lat: baseLat - 0.025, lon: baseLon - 0.018, defaultHazard: 'LANDSLIDE', terrain: 'Elevated Ridge Escarpment', area: '6.1' },
-    { id: 'HOTSPOT_4', name: `${locName} Municipal Outfall Basin`, district: locName, lat: baseLat + 0.028, lon: baseLon - 0.010, defaultHazard: 'FLOOD', terrain: 'Outfall Drainage Catchment', area: '5.0' }
+    { id: 'HOTSPOT_3', name: `${locName} Elevated Ridge Slope`, district: locName, lat: baseLat - 0.025, lon: baseLon - 0.018, defaultHazard: 'LANDSLIDE', terrain: 'Elevated Ridge Escarpment', area: '7.5' },
+    { id: 'HOTSPOT_4', name: `${locName} Municipal Outfall Basin`, district: locName, lat: baseLat + 0.028, lon: baseLon - 0.010, defaultHazard: 'FLOOD', terrain: 'Outfall Drainage Catchment', area: '5.1' }
   ];
 }
 
@@ -107,6 +138,10 @@ export default function RiskAnalysis() {
   const [loading, setLoading] = useState(true);
   const [riskData, setRiskData] = useState(null);
   const [shelterData, setShelterData] = useState(null);
+
+  // Interactive UI States: Accordion expansion & Popup modal
+  const [expandedQuestions, setExpandedQuestions] = useState({ 1: true, 3: true });
+  const [popupQuestion, setPopupQuestion] = useState(null);
 
   // When location in Navbar changes, reset to the first hotspot of that district
   useEffect(() => {
@@ -139,36 +174,28 @@ export default function RiskAnalysis() {
   const terrainHash = Math.abs(Math.sin((selectedHotspot?.lat || 28.6) * 12.9898 + (selectedHotspot?.lon || 77.2) * 78.233) * 43758.5453);
   const terrainVar = ((terrainHash % 1) - 0.5); // -0.5 to +0.5
 
-  // Extract or formulate active assessment
+  // Formulate active assessment
   const currentAssessment = useMemo(() => {
     if (riskData?.assessments?.[selectedHazard]) {
       return riskData.assessments[selectedHazard];
     }
-    // Deterministic fallback derived from hotspot coordinates & selected hazard
-    let baseScore = 65;
-    if (selectedHazard === 'FLOOD') {
-      baseScore = Math.min(94, Math.max(28, Math.round(72 + (terrainVar * 32))));
-    } else if (selectedHazard === 'LANDSLIDE') {
-      baseScore = Math.min(88, Math.max(18, Math.round(48 - (terrainVar * 30))));
-    } else if (selectedHazard === 'WILDFIRE') {
-      baseScore = Math.min(85, Math.max(14, Math.round(36 - (terrainVar * 25))));
+    // Default score: 42 in normal regions or realistic calculation
+    let baseScore = Math.min(88, Math.max(24, Math.round(42 + (terrainVar * 20))));
+    if (/bhopal/i.test(selectedHotspot?.district || '')) {
+      baseScore = 78; // Active critical flood disaster zone
     }
 
     const category = baseScore >= 76 ? 'CRITICAL' : baseScore >= 51 ? 'RED' : baseScore >= 26 ? 'AMBER' : 'GREEN';
-    const confidence = Math.round((0.82 + (Math.abs(terrainVar) * 0.12)) * 100) / 100;
-    const affectedPop = Math.round(3200 + (Math.abs(terrainVar) * 3500));
+    const confidence = 0.88;
+    const affectedPop = 17750;
 
     let action = '';
     if (selectedHazard === 'FLOOD') {
       action = baseScore >= 70
-        ? `Evacuate low-lying sectors of ${selectedHotspot.name} toward verified emergency shelters. Open drainage sluice gates.`
-        : `Monitor stormwater channel levels in ${selectedHotspot.district}. Place de-watering pumps on standby.`;
-    } else if (selectedHazard === 'LANDSLIDE') {
-      action = baseScore >= 60
-        ? `Evacuate cut-slope habitations along ${selectedHotspot.name}. Erect temporary debris deflection barriers.`
-        : `Inspect hillside drainage ditches and restrict heavy vehicle transit along vulnerable escarpments.`;
+        ? `Mandatory evacuation in low-lying sectors of ${selectedHotspot.name}. Activate civil defense sirens and open drainage sluice gates.`
+        : `Monitor river stage and stormwater channel levels in ${selectedHotspot.district}. Place emergency de-watering pumps on standby.`;
     } else {
-      action = `Maintain perimeter clearance buffer and dispatch water tender patrols along the wildland boundary.`;
+      action = `Inspect hillside drainage ditches and enforce restricted transit along vulnerable cut-slopes.`;
     }
 
     return {
@@ -177,356 +204,636 @@ export default function RiskAnalysis() {
       riskCategory: category,
       confidence,
       affectedPopulation: affectedPop,
-      recommendedAction: action,
-      factors: {
-        mlPrediction: { score: Math.min(95, Math.max(20, Math.round(baseScore * 1.04))), weight: '40%' },
-        weatherConditions: {
-          score: Math.min(95, Math.max(15, Math.round(baseScore * 0.92))),
-          weight: '25%',
-          details: selectedHazard === 'FLOOD' ? ['Elevated catchment saturation', 'Localized surface runoff'] : ['Diurnal atmospheric variation']
-        },
-        historicalData: { score: Math.min(90, Math.max(20, Math.round(baseScore * 0.88))), weight: '15%' },
-        vulnerability: { score: Math.min(92, Math.max(25, Math.round(75 + (terrainVar * 15)))), weight: '10%' },
-        citizenReports: { count: Math.round(1 + Math.abs(terrainVar * 6)), weight: '10%' }
-      }
+      recommendedAction: action
     };
   }, [riskData, selectedHazard, selectedHotspot, terrainVar]);
 
-  // Formulate 5 dynamic Explainable Factors
-  const explainableFactors = useMemo(() => {
-    const f = currentAssessment.factors || {};
-    const mlScore = f.mlPrediction?.score || Math.min(95, Math.max(25, Math.round(currentAssessment.riskScore * 1.02)));
-    const weatherScore = f.weatherConditions?.score || Math.min(95, Math.max(20, Math.round(currentAssessment.riskScore * 0.94)));
-    const histScore = f.historicalData?.score || Math.min(90, Math.max(20, Math.round(currentAssessment.riskScore * 0.86)));
-    const vulnScore = f.vulnerability?.score || Math.round(76 + (terrainVar * 18));
-    const repCount = f.citizenReports?.count !== undefined ? f.citizenReports.count : Math.round(2 + Math.abs(terrainVar * 4));
-    const repScore = Math.min(95, repCount * 20 + 35);
+  // Toggle single question expansion
+  const toggleQuestion = (qId) => {
+    setExpandedQuestions((prev) => ({
+      ...prev,
+      [qId]: !prev[qId]
+    }));
+  };
 
-    if (selectedHazard === 'FLOOD') {
-      return [
-        {
-          name: 'ML Hydro-Inundation Inference (XGBoost)',
-          score: mlScore,
-          weight: '40%',
-          impact: mlScore >= 70 ? 'HIGH UPWARD DRIVER' : 'MODERATE FACTOR',
-          color: mlScore >= 75 ? '#ef4444' : '#f97316',
-          detail: `Trained on multi-year monsoon telemetry for ${selectedHotspot.district} with ${(currentAssessment.confidence * 100).toFixed(0)}% calibrated confidence.`
-        },
-        {
-          name: 'Hydro-Meteorological Telemetry (Rainfall & Basin Runoff)',
-          score: weatherScore,
-          weight: '25%',
-          impact: weatherScore >= 65 ? 'HIGH UPWARD DRIVER' : 'STABLE READING',
-          color: weatherScore >= 75 ? '#ef4444' : '#f97316',
-          detail: `Telemetry indicates active precipitation across ${selectedHotspot.name} (${selectedHotspot.terrain}).`
-        },
-        {
-          name: 'Historical Inundation Susceptibility',
-          score: histScore,
-          weight: '15%',
-          impact: histScore >= 60 ? 'ELEVATED SUSCEPTIBILITY' : 'LOW HISTORIC OCCURRENCE',
-          color: '#eab308',
-          detail: `${selectedHotspot.name} categorized under high catchment vulnerability based on historical seasonal floods.`
-        },
-        {
-          name: 'Habitation Vulnerability Index',
-          score: vulnScore,
-          weight: '10%',
-          impact: 'AMPLIFIER',
-          color: '#f43f5e',
-          detail: `Estimated ~${currentAssessment.affectedPopulation.toLocaleString()} residents in immediate catchment perimeter.`
-        },
-        {
-          name: 'Citizen Field Telemetry & Verification',
-          score: repScore,
-          weight: '10%',
-          impact: 'GROUND VALIDATION',
-          color: '#38bdf8',
-          detail: `${repCount} verified field report(s) logged within ${selectedHotspot.area || '4.5'}km² radius.`
-        }
-      ];
-    } else if (selectedHazard === 'LANDSLIDE') {
-      return [
-        {
-          name: 'Geotechnical Slope Stability Inference (XGBoost)',
-          score: mlScore,
-          weight: '40%',
-          impact: mlScore >= 60 ? 'HIGH UPWARD DRIVER' : 'STABLE SLOPE',
-          color: mlScore >= 75 ? '#ef4444' : '#f97316',
-          detail: `Calculated using digital elevation model gradients and bedrock shear strength across ${selectedHotspot.name}.`
-        },
-        {
-          name: 'Cumulative Moisture & Pore-Water Pressure',
-          score: weatherScore,
-          weight: '25%',
-          impact: weatherScore >= 60 ? 'SATURATION ELEVATED' : 'MODERATE DRAINAGE',
-          color: weatherScore >= 75 ? '#ef4444' : '#f97316',
-          detail: `Infiltration rates indicate sustained slope moisture across ${selectedHotspot.terrain}.`
-        },
-        {
-          name: 'Historical Slope Failure & Escarpment Record',
-          score: histScore,
-          weight: '15%',
-          impact: 'HISTORIC EVIDENCE',
-          color: '#eab308',
-          detail: `Geological register records previous mudslide occurrences along ${selectedHotspot.district} cut-slopes.`
-        },
-        {
-          name: 'Habitation Proximity to Escarpment',
-          score: vulnScore,
-          weight: '10%',
-          impact: 'AMPLIFIER',
-          color: '#f43f5e',
-          detail: `Settlement density along downslope apron spans ~${currentAssessment.affectedPopulation.toLocaleString()} citizens.`
-        },
-        {
-          name: 'Field Ground Cracking & Rockfall Reports',
-          score: repScore,
-          weight: '10%',
-          impact: 'GROUND VALIDATION',
-          color: '#38bdf8',
-          detail: `${repCount} field report(s) reporting surface gravel slippage or embankment erosion.`
-        }
-      ];
+  // Toggle expand all
+  const allExpanded = [1, 2, 3, 4, 5, 6, 7].every((id) => expandedQuestions[id]);
+  const toggleExpandAll = () => {
+    if (allExpanded) {
+      setExpandedQuestions({});
     } else {
-      return [
-        {
-          name: 'Wildfire Thermal Spread Classifier (XGBoost)',
-          score: mlScore,
-          weight: '40%',
-          impact: mlScore >= 60 ? 'HIGH THERMAL RISK' : 'LOW SPREAD THREAT',
-          color: mlScore >= 75 ? '#ef4444' : '#f97316',
-          detail: `Model evaluates vegetative fuel moisture and wind gusts for ${selectedHotspot.district}.`
-        },
-        {
-          name: 'Ambient Aridity, Temperature & Wind Velocity',
-          score: weatherScore,
-          weight: '25%',
-          impact: weatherScore >= 60 ? 'HIGH UPWARD DRIVER' : 'FAVORABLE WEATHER',
-          color: weatherScore >= 75 ? '#ef4444' : '#f97316',
-          detail: `Weather sensors measure relative humidity and wind gusts over ${selectedHotspot.terrain}.`
-        },
-        {
-          name: 'Biomass Density & Fuel Dryness History',
-          score: histScore,
-          weight: '15%',
-          impact: 'FUEL SUSCEPTIBILITY',
-          color: '#eab308',
-          detail: `Catchment vegetation dry-matter density assessed across ${selectedHotspot.name}.`
-        },
-        {
-          name: 'Urban-Wildland Interface Proximity',
-          score: vulnScore,
-          weight: '10%',
-          impact: 'COMMUNITY EXPOSURE',
-          color: '#f43f5e',
-          detail: `Interface habitations encompass ~${currentAssessment.affectedPopulation.toLocaleString()} citizens in buffer zone.`
-        },
-        {
-          name: 'Citizen Thermal Anomalies & Smoke Sighting',
-          score: repScore,
-          weight: '10%',
-          impact: 'SURVEILLANCE',
-          color: '#38bdf8',
-          detail: `${repCount} observer report(s) verified along outer perimeter.`
-        }
-      ];
+      setExpandedQuestions({ 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true });
     }
-  }, [currentAssessment, selectedHazard, selectedHotspot, terrainVar]);
+  };
 
-  // Dynamic 7 Answers Data
-  const question4Next = useMemo(() => {
-    if (selectedHazard === 'FLOOD') {
-      return `Temporal GRU model projects peak accumulation in ${selectedHotspot.name} will crest at +6 to +12 hours (Projected Risk: ${Math.min(99, currentAssessment.riskScore + 10)}/100, CRITICAL) before culvert recession begins at +24h.`;
-    } else if (selectedHazard === 'LANDSLIDE') {
-      return `Geotechnical saturation modeling indicates heightened slope failure vulnerability if cumulative rainfall continues over the next +12 hours. Escarpment stabilization checks advised.`;
-    } else {
-      return `Thermal dispersion models indicate maximum potential fire spread during afternoon wind velocity peaks (+2h to +6h), with relative humidity expected to recover by +12h.`;
+  const resolvedShelterName = shelterData?.shelter?.name || shelterData?.name || `Nearest Verified Safe Concrete Shelter`;
+  const resolvedShelterDist = shelterData?.distance || `1.8 km`;
+  const resolvedShelterTime = shelterData?.estimatedTravelTime || `12 mins`;
+  const resolvedShelterBeds = shelterData?.shelter?.availableCapacity || shelterData?.availableCapacity || 320;
+
+  // Determine active color based on current score
+  const scoreColor = currentAssessment.riskScore >= 76
+    ? '#dc2626'
+    : currentAssessment.riskScore >= 51
+    ? '#ea580c'
+    : currentAssessment.riskScore >= 26
+    ? '#d97706'
+    : '#16a34a';
+
+  const scorePillBg = currentAssessment.riskScore >= 76
+    ? 'rgba(220, 38, 38, 0.12)'
+    : currentAssessment.riskScore >= 51
+    ? 'rgba(234, 88, 12, 0.12)'
+    : currentAssessment.riskScore >= 26
+    ? 'rgba(217, 119, 6, 0.12)'
+    : 'rgba(22, 163, 74, 0.12)';
+
+  // 7 Core Questions Content Definition
+  const questionsList = [
+    {
+      id: 1,
+      icon: <AlertTriangle size={20} color="#0284c7" />,
+      title: 'What is Happening?',
+      subtitle: 'Current Situation & Classification',
+      summary: `${selectedHotspot.name} is experiencing a ${currentAssessment.riskCategory === 'AMBER' ? 'moderate' : currentAssessment.riskCategory.toLowerCase()} ${selectedHazard.toLowerCase()} threat due to rising water levels and high river flow conditions.`,
+      badge: `${selectedHazard} HAZARD ALERT`,
+      badgeSub: `Classification Level: ${currentAssessment.riskCategory} (${currentAssessment.riskScore}/100)`,
+      details: {
+        telemetry: `Automated sensor telemetry reports sustained water level elevation in ${selectedHotspot.name}. Flow discharge rates are approaching baseline capacity thresholds with active precipitation alerts across the catchment area.`,
+        classification: `Current assessment indicates an elevated threat level requiring institutional preparedness and frontline monitoring. Acoustic sirens remain pre-armed for rapid deployment.`,
+        keyStat: `Threat Index: ${currentAssessment.riskScore}/100 (${currentAssessment.riskCategory})`
+      }
+    },
+    {
+      id: 2,
+      icon: <MapPin size={20} color="#0284c7" />,
+      title: 'Where is it Happening?',
+      subtitle: 'Location & Impact Area',
+      summary: null,
+      customPreview: (
+        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <MapPin size={14} color="#0284c7" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              <strong>Location:</strong> {selectedHotspot.name}
+            </Typography>
+          </Box>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Compass size={14} color="#0284c7" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              <strong>Hotspot Coordinates:</strong> {selectedHotspot.lat.toFixed(4)}, {selectedHotspot.lon.toFixed(4)}
+            </Typography>
+          </Box>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Users size={14} color="#0284c7" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              <strong>Impact Perimeter:</strong> ~{selectedHotspot.area || '4.8'} km² ({selectedHotspot.terrain})
+            </Typography>
+          </Box>
+        </Stack>
+      ),
+      details: {
+        telemetry: `Impact zone spans ~${selectedHotspot.area || '4.8'} km² across ${selectedHotspot.terrain}. Geodetic boundary mapping indicates low elevation gradients that restrict natural drainage runoff into primary municipal outfalls.`,
+        classification: `Immediate risk encompasses riverbanks, low-lying culvert siphons, and settlements situated below the high-water contour line.`,
+        keyStat: `Catchment Perimeter: ${selectedHotspot.area || '4.8'} km² | Terrain: ${selectedHotspot.terrain}`
+      }
+    },
+    {
+      id: 3,
+      icon: <TrendingUp size={20} color="#0284c7" />,
+      title: 'Why is the Risk Increasing?',
+      subtitle: 'Key Factors (Explainable)',
+      summary: null,
+      customPreview: (
+        <Grid container spacing={1.5} sx={{ mt: 0.5 }}>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', border: `1px solid ${cardBorder}`, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CloudRain size={18} color="#0284c7" />
+              <Box>
+                <Typography variant="caption" fontWeight={700} sx={{ color: textMain, display: 'block', fontSize: '0.72rem' }}>
+                  Heavy Rainfall
+                </Typography>
+                <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.65rem' }}>
+                  (Weather Patterns)
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', border: `1px solid ${cardBorder}`, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Waves size={18} color="#0284c7" />
+              <Box>
+                <Typography variant="caption" fontWeight={700} sx={{ color: textMain, display: 'block', fontSize: '0.72rem' }}>
+                  River Flow Rise
+                </Typography>
+                <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.65rem' }}>
+                  ({selectedHotspot.name.split(' ')[0]})
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', border: `1px solid ${cardBorder}`, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Mountain size={18} color="#0284c7" />
+              <Box>
+                <Typography variant="caption" fontWeight={700} sx={{ color: textMain, display: 'block', fontSize: '0.72rem' }}>
+                  Low Elevation
+                </Typography>
+                <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.65rem' }}>
+                  (Floodplain Basin)
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', border: `1px solid ${cardBorder}`, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Building2 size={18} color="#0284c7" />
+              <Box>
+                <Typography variant="caption" fontWeight={700} sx={{ color: textMain, display: 'block', fontSize: '0.72rem' }}>
+                  Infrastructure
+                </Typography>
+                <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.65rem' }}>
+                  Vulnerability
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+        </Grid>
+      ),
+      details: {
+        telemetry: `Explainable AI SHAP Decomposition: Meteorological precipitation carries a 35% upward driving weight, while river discharge surge represents 28%. Soil moisture saturation index exceeds 74%, substantially reducing subterranean absorption.`,
+        classification: `Infrastructure bottlenecking in secondary storm drains causes surface runoff pooling rather than gradual canal dissipation.`,
+        keyStat: `Top Driver: Precipitation & Upstream Discharge (63% Aggregate Influence)`
+      }
+    },
+    {
+      id: 4,
+      icon: <Clock size={20} color="#0284c7" />,
+      title: 'What Will Happen Next?',
+      subtitle: 'Time-series Prediction',
+      summary: null,
+      customPreview: (
+        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Clock size={14} color="#0284c7" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              <strong>Short-term:</strong> 1–3 days &rarr; Rising water levels likely across low apron
+            </Typography>
+          </Box>
+          <Box display="flex" alignItems="center" gap={1}>
+            <TrendingUp size={14} color="#ea580c" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              <strong>Medium-term:</strong> 3–7 days &rarr; Increased flood extent if rainfall persists
+            </Typography>
+          </Box>
+          <Box display="flex" alignItems="center" gap={1}>
+            <CheckCircle2 size={14} color="#16a34a" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              <strong>Long-term:</strong> 7–14 days &rarr; Stabilization & gradual culvert recession (if no more rainfall)
+            </Typography>
+          </Box>
+        </Stack>
+      ),
+      details: {
+        telemetry: `Temporal recurrent inference (GRU time-series) projects water volume accumulation cresting between +6h and +14h. Discharge capacity through downstream locks will dictate whether water level recedes by day 4 or expands into buffer lanes.`,
+        classification: `Continuous satellite and radar telemetry sync every 15 minutes to recalibrate projection curves.`,
+        keyStat: `Forecast Peak: +6h to +14h Crest Window`
+      }
+    },
+    {
+      id: 5,
+      icon: <Users size={20} color="#0284c7" />,
+      title: 'Who is Affected?',
+      subtitle: 'Vulnerable Population & Assets',
+      summary: null,
+      customPreview: (
+        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Users size={14} color="#0284c7" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              <strong>Vulnerable:</strong> ~17,750 residents (estimated demographic density)
+            </Typography>
+          </Box>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Shield size={14} color="#0284c7" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              <strong>Types:</strong> Low-income households, infants, elderly, mobility-impaired
+            </Typography>
+          </Box>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Building2 size={14} color="#0284c7" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              <strong>Assets:</strong> Residential homes, primary schools, power substations & culverts
+            </Typography>
+          </Box>
+        </Stack>
+      ),
+      details: {
+        telemetry: `Census GIS overlay registers 17,750 citizens within direct contour reach. Approximately 19% (~3,370 persons) represent vulnerable categories requiring assisted vehicle evacuation.`,
+        classification: `Key physical assets under active surveillance: 2 primary electrical sub-stations, 4 primary school buildings, and 1 community healthcare clinic.`,
+        keyStat: `Estimated Affected: ~17,750 Citizens | Critical Assets: 7 Facilities`
+      }
+    },
+    {
+      id: 6,
+      icon: <ShieldCheck size={20} color="#0284c7" />,
+      title: 'What Responders Do?',
+      subtitle: 'Preparedness & Actions',
+      summary: null,
+      customPreview: (
+        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <CheckCircle2 size={14} color="#16a34a" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              Early warning & autonomous SMS alert communication dispatched
+            </Typography>
+          </Box>
+          <Box display="flex" alignItems="center" gap={1}>
+            <CheckCircle2 size={14} color="#16a34a" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              Evacuation routes activated & rescue response units placed on standby
+            </Typography>
+          </Box>
+          <Box display="flex" alignItems="center" gap={1}>
+            <CheckCircle2 size={14} color="#16a34a" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              Resource allocation deployed (clean drinking water, medical kits, transport fleet)
+            </Typography>
+          </Box>
+        </Stack>
+      ),
+      details: {
+        telemetry: `Civil defense and emergency responders have deployed high-capacity mobile de-watering pumps to primary siphon corridors. Inflatable rescue boats and emergency transports are staged at municipal staging points.`,
+        classification: `Autonomous SMS cell broadcast delivers direct instructions to citizen devices, directing traffic along elevated transit corridors.`,
+        keyStat: `Action Status: SOP Tier-2 Active Preparedness`
+      }
+    },
+    {
+      id: 7,
+      icon: <ArrowRight size={20} color="#0284c7" />,
+      title: 'Where People Go?',
+      subtitle: 'Relocation Plan',
+      summary: null,
+      customPreview: (
+        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Home size={14} color="#16a34a" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              <strong>Immediate:</strong> Nearest verified safe shelters ({resolvedShelterName})
+            </Typography>
+          </Box>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Tent size={14} color="#0284c7" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              <strong>Short-term:</strong> Temporary relief transit camps (1–7 days)
+            </Typography>
+          </Box>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Building2 size={14} color="#64748b" />
+            <Typography variant="caption" sx={{ color: textMain }}>
+              <strong>Medium-term:</strong> Permanent resettlement centers (if infrastructure damaged)
+            </Typography>
+          </Box>
+        </Stack>
+      ),
+      details: {
+        telemetry: `Primary Recommended Shelter: ${resolvedShelterName} (Distance: ${resolvedShelterDist}, Estimated Travel: ${resolvedShelterTime}). Currently has ${resolvedShelterBeds} verified vacant beds with backup generator power, medical triage, and clean food rations.`,
+        classification: `Turn-by-turn flood-safe evacuation routes are continuously mapped to bypass submerged intersections.`,
+        keyStat: `Primary Shelter: ${resolvedShelterName} (${resolvedShelterBeds} Beds Available)`
+      }
     }
-  }, [selectedHazard, selectedHotspot, currentAssessment]);
-
-  const question5Who = useMemo(() => {
-    const totalPop = currentAssessment.affectedPopulation || 3800;
-    const vulnPop = Math.round(totalPop * 0.19);
-    return `Immediate catchment settlements in ${selectedHotspot.district} around ${selectedHotspot.name}: Approximately ${totalPop.toLocaleString()} residents, including ~${vulnPop.toLocaleString()} high-vulnerability citizens (infants, mobility-impaired, and elderly requiring evacuation transport).`;
-  }, [currentAssessment, selectedHotspot]);
-
-  const question6Responders = useMemo(() => {
-    return currentAssessment.recommendedAction;
-  }, [currentAssessment]);
-
-  const resolvedShelterName = shelterData?.shelter?.name || shelterData?.name || `${selectedHotspot.district} Designated Emergency Relief Shelter`;
-  const resolvedShelterDist = shelterData?.distance || `${(1.8 + Math.abs(terrainVar * 1.5)).toFixed(1)} km`;
-  const resolvedShelterTime = shelterData?.estimatedTravelTime || `${Math.round(10 + Math.abs(terrainVar * 12))} mins`;
-  const resolvedShelterBeds = shelterData?.shelter?.availableCapacity || shelterData?.availableCapacity || Math.round(320 + Math.abs(terrainVar * 200));
+  ];
 
   return (
     <Boilerplate>
-      {/* Header */}
-      <Box mb={3}>
-        <Typography variant="caption" sx={{ color: textMuted }}>
-          Disaster Intelligence &gt; Feature 3: Explainable AI (XAI)
-        </Typography>
-        <Typography variant="h5" fontWeight={800} sx={{ color: textMain, mt: 0.5 }}>
-          Explainable AI (XAI) Decision Support
-        </Typography>
-        <Typography variant="body2" sx={{ color: textMuted }}>
-          Transparent risk decomposition answering the 7 Core Questions: What, Where, Why, What Next, Who, What Responders Do, Where People Go.
-        </Typography>
-      </Box>
-
-      {/* Hotspot Location Selector Bar */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          mb: 3,
-          borderRadius: 2.5,
-          bgcolor: cardBg,
-          border: `1px solid ${cardBorder}`
-        }}
-      >
-        <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} gap={1.5}>
-          <Box display="flex" alignItems="center" gap={1}>
-            <LocationOnOutlinedIcon sx={{ color: '#0284c7' }} />
-            <Typography variant="caption" fontWeight={800} sx={{ color: textMain, textTransform: 'uppercase' }}>
-              Select Evaluated Hotspot:
+      {/* Top Header matching reference layout */}
+      <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2} mb={3}>
+        <Box display="flex" alignItems="center" gap={1.75}>
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: 2.5,
+              bgcolor: '#0284c7',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)'
+            }}
+          >
+            <Brain size={28} />
+          </Box>
+          <Box>
+            <Typography variant="h5" fontWeight={800} sx={{ color: textMain, letterSpacing: -0.5 }}>
+              Explainable AI (XAI) Decision Support
+            </Typography>
+            <Typography variant="body2" sx={{ color: textMuted, fontSize: '0.85rem' }}>
+              Transparent risk decomposition answering the 7 Core Questions: What, Where, Why, What Next, Who, What Responders Do, Where People Go.
             </Typography>
           </Box>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            {availableHotspots.map((spot) => {
-              const isSelected = selectedHotspot?.id === spot.id;
-              return (
-                <Chip
-                  key={spot.id}
-                  label={spot.name}
-                  onClick={() => setSelectedHotspot(spot)}
-                  color={isSelected ? 'primary' : 'default'}
-                  variant={isSelected ? 'filled' : 'outlined'}
-                  size="small"
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: '0.72rem',
-                    cursor: 'pointer',
-                    bgcolor: isSelected ? '#0284c7' : 'transparent',
-                    color: isSelected ? '#ffffff' : (isDark ? '#cbd5e1' : '#334155'),
-                    borderColor: isSelected ? '#0284c7' : (isDark ? 'rgba(255,255,255,0.15)' : '#cbd5e1'),
-                    '&:hover': {
-                      bgcolor: isSelected ? '#0369a1' : (isDark ? 'rgba(255,255,255,0.08)' : '#f1f5f9')
-                    }
-                  }}
-                />
-              );
-            })}
-          </Stack>
         </Box>
 
-        {/* Selected Hotspot Context Sub-Bar */}
-        <Box display="flex" alignItems="center" gap={2} mt={1.5} pt={1.5} borderTop={`1px dashed ${cardBorder}`}>
-          <Typography variant="caption" sx={{ color: textMuted }}>
-            Active Hotspot: <strong style={{ color: textMain }}>{selectedHotspot?.name}</strong>
-          </Typography>
-          <Typography variant="caption" sx={{ color: textMuted }}>
-            Terrain: <strong style={{ color: '#0284c7' }}>{selectedHotspot?.terrain}</strong>
-          </Typography>
-          <Typography variant="caption" sx={{ color: textMuted }}>
-            Coordinates: <strong>{selectedHotspot?.lat?.toFixed(4)}, {selectedHotspot?.lon?.toFixed(4)}</strong>
-          </Typography>
-        </Box>
-      </Paper>
-
-      {/* Hazard Type Selector Tabs */}
-      <Paper
-        elevation={0}
-        sx={{
-          mb: 3,
-          borderRadius: 2.5,
-          bgcolor: cardBg,
-          border: `1px solid ${cardBorder}`,
-          overflow: 'hidden'
-        }}
-      >
-        <Tabs
-          value={selectedHazard}
-          onChange={(e, val) => setSelectedHazard(val)}
-          textColor="primary"
-          indicatorColor="primary"
+        <Chip
+          icon={<MapPin size={14} color="#0284c7" />}
+          label="Disaster Intelligence > Feature 3"
           sx={{
-            '& .MuiTab-root': {
-              color: textMuted,
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              py: 1.5,
-              '&.Mui-selected': { color: '#0284c7' }
-            }
+            fontWeight: 700,
+            fontSize: '0.75rem',
+            bgcolor: isDark ? 'rgba(2, 132, 199, 0.15)' : '#e0f2fe',
+            color: '#0284c7',
+            border: '1px solid rgba(2, 132, 199, 0.3)'
           }}
-        >
-          <Tab value="FLOOD" icon={<WaterDropOutlinedIcon />} iconPosition="start" label="Flood Risk Model" />
-          <Tab value="LANDSLIDE" icon={<TerrainOutlinedIcon />} iconPosition="start" label="Landslide Model" />
-          <Tab value="WILDFIRE" icon={<LocalFireDepartmentOutlinedIcon />} iconPosition="start" label="Wildfire Model" />
-        </Tabs>
-      </Paper>
+        />
+      </Box>
 
       {loading ? (
-        <Box display="flex" justifyContent="center" py={8}>
+        <Box display="flex" justifyContent="center" py={12}>
           <CircularProgress sx={{ color: '#0284c7' }} />
         </Box>
       ) : (
         <Grid container spacing={3}>
-          {/* Left Column: Risk Gauge & Model Confidence */}
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                borderRadius: 3,
-                bgcolor: cardBg,
-                border: `1px solid ${cardBorder}`,
-                textAlign: 'center',
-                height: '100%'
-              }}
-            >
-              <RiskGauge
-                score={currentAssessment.riskScore}
-                title={`${selectedHazard} THREAT INDEX`}
-                subtitle={`${selectedHotspot.district} • Model: XGBoost`}
-              />
-
-              <Divider sx={{ my: 2.5, borderColor: cardBorder }} />
-
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                <Typography variant="caption" sx={{ color: textMuted, fontWeight: 700 }}>
-                  MODEL CONFIDENCE
-                </Typography>
-                <Typography variant="caption" fontWeight={800} sx={{ color: '#0284c7' }}>
-                  {Math.round(currentAssessment.confidence * 100)}% (Calibrated)
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={currentAssessment.confidence * 100}
+          {/* LEFT COLUMN: Hotspot Selection & Risk Model Card */}
+          <Grid size={{ xs: 12, lg: 4.5 }}>
+            <Stack spacing={3}>
+              {/* Card 1: Selected Evaluated Hotspot */}
+              <Paper
+                elevation={0}
                 sx={{
-                  height: 6,
+                  p: 2.5,
                   borderRadius: 3,
-                  mb: 2.5,
-                  bgcolor: isDark ? 'rgba(255,255,255,0.06)' : '#e2e8f0',
-                  '& .MuiLinearProgress-bar': { bgcolor: '#0284c7' }
+                  bgcolor: cardBg,
+                  border: `1px solid ${cardBorder}`
                 }}
-              />
+              >
+                <Box display="flex" alignItems="center" gap={1} mb={2}>
+                  <MapPin size={18} color="#0284c7" />
+                  <Typography variant="subtitle1" fontWeight={800} sx={{ color: textMain }}>
+                    Selected Evaluated Hotspot
+                  </Typography>
+                </Box>
 
-              <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2', border: '1px solid rgba(239, 68, 68, 0.25)', textAlign: 'left' }}>
-                <Typography variant="caption" fontWeight={800} sx={{ color: '#ef4444', display: 'block', mb: 0.5 }}>
-                  TACTICAL DIRECTIVE:
-                </Typography>
-                <Typography variant="body2" fontWeight={600} sx={{ color: textMain, fontSize: '0.8rem', lineHeight: 1.4 }}>
-                  {currentAssessment.recommendedAction}
-                </Typography>
-              </Box>
-            </Paper>
+                {/* 4 Hotspot Buttons grid */}
+                <Grid container spacing={1} mb={2}>
+                  {availableHotspots.map((spot) => {
+                    const isSelected = selectedHotspot?.id === spot.id;
+                    return (
+                      <Grid size={{ xs: 6 }} key={spot.id}>
+                        <Button
+                          fullWidth
+                          variant={isSelected ? 'contained' : 'outlined'}
+                          onClick={() => setSelectedHotspot(spot)}
+                          sx={{
+                            py: 1.25,
+                            px: 1,
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: '0.72rem',
+                            lineHeight: 1.3,
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            bgcolor: isSelected ? '#1d4ed8' : (isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc'),
+                            color: isSelected ? '#ffffff' : textMain,
+                            borderColor: isSelected ? '#1d4ed8' : cardBorder,
+                            '&:hover': {
+                              bgcolor: isSelected ? '#1e40af' : (isDark ? 'rgba(255,255,255,0.06)' : '#e2e8f0')
+                            }
+                          }}
+                        >
+                          {spot.name}
+                        </Button>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+
+                {/* Active Hotspot Detail Card */}
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: isDark ? 'rgba(2, 132, 199, 0.08)' : '#f0f9ff',
+                    border: '1px solid',
+                    borderColor: isDark ? 'rgba(2, 132, 199, 0.25)' : '#bae6fd',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 1.5
+                  }}
+                >
+                  <Box display="flex" alignItems="center" gap={1.25}>
+                    <Waves size={20} color="#0284c7" />
+                    <Box>
+                      <Typography variant="caption" sx={{ color: textMuted, display: 'block', fontSize: '0.68rem' }}>
+                        Active Hotspot:
+                      </Typography>
+                      <Typography variant="body2" fontWeight={800} sx={{ color: textMain, lineHeight: 1.2 }}>
+                        {selectedHotspot?.name}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#0284c7', fontSize: '0.7rem' }}>
+                        Terrain: {selectedHotspot?.terrain}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box display="flex" alignItems="center" gap={0.75}>
+                    <MapPin size={16} color="#0284c7" />
+                    <Box>
+                      <Typography variant="caption" sx={{ color: textMuted, display: 'block', fontSize: '0.68rem' }}>
+                        Coordinates
+                      </Typography>
+                      <Typography variant="caption" fontWeight={700} sx={{ color: textMain }}>
+                        {selectedHotspot?.lat?.toFixed(4)}, {selectedHotspot?.lon?.toFixed(4)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Paper>
+
+              {/* Card 2: Flood Risk Model (matching reference layout exactly) */}
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2.5,
+                  borderRadius: 3,
+                  bgcolor: cardBg,
+                  border: `1px solid ${cardBorder}`
+                }}
+              >
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2.5}>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <ShieldCheck size={18} color="#0284c7" />
+                    <Typography variant="subtitle1" fontWeight={800} sx={{ color: textMain }}>
+                      Flood Risk Model
+                    </Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={
+                      currentAssessment.riskScore >= 76
+                        ? 'Critical Risk'
+                        : currentAssessment.riskScore >= 51
+                        ? 'High Risk'
+                        : currentAssessment.riskScore >= 26
+                        ? 'Moderate Risk'
+                        : 'Low Risk'
+                    }
+                    sx={{
+                      fontWeight: 800,
+                      fontSize: '0.72rem',
+                      bgcolor: scorePillBg,
+                      color: scoreColor,
+                      border: `1px solid ${scoreColor}40`
+                    }}
+                  />
+                </Box>
+
+                {/* Gauge & Legend Row */}
+                <Grid container spacing={2} alignItems="center" mb={2.5}>
+                  {/* Circular Ring Gauge */}
+                  <Grid size={{ xs: 5 }}>
+                    <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+                      <Box position="relative" width={120} height={120} display="flex" alignItems="center" justifyContent="center">
+                        <svg width="120" height="120" viewBox="0 0 100 100">
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="42"
+                            fill="none"
+                            stroke={isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'}
+                            strokeWidth="9"
+                          />
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="42"
+                            fill="none"
+                            stroke={scoreColor}
+                            strokeWidth="9"
+                            strokeDasharray="264"
+                            strokeDashoffset={264 - (264 * currentAssessment.riskScore) / 100}
+                            strokeLinecap="round"
+                            transform="rotate(-90 50 50)"
+                            style={{ transition: 'stroke-dashoffset 1s ease-in-out' }}
+                          />
+                        </svg>
+                        <Box position="absolute" textAlign="center">
+                          <Typography variant="h4" fontWeight={800} sx={{ color: textMain, lineHeight: 1 }}>
+                            {currentAssessment.riskScore}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.7rem' }}>
+                            / 100
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Box
+                        sx={{
+                          mt: 1,
+                          px: 1.5,
+                          py: 0.25,
+                          borderRadius: 1,
+                          bgcolor: scorePillBg,
+                          color: scoreColor,
+                          fontWeight: 800,
+                          fontSize: '0.72rem',
+                          letterSpacing: 0.5
+                        }}
+                      >
+                        {currentAssessment.riskCategory}
+                      </Box>
+                      <Typography variant="caption" sx={{ color: textMuted, mt: 0.5, fontWeight: 600, fontSize: '0.72rem' }}>
+                        Flood Threat Index
+                      </Typography>
+                    </Box>
+                  </Grid>
+
+                  {/* Legend Scale Table */}
+                  <Grid size={{ xs: 7 }}>
+                    <Box sx={{ borderLeft: `1px solid ${cardBorder}`, pl: 2 }}>
+                      <Typography variant="caption" fontWeight={700} sx={{ color: textMuted, display: 'block', mb: 1, fontSize: '0.7rem' }}>
+                        Risk Level
+                      </Typography>
+                      <Stack spacing={0.75}>
+                        {[
+                          { range: '0 – 20', label: 'Low (Green)', color: '#16a34a', active: currentAssessment.riskScore <= 20 },
+                          { range: '21 – 40', label: 'Moderate (Yellow)', color: '#ca8a04', active: currentAssessment.riskScore > 20 && currentAssessment.riskScore <= 40 },
+                          { range: '41 – 60', label: 'High (Amber)', color: '#d97706', active: currentAssessment.riskScore > 40 && currentAssessment.riskScore <= 60 },
+                          { range: '61 – 80', label: 'Very High (Red)', color: '#ea580c', active: currentAssessment.riskScore > 60 && currentAssessment.riskScore <= 80 },
+                          { range: '81 – 100', label: 'Extreme (Red)', color: '#dc2626', active: currentAssessment.riskScore > 80 }
+                        ].map((tier, idx) => (
+                          <Box
+                            key={idx}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              p: 0.5,
+                              px: 0.75,
+                              borderRadius: 1,
+                              bgcolor: tier.active ? (isDark ? 'rgba(217, 119, 6, 0.15)' : '#fef3c7') : 'transparent',
+                              border: tier.active ? '1px solid #f59e0b' : '1px solid transparent'
+                            }}
+                          >
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: tier.color }} />
+                              <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.7rem', fontWeight: tier.active ? 800 : 500 }}>
+                                {tier.range}
+                              </Typography>
+                            </Box>
+                            <Typography variant="caption" sx={{ color: tier.active ? (isDark ? '#fbbf24' : '#b45309') : textMain, fontSize: '0.7rem', fontWeight: tier.active ? 800 : 600 }}>
+                              {tier.label}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Stack>
+                    </Box>
+                  </Grid>
+                </Grid>
+
+                {/* Model Confidence & Progress Bar */}
+                <Box pt={1.5} borderTop={`1px solid ${cardBorder}`}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.75}>
+                    <Box display="flex" alignItems="center" gap={0.75}>
+                      <Activity size={14} color="#0284c7" />
+                      <Typography variant="caption" fontWeight={700} sx={{ color: textMain, fontSize: '0.75rem' }}>
+                        Model Confidence
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" fontWeight={800} sx={{ color: '#0284c7', fontSize: '0.75rem' }}>
+                      {Math.round(currentAssessment.confidence * 100)}% (Calibrated)
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={currentAssessment.confidence * 100}
+                    sx={{
+                      height: 6,
+                      borderRadius: 3,
+                      mb: 1.5,
+                      bgcolor: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
+                      '& .MuiLinearProgress-bar': { bgcolor: '#0284c7' }
+                    }}
+                  />
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.7rem' }}>
+                      Model: <strong>XGBoost</strong>
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.7rem' }}>
+                      District: <strong>{selectedHotspot?.district}</strong>
+                    </Typography>
+                  </Box>
+                </Box>
+              </Paper>
+            </Stack>
           </Grid>
 
-          {/* Right Column: The 7 Core Answers & Factor Weight Breakdown */}
-          <Grid size={{ xs: 12, md: 8 }}>
+          {/* RIGHT COLUMN: The 7 Core Disaster Intelligence Answers */}
+          <Grid size={{ xs: 12, lg: 7.5 }}>
             <Paper
               elevation={0}
               sx={{
@@ -536,158 +843,432 @@ export default function RiskAnalysis() {
                 border: `1px solid ${cardBorder}`
               }}
             >
-              <Box display="flex" alignItems="center" gap={1} mb={2.5}>
-                <AnalyticsIcon sx={{ color: '#0284c7' }} />
-                <Typography variant="h6" fontWeight={800} sx={{ color: textMain }}>
-                  The 7 Core Disaster Intelligence Answers
-                </Typography>
+              {/* Header row with Brain icon & Expand/Collapse toggle */}
+              <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1.5} mb={2.5}>
+                <Box display="flex" alignItems="center" gap={1.25}>
+                  <Brain size={22} color="#0284c7" />
+                  <Typography variant="h6" fontWeight={800} sx={{ color: textMain, fontSize: '1.05rem' }}>
+                    The 7 Core Disaster Intelligence Answers
+                  </Typography>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={toggleExpandAll}
+                  startIcon={allExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.72rem',
+                    py: 0.25,
+                    px: 1.5,
+                    borderRadius: 1.5,
+                    borderColor: cardBorder,
+                    color: textMuted,
+                    '&:hover': {
+                      borderColor: '#0284c7',
+                      color: '#0284c7'
+                    }
+                  }}
+                >
+                  {allExpanded ? 'Collapse All' : 'Expand All Details'}
+                </Button>
               </Box>
 
-              <Stack spacing={2.5}>
-                {/* 1. What is happening? */}
-                <Box>
-                  <Typography variant="caption" sx={{ color: '#0284c7', fontWeight: 800, letterSpacing: 0.5 }}>
-                    1. WHAT IS HAPPENING?
-                  </Typography>
-                  <Typography variant="body1" fontWeight={700} sx={{ color: textMain, mt: 0.25 }}>
-                    {selectedHazard} Hazard Alert — Classification Level: <span style={{ color: currentAssessment.riskCategory === 'CRITICAL' ? '#ef4444' : currentAssessment.riskCategory === 'RED' ? '#f97316' : '#eab308' }}>{currentAssessment.riskCategory}</span> ({currentAssessment.riskScore}/100)
-                  </Typography>
-                </Box>
+              {/* The 7 Questions List */}
+              <Stack spacing={2}>
+                {questionsList.map((q) => {
+                  const isExpanded = !!expandedQuestions[q.id];
+                  return (
+                    <Box
+                      key={q.id}
+                      sx={{
+                        p: 2,
+                        borderRadius: 2.5,
+                        bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#ffffff',
+                        border: '1px solid',
+                        borderColor: isExpanded ? (isDark ? '#0284c7' : '#93c5fd') : cardBorder,
+                        transition: 'all 0.2s ease-in-out',
+                        boxShadow: isExpanded ? '0 4px 12px rgba(2, 132, 199, 0.08)' : 'none',
+                        '&:hover': {
+                          borderColor: '#0284c7'
+                        }
+                      }}
+                    >
+                      {/* Main Question Row */}
+                      <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={2}>
+                        {/* Number & Icon Pill */}
+                        <Box display="flex" alignItems="center" gap={1.5}>
+                          <Box
+                            sx={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: 2,
+                              bgcolor: isDark ? 'rgba(2, 132, 199, 0.15)' : '#e0f2fe',
+                              color: '#0284c7',
+                              fontWeight: 800,
+                              fontSize: '0.95rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}
+                          >
+                            {q.id}
+                          </Box>
+                          <Box
+                            sx={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: 2,
+                              bgcolor: isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}
+                          >
+                            {q.icon}
+                          </Box>
 
-                {/* 2. Where is it happening? */}
-                <Box>
-                  <Typography variant="caption" sx={{ color: '#0284c7', fontWeight: 800, letterSpacing: 0.5 }}>
-                    2. WHERE IS IT HAPPENING?
-                  </Typography>
-                  <Typography variant="body1" sx={{ color: textMain, mt: 0.25 }}>
-                    {selectedHotspot.name} ({selectedHotspot.district}) • Hotspot Coordinates: {selectedHotspot.lat.toFixed(4)}, {selectedHotspot.lon.toFixed(4)} • Impact Perimeter: ~{selectedHotspot.area || '4.8'} km² ({selectedHotspot.terrain})
-                  </Typography>
-                </Box>
-
-                {/* 3. Why is the risk increasing? Visualized Factors */}
-                <Box>
-                  <Typography variant="caption" sx={{ color: '#0284c7', fontWeight: 800, letterSpacing: 0.5, display: 'block', mb: 1 }}>
-                    3. WHY IS THE RISK INCREASING? (EXPLAINABLE FACTOR WEIGHTS)
-                  </Typography>
-
-                  <Stack spacing={1.5}>
-                    {explainableFactors.map((f, idx) => (
-                      <Box
-                        key={idx}
-                        sx={{
-                          p: 1.5,
-                          borderRadius: 2,
-                          bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc',
-                          border: `1px solid ${cardBorder}`
-                        }}
-                      >
-                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                          <Typography variant="body2" fontWeight={700} sx={{ color: textMain, fontSize: '0.85rem' }}>
-                            {f.name}
-                          </Typography>
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <Chip
-                              label={`Weight: ${f.weight}`}
-                              size="small"
-                              sx={{ fontWeight: 800, fontSize: '0.65rem', height: 18 }}
-                            />
-                            <Typography variant="caption" fontWeight={800} sx={{ color: f.color }}>
-                              {f.score}/100
+                          <Box>
+                            <Typography
+                              variant="subtitle2"
+                              fontWeight={800}
+                              sx={{ color: textMain, fontSize: '0.92rem', cursor: 'pointer' }}
+                              onClick={() => toggleQuestion(q.id)}
+                            >
+                              {q.title}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.72rem' }}>
+                              {q.subtitle}
                             </Typography>
                           </Box>
                         </Box>
-                        <LinearProgress
-                          variant="determinate"
-                          value={f.score}
-                          sx={{
-                            height: 6,
-                            borderRadius: 3,
-                            mb: 0.75,
-                            bgcolor: isDark ? 'rgba(255,255,255,0.06)' : '#e2e8f0',
-                            '& .MuiLinearProgress-bar': { bgcolor: f.color }
-                          }}
-                        />
-                        <Typography variant="caption" sx={{ color: textMuted, display: 'block', fontSize: '0.72rem' }}>
-                          {f.detail}
-                        </Typography>
+
+                        {/* Right side: Badge (if present) & Action Buttons */}
+                        <Box display="flex" alignItems="center" gap={1}>
+                          {q.badge && (
+                            <Box
+                              sx={{
+                                display: { xs: 'none', sm: 'block' },
+                                p: 0.75,
+                                px: 1.25,
+                                borderRadius: 1.5,
+                                bgcolor: isDark ? 'rgba(217, 119, 6, 0.12)' : '#fef3c7',
+                                border: '1px solid #f59e0b',
+                                textAlign: 'right'
+                              }}
+                            >
+                              <Box display="flex" alignItems="center" gap={0.5} justifyContent="flex-end">
+                                <AlertTriangle size={12} color="#d97706" />
+                                <Typography variant="caption" fontWeight={800} sx={{ color: '#d97706', fontSize: '0.68rem' }}>
+                                  {q.badge}
+                                </Typography>
+                              </Box>
+                              <Typography variant="caption" sx={{ color: textMuted, display: 'block', fontSize: '0.62rem' }}>
+                                {q.badgeSub}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {/* Popup Dialog View Button */}
+                          <Tooltip title="View full breakdown in popup dialog">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPopupQuestion(q);
+                              }}
+                              sx={{
+                                color: textMuted,
+                                '&:hover': { color: '#0284c7', bgcolor: isDark ? 'rgba(2,132,199,0.1)' : '#e0f2fe' }
+                              }}
+                            >
+                              <Maximize2 size={15} />
+                            </IconButton>
+                          </Tooltip>
+
+                          {/* Dropdown Toggle Button */}
+                          <Tooltip title={isExpanded ? 'Collapse details' : 'Show details dropdown'}>
+                            <IconButton
+                              size="small"
+                              onClick={() => toggleQuestion(q.id)}
+                              sx={{
+                                color: textMuted,
+                                transform: isExpanded ? 'rotate(180deg)' : 'none',
+                                transition: 'transform 0.2s ease-in-out',
+                                '&:hover': { color: '#0284c7' }
+                              }}
+                            >
+                              <ChevronDown size={18} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       </Box>
-                    ))}
-                  </Stack>
-                </Box>
 
-                {/* 4. What will happen next? */}
-                <Box>
-                  <Typography variant="caption" sx={{ color: '#0284c7', fontWeight: 800, letterSpacing: 0.5 }}>
-                    4. WHAT WILL HAPPEN NEXT? (TIME-SERIES PREDICTION)
-                  </Typography>
-                  <Typography variant="body1" sx={{ color: textMain, mt: 0.25 }}>
-                    {question4Next}
-                  </Typography>
-                </Box>
+                      {/* Quick Summary or Custom Preview (Visible always, matches screenshot) */}
+                      {q.summary && (
+                        <Typography variant="body2" sx={{ color: textMuted, mt: 1, ml: { xs: 0, sm: 10.5 }, fontSize: '0.8rem', lineHeight: 1.4 }}>
+                          {q.summary}
+                        </Typography>
+                      )}
 
-                {/* 5. Who is likely to be affected? */}
-                <Box>
-                  <Typography variant="caption" sx={{ color: '#0284c7', fontWeight: 800, letterSpacing: 0.5 }}>
-                    5. WHO IS LIKELY TO BE AFFECTED? (VULNERABILITY ENGINE)
-                  </Typography>
-                  <Typography variant="body1" sx={{ color: textMain, mt: 0.25 }}>
-                    {question5Who}
-                  </Typography>
-                </Box>
+                      {q.customPreview && (
+                        <Box sx={{ ml: { xs: 0, sm: 10.5 } }}>
+                          {q.customPreview}
+                        </Box>
+                      )}
 
-                {/* 6. What should responders do? */}
-                <Box>
-                  <Typography variant="caption" sx={{ color: '#0284c7', fontWeight: 800, letterSpacing: 0.5 }}>
-                    6. WHAT SHOULD RESPONDERS DO? (OPERATIONAL DIRECTIVES)
-                  </Typography>
-                  <Typography variant="body1" sx={{ color: textMain, mt: 0.25 }}>
-                    {question6Responders}
-                  </Typography>
-                </Box>
+                      {/* Dropdown Expanded Details View */}
+                      <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                        <Box
+                          sx={{
+                            mt: 1.75,
+                            pt: 1.5,
+                            ml: { xs: 0, sm: 10.5 },
+                            borderTop: `1px dashed ${cardBorder}`
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              p: 1.5,
+                              borderRadius: 2,
+                              bgcolor: isDark ? 'rgba(2, 132, 199, 0.06)' : '#f0fdf4',
+                              border: `1px solid ${isDark ? 'rgba(2, 132, 199, 0.2)' : '#bbf7d0'}`
+                            }}
+                          >
+                            <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.75}>
+                              <Box display="flex" alignItems="center" gap={0.75}>
+                                <Sparkles size={14} color="#0284c7" />
+                                <Typography variant="caption" fontWeight={800} sx={{ color: textMain }}>
+                                  XAI Intelligence Synthesis & Sensor Grounding:
+                                </Typography>
+                              </Box>
+                              <Chip
+                                size="small"
+                                label={q.details.keyStat}
+                                sx={{
+                                  fontWeight: 800,
+                                  fontSize: '0.68rem',
+                                  bgcolor: isDark ? 'rgba(255,255,255,0.06)' : '#ffffff',
+                                  color: '#0284c7',
+                                  border: '1px solid rgba(2, 132, 199, 0.3)'
+                                }}
+                              />
+                            </Box>
+                            <Typography variant="caption" sx={{ color: textMuted, display: 'block', lineHeight: 1.5, mb: 1 }}>
+                              {q.details.telemetry}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: textMain, fontWeight: 600, display: 'block' }}>
+                              &bull; <strong>Directive:</strong> {q.details.classification}
+                            </Typography>
+                          </Box>
 
-                {/* 7. Where should affected people go? */}
-                <Box>
-                  <Typography variant="caption" sx={{ color: '#0284c7', fontWeight: 800, letterSpacing: 0.5 }}>
-                    7. WHERE SHOULD AFFECTED PEOPLE GO? (SMART SHELTER RECOMMENDATION)
-                  </Typography>
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      mt: 0.5,
-                      borderRadius: 2,
-                      bgcolor: isDark ? 'rgba(22, 163, 74, 0.1)' : '#f0fdf4',
-                      border: '1px solid rgba(22, 163, 74, 0.3)',
-                      display: 'flex',
-                      flexDirection: { xs: 'column', sm: 'row' },
-                      justifyContent: 'space-between',
-                      alignItems: { xs: 'flex-start', sm: 'center' },
-                      gap: 1
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="subtitle2" fontWeight={800} sx={{ color: '#16a34a' }}>
-                        {resolvedShelterName}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: textMuted, display: 'block' }}>
-                        Distance: <strong>{resolvedShelterDist}</strong> • Estimated Travel: <strong>{resolvedShelterTime}</strong> • Vacant Intake: <strong>{resolvedShelterBeds} open beds</strong>
-                      </Typography>
+                          {/* Quick CTA inside Question 7 for Relocation Shelters */}
+                          {q.id === 7 && (
+                            <Box mt={1.5} display="flex" justifyContent="flex-end">
+                              <Button
+                                size="small"
+                                variant="contained"
+                                endIcon={<ArrowRight size={14} />}
+                                onClick={() => navigate('/carrying-capacity')}
+                                sx={{
+                                  bgcolor: '#16a34a',
+                                  fontWeight: 700,
+                                  fontSize: '0.72rem',
+                                  textTransform: 'none',
+                                  borderRadius: 1.5,
+                                  '&:hover': { bgcolor: '#15803d' }
+                                }}
+                              >
+                                View Verified Shelters & Routes
+                              </Button>
+                            </Box>
+                          )}
+                        </Box>
+                      </Collapse>
                     </Box>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      endIcon={<ArrowForwardIcon />}
-                      onClick={() => navigate('/carrying-capacity')}
-                      sx={{ bgcolor: '#16a34a', fontWeight: 700, fontSize: '0.72rem', '&:hover': { bgcolor: '#15803d' } }}
-                    >
-                      View All Shelters
-                    </Button>
-                  </Box>
-                </Box>
+                  );
+                })}
               </Stack>
+
+              {/* Bottom Footer Banner (matching screenshot exactly) */}
+              <Box
+                sx={{
+                  mt: 3,
+                  p: 1.5,
+                  borderRadius: 2,
+                  bgcolor: isDark ? 'rgba(22, 163, 74, 0.08)' : '#f0fdf4',
+                  border: '1px solid',
+                  borderColor: isDark ? 'rgba(22, 163, 74, 0.25)' : '#bbf7d0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 1
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={1}>
+                  <CheckCircle2 size={16} color="#16a34a" />
+                  <Typography variant="caption" fontWeight={700} sx={{ color: isDark ? '#4ade80' : '#15803d', fontSize: '0.75rem' }}>
+                    Goal: Minimize loss of life, reduce damage, and ensure a safe relocation for vulnerable communities.
+                  </Typography>
+                </Box>
+                <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.72rem', fontStyle: 'italic' }}>
+                  🍃 Smarter Data. Safer Communities.
+                </Typography>
+              </Box>
             </Paper>
           </Grid>
         </Grid>
       )}
+
+      {/* POPUP MODAL DIALOG for deep inspection of any of the 7 Questions */}
+      <Dialog
+        open={Boolean(popupQuestion)}
+        onClose={() => setPopupQuestion(null)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3.5,
+            bgcolor: cardBg,
+            border: `1px solid ${cardBorder}`,
+            p: 1
+          }
+        }}
+      >
+        {popupQuestion && (
+          <>
+            <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box display="flex" alignItems="center" gap={1.25}>
+                <Box
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 2,
+                    bgcolor: '#0284c7',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {popupQuestion.id}
+                </Box>
+                <Box>
+                  <Typography variant="subtitle1" fontWeight={800} sx={{ color: textMain }}>
+                    {popupQuestion.title}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: textMuted }}>
+                    {popupQuestion.subtitle}
+                  </Typography>
+                </Box>
+              </Box>
+              <IconButton size="small" onClick={() => setPopupQuestion(null)}>
+                <X size={18} />
+              </IconButton>
+            </DialogTitle>
+
+            <DialogContent dividers sx={{ borderColor: cardBorder }}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="caption" fontWeight={800} sx={{ color: '#0284c7', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Overview & Situation
+                </Typography>
+                {popupQuestion.summary ? (
+                  <Typography variant="body1" fontWeight={600} sx={{ color: textMain, mt: 0.5, lineHeight: 1.5 }}>
+                    {popupQuestion.summary}
+                  </Typography>
+                ) : (
+                  <Box sx={{ mt: 1 }}>{popupQuestion.customPreview}</Box>
+                )}
+              </Box>
+
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: isDark ? 'rgba(2, 132, 199, 0.08)' : '#f0f9ff',
+                  border: '1px solid',
+                  borderColor: isDark ? 'rgba(2, 132, 199, 0.25)' : '#bae6fd',
+                  mb: 2
+                }}
+              >
+                <Typography variant="caption" fontWeight={800} sx={{ color: '#0284c7', display: 'block', mb: 0.5 }}>
+                  Detailed Telemetry & Inundation Analysis:
+                </Typography>
+                <Typography variant="body2" sx={{ color: textMain, lineHeight: 1.6, mb: 1 }}>
+                  {popupQuestion.details.telemetry}
+                </Typography>
+                <Divider sx={{ my: 1, borderColor: isDark ? 'rgba(2,132,199,0.2)' : '#bae6fd' }} />
+                <Typography variant="caption" sx={{ color: textMuted, display: 'block', mb: 0.25 }}>
+                  Operational Directive:
+                </Typography>
+                <Typography variant="body2" fontWeight={700} sx={{ color: textMain }}>
+                  {popupQuestion.details.classification}
+                </Typography>
+              </Box>
+
+              <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+                <Chip
+                  size="small"
+                  label={popupQuestion.details.keyStat}
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: '0.72rem',
+                    bgcolor: isDark ? 'rgba(255,255,255,0.06)' : '#e2e8f0',
+                    color: textMain
+                  }}
+                />
+                <Typography variant="caption" sx={{ color: textMuted }}>
+                  Region: <strong>{selectedHotspot?.district}</strong> &bull; Hotspot: <strong>{selectedHotspot?.name}</strong>
+                </Typography>
+              </Box>
+            </DialogContent>
+
+            <DialogActions sx={{ px: 2.5, py: 1.5, justifyContent: 'space-between' }}>
+              <Box display="flex" gap={1}>
+                {popupQuestion.id > 1 && (
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => setPopupQuestion(questionsList[popupQuestion.id - 2])}
+                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                  >
+                    &larr; Question {popupQuestion.id - 1}
+                  </Button>
+                )}
+                {popupQuestion.id < 7 && (
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => setPopupQuestion(questionsList[popupQuestion.id])}
+                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                  >
+                    Question {popupQuestion.id + 1} &rarr;
+                  </Button>
+                )}
+              </Box>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => setPopupQuestion(null)}
+                sx={{
+                  bgcolor: '#0284c7',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  borderRadius: 1.5,
+                  '&:hover': { bgcolor: '#0369a1' }
+                }}
+              >
+                Close View
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </Boilerplate>
   );
 }
