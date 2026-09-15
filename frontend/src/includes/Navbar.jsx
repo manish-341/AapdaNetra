@@ -89,12 +89,9 @@ const Navbar = () => {
   return (
     <header className="top-navbar">
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <img src="/aapdanetra-favicon.svg" alt="AapdaNetra Logo" style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }} />
-          <h1 style={{ fontSize: '1.15rem', margin: 0, color: 'var(--text-primary)', fontWeight: 700 }}>
-            AapdaNetra Crisis Decision Support
-          </h1>
-        </div>
+        <h1 style={{ fontSize: '1.15rem', margin: 0, color: 'var(--text-primary)', fontWeight: 700 }}>
+          AapdaNetra Crisis Decision Support
+        </h1>
         <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
           Real-Time Geospatial Intelligence • ML Predictions • Emergency Guidance
         </p>
