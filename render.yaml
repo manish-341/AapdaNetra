@@ -1,4 +1,18 @@
 services:
+  # Backend API Web Service
+  - type: web
+    name: aapdanetra
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+
+  # Frontend Static Site
   - type: static
     name: aapdanetra-frontend
     rootDir: frontend
