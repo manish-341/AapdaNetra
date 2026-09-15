@@ -484,14 +484,14 @@ export default function Dashboard() {
   return (
     <Boilerplate>
       <Fade in timeout={300}>
-        <Box sx={{ width: '100%', mx: 'auto', pb: 3 }}>
-          {/* ── 1. Top Cockpit Header ── */}
+        <Box sx={{ width: '100%', mx: 'auto', pb: 4 }}>
+          {/* ── 1. Top Cockpit Header — Rigid Flex Row ── */}
           <Box
             sx={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
-              mb: 2.2,
+              mb: 3.5,
               gap: 2,
             }}
           >
@@ -627,9 +627,9 @@ export default function Dashboard() {
             </Box>
           </Box>
 
-          {/* ── 2. Quick Actions (Refined Spacing) ── */}
-          <Box mb={2.8}>
-            <Typography sx={{ fontSize: '1rem', fontWeight: 800, color: textPrimary, mb: 1.2 }}>
+          {/* ── 2. Quick Actions (Enforced Generous 40px Spacing Below) ── */}
+          <Box sx={{ mb: 5 }}>
+            <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: textPrimary, mb: 1.8 }}>
               Quick Actions
             </Typography>
 
@@ -637,7 +637,7 @@ export default function Dashboard() {
               sx={{
                 display: 'grid',
                 gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' },
-                gap: 1.6,
+                gap: 2,
               }}
             >
               {quickActionsList.map((act) => (
@@ -646,14 +646,14 @@ export default function Dashboard() {
                   elevation={0}
                   onClick={() => handleOpenQuickAction(act)}
                   sx={{
-                    p: 1.4,
+                    p: 1.6,
                     borderRadius: '12px',
                     bgcolor: cardBg,
                     border: cardBorder,
                     boxShadow: cardShadow,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 1.2,
+                    gap: 1.4,
                     cursor: 'pointer',
                     transition: 'all 0.18s ease',
                     '&:hover': {
@@ -665,8 +665,8 @@ export default function Dashboard() {
                 >
                   <Box
                     sx={{
-                      width: 36,
-                      height: 36,
+                      width: 38,
+                      height: 38,
                       borderRadius: '8px',
                       bgcolor: isDark ? act.bgDark : act.bgLight,
                       display: 'flex',
@@ -692,20 +692,20 @@ export default function Dashboard() {
             </Box>
           </Box>
 
-          {/* ── 3. Master KPI Row (3 Clean, Ready-To-Read Cards Without Sparkline Graphs) ── */}
+          {/* ── 3. Master KPI Row (Enforced Generous 40px Spacing Below) ── */}
           <Box
             sx={{
               display: 'grid',
               gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
-              gap: 2.2,
-              mb: 3,
+              gap: 2.4,
+              mb: 5,
             }}
           >
             {/* Card 1: ACTIVE ALERTS */}
             <Paper
               elevation={0}
               sx={{
-                p: 2.2,
+                p: 2.4,
                 borderRadius: '16px',
                 bgcolor: cardBg,
                 border: cardBorder,
@@ -791,7 +791,7 @@ export default function Dashboard() {
             <Paper
               elevation={0}
               sx={{
-                p: 2.2,
+                p: 2.4,
                 borderRadius: '16px',
                 bgcolor: cardBg,
                 border: cardBorder,
@@ -874,7 +874,7 @@ export default function Dashboard() {
             <Paper
               elevation={0}
               sx={{
-                p: 2.2,
+                p: 2.4,
                 borderRadius: '16px',
                 bgcolor: cardBg,
                 border: cardBorder,
@@ -961,8 +961,8 @@ export default function Dashboard() {
             sx={{
               display: 'grid',
               gridTemplateColumns: { xs: '1fr', lg: '1fr 1.2fr 1fr' },
-              gap: 2.2,
-              mb: 3,
+              gap: 2.4,
+              mb: 4.5,
             }}
           >
             {/* Panel 1: Risk Distribution */}
