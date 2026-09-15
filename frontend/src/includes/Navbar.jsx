@@ -4,7 +4,7 @@ import { Bell, LogOut, ShieldAlert, Sun, Moon, MapPin, Crosshair, ChevronDown } 
 import { clearAuthToken, getCurrentUser } from '../lib/auth';
 import { getAlerts } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
-import { useLocationContext } from '../context/LocationContext';
+import { useLocationContext, INDIAN_DISTRICT_GAZETTEER } from '../context/LocationContext';
 import { alertMatchesLocation } from '../utils/alertMatcher';
 import { getUnreadAlerts, markAllAlertsAsRead } from '../utils/notificationsStore';
 
@@ -18,6 +18,62 @@ const Navbar = () => {
   const [showLocationMenu, setShowLocationMenu] = useState(false);
   const [searchDistrict, setSearchDistrict] = useState('');
   const locationMenuRef = useRef(null);
+
+  // Combine presets and gazetteer into a unified searchable list
+  const allSearchableLocations = React.useMemo(() => {
+    const list = [];
+    const seen = new Set();
+
+    // 1. Add presets first
+    (presets || []).forEach((p) => {
+      const key = (p.district || p.name).toLowerCase().trim();
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push({
+          id: p.id,
+          name: p.name,
+          district: p.district,
+          state: p.state,
+          lat: p.lat,
+          lng: p.lng
+        });
+      }
+    });
+
+    // 2. Add gazetteer entries
+    if (INDIAN_DISTRICT_GAZETTEER) {
+      Object.entries(INDIAN_DISTRICT_GAZETTEER).forEach(([k, val]) => {
+        const key = val.name.toLowerCase().trim();
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: k,
+            name: `${val.name} (${val.state})`,
+            district: val.name,
+            state: val.state,
+            lat: val.lat,
+            lng: val.lng
+          });
+        }
+      });
+    }
+
+    return list;
+  }, [presets]);
+
+  // Real-time recommendation filter
+  const filteredLocations = React.useMemo(() => {
+    const query = searchDistrict.trim().toLowerCase();
+    if (!query) return presets || [];
+
+    return allSearchableLocations.filter((item) => {
+      const dist = (item.district || '').toLowerCase();
+      const nm = (item.name || '').toLowerCase();
+      const st = (item.state || '').toLowerCase();
+      const id = (item.id || '').toLowerCase();
+      return dist.includes(query) || nm.includes(query) || st.includes(query) || id.includes(query);
+    });
+  }, [searchDistrict, presets, allSearchableLocations]);
 
   const updateUnread = (alertList, loc) => {
     const unread = getUnreadAlerts(alertList, loc, alertMatchesLocation);
@@ -68,11 +124,17 @@ const Navbar = () => {
 
   const handleCustomSearch = (e) => {
     e.preventDefault();
-    if (searchDistrict.trim()) {
-      switchLocation(searchDistrict.trim());
-      setSearchDistrict('');
-      setShowLocationMenu(false);
+    const query = searchDistrict.trim();
+    if (!query) return;
+
+    if (filteredLocations.length > 0) {
+      const best = filteredLocations[0];
+      switchLocation(best.district, best.state);
+    } else {
+      switchLocation(query);
     }
+    setSearchDistrict('');
+    setShowLocationMenu(false);
   };
 
   const handleLogout = () => {
@@ -196,30 +258,51 @@ const Navbar = () => {
                 }}
               >
                 <Crosshair size={16} style={{ color: '#10b981' }} />
-                {gpsLoading ? 'Acquiring Live GPS Satellite Lock...' : '🎯 Use My Live GPS Location'}
+                {gpsLoading ? 'Acquiring Live GPS Satellite Lock...' : 'Use My Live GPS Location'}
               </button>
 
               <form onSubmit={handleCustomSearch} style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.65rem' }}>
-                <input
-                  type="text"
-                  placeholder="Search district (e.g. Pune)..."
-                  value={searchDistrict}
-                  onChange={(e) => setSearchDistrict(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '0.4rem 0.6rem',
-                    fontSize: '0.78rem',
-                    borderRadius: 6,
-                    border: '1px solid var(--border-color)',
-                    background: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
-                    color: 'var(--text-primary)',
-                    outline: 'none',
-                  }}
-                />
+                <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="Search district (e.g. Bhopal, Pune)..."
+                    value={searchDistrict}
+                    onChange={(e) => setSearchDistrict(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.42rem 1.6rem 0.42rem 0.6rem',
+                      fontSize: '0.78rem',
+                      borderRadius: 6,
+                      border: '1px solid var(--border-color)',
+                      background: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                    }}
+                  />
+                  {searchDistrict && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchDistrict('')}
+                      style={{
+                        position: 'absolute',
+                        right: 6,
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        padding: '2px 4px'
+                      }}
+                      title="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 <button
                   type="submit"
                   style={{
-                    padding: '0.4rem 0.6rem',
+                    padding: '0.42rem 0.75rem',
                     borderRadius: 6,
                     border: 'none',
                     background: '#0284c7',
@@ -227,53 +310,102 @@ const Navbar = () => {
                     fontWeight: 700,
                     fontSize: '0.75rem',
                     cursor: 'pointer',
+                    flexShrink: 0
                   }}
                 >
                   Go
                 </button>
               </form>
 
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 600 }}>
-                QUICK SELECT REGIONS
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '0.72rem',
+                color: 'var(--text-muted)',
+                marginBottom: '0.4rem',
+                fontWeight: 600
+              }}>
+                <span>{searchDistrict.trim() ? `RECOMMENDED LOCATIONS (${filteredLocations.length})` : 'QUICK SELECT REGIONS'}</span>
+                {searchDistrict.trim() && (
+                  <span
+                    style={{ fontSize: '0.68rem', color: '#0284c7', cursor: 'pointer' }}
+                    onClick={() => setSearchDistrict('')}
+                  >
+                    Clear
+                  </span>
+                )}
               </div>
 
-              <div style={{ maxHeight: 180, overflowY: 'auto' }}>
-                {presets.map((p) => {
-                  const isSelected = location.district === p.district;
-                  return (
-                    <div
-                      key={p.id}
+              <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                {filteredLocations.length > 0 ? (
+                  filteredLocations.map((p) => {
+                    const isSelected = location.district?.toLowerCase() === (p.district || '').toLowerCase();
+                    return (
+                      <div
+                        key={p.id || p.district}
+                        onClick={() => {
+                          switchLocation(p.district, p.state);
+                          setSearchDistrict('');
+                          setShowLocationMenu(false);
+                        }}
+                        style={{
+                          padding: '0.45rem 0.65rem',
+                          borderRadius: 6,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: '0.8rem',
+                          fontWeight: isSelected ? 700 : 500,
+                          backgroundColor: isSelected
+                            ? (isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.1)')
+                            : 'transparent',
+                          color: isSelected ? (isDark ? '#38bdf8' : '#0284c7') : 'var(--text-primary)',
+                          marginBottom: 2,
+                          transition: 'background 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) e.currentTarget.style.backgroundColor = isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <MapPin size={13} style={{ flexShrink: 0, opacity: isSelected ? 1 : 0.6 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+                        </div>
+                        {isSelected && <span style={{ fontSize: '0.7rem', flexShrink: 0, marginLeft: 8 }}>✓ Active</span>}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div style={{ padding: '0.75rem 0.5rem', textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    <div>No preset found matching "{searchDistrict}"</div>
+                    <button
+                      type="button"
                       onClick={() => {
-                        switchLocation(p.district, p.state);
+                        switchLocation(searchDistrict.trim());
+                        setSearchDistrict('');
                         setShowLocationMenu(false);
                       }}
                       style={{
-                        padding: '0.45rem 0.65rem',
+                        marginTop: '0.5rem',
+                        padding: '0.4rem 0.75rem',
                         borderRadius: 6,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        fontSize: '0.8rem',
-                        fontWeight: isSelected ? 700 : 500,
-                        backgroundColor: isSelected
-                          ? (isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.1)')
-                          : 'transparent',
-                        color: isSelected ? (isDark ? '#38bdf8' : '#0284c7') : 'var(--text-primary)',
-                        marginBottom: 2,
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                        border: 'none',
+                        background: '#0284c7',
+                        color: '#fff',
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
+                        cursor: 'pointer'
                       }}
                     >
-                      <span>{p.name}</span>
-                      {isSelected && <span style={{ fontSize: '0.7rem' }}>✓ Active</span>}
-                    </div>
-                  );
-                })}
+                      Set "{searchDistrict}" via Geocoder →
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
