@@ -21,24 +21,47 @@ try {
 const CITIZEN_SYSTEM_PROMPT = `You are AapdaNetra AI Emergency Assistant — a disaster safety assistant for citizens in India.
 
 RULES:
-- Answer questions about disaster safety, emergency preparedness, and general guidance
+- Answer ONLY what the user asked. Give focused, concise, actionable advice directly addressing the user's specific emergency question.
+- DO NOT share unrequested details: do NOT append or dump lists of hospitals, phone numbers, or shelters UNLESS the user explicitly asked for them.
+- If the user asks about an emergency situation (e.g., "I am stuck in wildfire what should I do?"), provide ONLY immediate, prioritized survival instructions and action steps.
 - When the user asks about CURRENT conditions, risk scores, shelter availability, active alerts, or weather — ONLY use the CONTEXT DATA provided below. NEVER invent these values.
 - If context data is not available for a question, say "I don't have current data for that. Please check official sources."
-- NEVER invent emergency alerts, shelter availability, risk scores, weather conditions, government warnings, or emergency numbers
-- For active emergencies, ALWAYS advise users to follow official emergency authorities (NDMA, local disaster management authority)
-- Be concise, clear, and actionable — people may be in stressful situations
-- Important emergency numbers: NDMA Helpline: 1078, Police: 100, Ambulance: 108, Fire: 101, Disaster Management: 112`;
+- NEVER invent emergency alerts, shelter availability, risk scores, weather conditions, government warnings, or emergency numbers.
+- CONFIDENTIALITY & RESTRICTED ACCESS: You must NEVER disclose confidential data, internal system configurations, API keys, passwords, database credentials, server secrets, private citizen information/PII, or classified administrative records to non-admin users. If asked for any internal or confidential information, reply strictly with: "🔒 Access Restricted: This information is confidential and accessible only to authorized Administrators (NDMA/DDMA)."
+- For active emergencies, advise users to follow official emergency authorities (NDMA, local disaster management authority).
+- Be concise, clear, and actionable — people may be in stressful situations.`;
 
 const COPILOT_SYSTEM_PROMPT = `You are AapdaNetra Emergency Copilot — an advanced decision-support AI for disaster responders and emergency managers in India.
 
 RULES:
-- Provide concise operational summaries based ONLY on the CONTEXT DATA provided
-- NEVER fabricate statistics, incident counts, shelter capacities, or risk assessments
-- If data is unavailable, state clearly: "Data not available in current context"
-- Focus on actionable intelligence: priorities, resource allocation, situation awareness
-- Use structured format: bullet points, tables, clear headers
-- Flag data quality issues (stale data, missing sources)
-- Always recommend verification of AI assessments by human responders`;
+- Provide concise operational summaries based ONLY on the CONTEXT DATA provided.
+- Answer ONLY what is requested without appending unrequested facility or contact dumps.
+- CONFIDENTIALITY & ACCESS RESTRICTION: Confidential system credentials, internal API keys, database connection strings, and administrative secrets are restricted to Admin users only.
+- NEVER fabricate statistics, incident counts, shelter capacities, or risk assessments.
+- If data is unavailable, state clearly: "Data not available in current context".
+- Focus on actionable intelligence: priorities, resource allocation, situation awareness.
+- Use structured format: bullet points, tables, clear headers.
+- Flag data quality issues (stale data, missing sources).
+- Always recommend verification of AI assessments by human responders.`;
+
+/**
+ * Detect requests for confidential, administrative, or restricted system data
+ */
+function isConfidentialRequest(text) {
+    if (!text) return false;
+    const confidentialPatterns = [
+        /\b(confidential|classified|secret|secrets)\b/i,
+        /\b(password|passwords|passwd|pwd)\b/i,
+        /\b(api[_\s-]?key|api[_\s-]?keys|token|tokens|jwt|auth[_\s-]?token)\b/i,
+        /\b(database[_\s-]?dump|db[_\s-]?dump|mongodb|mongo\s*uri|connection\s*string)\b/i,
+        /\b(\.env|env[_\s-]?file|environment\s*variables?)\b/i,
+        /\b(admin[_\s-]?password|admin[_\s-]?credential|admin[_\s-]?credentials|admin[_\s-]?user|admin[_\s-]?accounts?)\b/i,
+        /\b(citizen\s*phone|citizen\s*data|citizen\s*pii|private\s*records?|personal\s*data|aadhaar|pan\s*card)\b/i,
+        /\b(internal\s*ip|server\s*config|system\s*internals?|source\s*code|private\s*keys?)\b/i,
+        /(गोपनीय|गुप्त|पासवर्ड|प्रशासक|क्रेडेंशियल|रहस्य)/i
+    ];
+    return confidentialPatterns.some(pattern => pattern.test(text));
+}
 
 /**
  * Gather real-time context data from the database for AI responses
@@ -173,26 +196,65 @@ let lastOpenAiQuotaError = 0;
 /**
  * AI Emergency Assistant (for citizens) with Multilingual & Real-time Navigation
  */
-const chatWithAssistant = async (message, lat, lon, language = "auto", district = "") => {
-    // 1. Always gather nearest real hospitals and shelters
+const chatWithAssistant = async (message, lat, lon, language = "auto", district = "", userRole = "CITIZEN") => {
+    const isAdmin = ["ADMIN", "ADMINISTRATOR"].includes(String(userRole || "").toUpperCase());
+    const resolvedLang = detectLanguage(message, language);
+
+    // 1. Confidentiality Gate: Users other than admin must not receive any confidential/system data
+    if (!isAdmin && isConfidentialRequest(message)) {
+        const isHindi = resolvedLang === "hi" || resolvedLang === "hinglish";
+        const confidentialMsg = isHindi
+            ? "🔒 **पहुंच प्रतिबंधित (Access Restricted)**\n\nयह जानकारी गोपनीय (Confidential) है। सुरक्षा प्रोटोकॉल एवं NDMA/DDMA दिशानिर्देशों के अनुसार, सिस्टम सेटिंग्स, एडमिन क्रेडेंशियल्स, और नागरिकों का व्यक्तिगत डेटा केवल अधिकृत प्रशासकों (Administrators) के लिए ही उपलब्ध है।"
+            : "🔒 **Access Restricted: Confidential Information**\n\nThis requested information is confidential and accessible only to authorized Administrators (NDMA/DDMA). In accordance with security policies, non-administrative users are restricted from viewing internal system configurations, administrative credentials, or restricted records.";
+
+        return {
+            response: confidentialMsg,
+            actionableFacilities: {
+                locationName: district || "Restricted",
+                hospitals: [],
+                shelters: []
+            },
+            context: {
+                restricted: true,
+                dataTimestamp: new Date().toISOString()
+            },
+            source: "AapdaNetra Security Policy"
+        };
+    }
+
+    const lower = (message || "").toLowerCase().trim();
+
+    // Check whether user explicitly asked for hospitals, shelters, or phone numbers
+    const wantsHospitals = /\b(hospital|hospitals|doctor|doctors|ambulance|trauma\s*center|clinic|icu|aspataal|dawa|medical\s*facility|अस्पताल|चिकित्सा|চিকিৎসালয়|হাসপাতাল)\b/i.test(lower);
+    const wantsShelters = /\b(shelter|shelters|relief\s*camp|relief\s*center|evacuation\s*center|camp|camps|ashray|sharan|kaha\s*jaun|kaha\s*jaye|where\s*to\s*go|आश्रय|राहत\s*शिविर|আশ্ৰয়)\b/i.test(lower);
+    const wantsHelplines = /\b(helpline|helplines|contact|contacts|phone|phones|number|numbers|toll\s*free|dial|call|control\s*room|whom\s*to\s*call|who\s*to\s*call|हेल्पलाइन|नंबर|फोन|নম্বৰ)\b/i.test(lower);
+
+    // 2. Gather nearest real hospitals and shelters (used if asked or for fallback locName)
     const facilities = await getNearestEmergencyFacilities(lat, lon, district);
 
     // If no OpenAI or quota was exceeded recently (within 5 mins), use the instant intelligent engine
     if (!openai || (Date.now() - lastOpenAiQuotaError < 300000)) {
-        return await getFallbackResponse(message, lat, lon, language, district, facilities);
+        return await getFallbackResponse(message, lat, lon, language, district, facilities, userRole);
     }
 
     try {
         const context = await gatherContext(lat, lon);
-        const resolvedLang = detectLanguage(message, language);
 
-        const promptWithLang = `${message}\n[User Preferred Language: ${resolvedLang}. Please respond directly and fluently in ${resolvedLang}. If Hindi/Hinglish/Assamese/Bengali, write in that language with accurate emergency advice and include the verified hospitals and shelters provided in the context.]`;
+        const promptWithLang = `${message}\n[User Preferred Language: ${resolvedLang}. Please respond directly and fluently in ${resolvedLang}.
+CRITICAL INSTRUCTIONS:
+- Answer ONLY what the user asked. Provide focused, concise, actionable advice without unasked details.
+- If the user asks about an emergency situation (e.g. "I am stuck in wildfire what should I do?"), provide ONLY immediate, prioritized survival instructions and action steps.
+- DO NOT dump or append lists of hospitals, phone numbers, or shelters unless the user explicitly requested them.
+${wantsHospitals ? "- The user explicitly asked for hospitals/medical aid: You may include the nearest trauma hospitals from context." : "- DO NOT list hospital names, facilities, or medical contacts."}
+${wantsShelters ? "- The user explicitly asked for shelters/camps: You may include designated shelters from context." : "- DO NOT list shelters."}
+${wantsHelplines ? "- The user explicitly asked for emergency contact numbers/helplines: You may provide official helpline numbers." : "- DO NOT list phone numbers or helpline rosters."}
+]`;
 
         const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: CITIZEN_SYSTEM_PROMPT },
-                { role: "system", content: `CONTEXT DATA (from AapdaNetra live database):\n${JSON.stringify({ ...context, nearestTraumaHospitals: facilities.hospitals, nearestShelters: facilities.shelters }, null, 2)}` },
+                { role: "system", content: `CONTEXT DATA (from AapdaNetra live database):\n${JSON.stringify({ ...context, nearestTraumaHospitals: wantsHospitals ? facilities.hospitals : [], nearestShelters: wantsShelters ? facilities.shelters : [] }, null, 2)}` },
                 { role: "user", content: promptWithLang }
             ],
             max_tokens: 800,
@@ -203,8 +265,8 @@ const chatWithAssistant = async (message, lat, lon, language = "auto", district 
             response: completion.choices[0].message.content,
             actionableFacilities: {
                 locationName: district || "Current Area",
-                hospitals: facilities.hospitals,
-                shelters: facilities.shelters
+                hospitals: wantsHospitals ? facilities.hospitals : [],
+                shelters: wantsShelters ? facilities.shelters : []
             },
             context: {
                 activeAlerts: context.stats?.activeAlertsCount || 0,
@@ -218,7 +280,7 @@ const chatWithAssistant = async (message, lat, lon, language = "auto", district 
             lastOpenAiQuotaError = Date.now();
         }
         console.error("AI Assistant fallback activated:", error.message);
-        return await getFallbackResponse(message, lat, lon, language, district, facilities);
+        return await getFallbackResponse(message, lat, lon, language, district, facilities, userRole);
     }
 };
 
@@ -226,11 +288,33 @@ const chatWithAssistant = async (message, lat, lon, language = "auto", district 
  * Comprehensive Multi-lingual Disaster Intelligence & Navigation Engine
  * Directly resolves specific citizen queries across 20+ disaster domains even when external LLM APIs are offline.
  */
-async function getFallbackResponse(message, lat, lon, language = "auto", district = "", preloadedFacilities = null) {
+async function getFallbackResponse(message, lat, lon, language = "auto", district = "", preloadedFacilities = null, userRole = "CITIZEN") {
     const lower = (message || "").toLowerCase().trim();
     const facilities = preloadedFacilities || await getNearestEmergencyFacilities(lat, lon, district);
     const resolvedLang = detectLanguage(message, language);
     const locName = district || (facilities.hospitals[0]?.district) || "Your Location";
+
+    const isAdmin = ["ADMIN", "ADMINISTRATOR"].includes(String(userRole || "").toUpperCase());
+
+    // Confidentiality gate for fallback engine
+    if (!isAdmin && isConfidentialRequest(message)) {
+        const isHindi = resolvedLang === "hi" || resolvedLang === "hinglish";
+        return {
+            response: isHindi
+                ? "🔒 **पहुंच प्रतिबंधित (Access Restricted)**\n\nयह जानकारी गोपनीय (Confidential) है। सुरक्षा प्रोटोकॉल एवं NDMA/DDMA दिशानिर्देशों के अनुसार, सिस्टम सेटिंग्स, एडमिन क्रेडेंशियल्स, और नागरिकों का व्यक्तिगत डेटा केवल अधिकृत प्रशासकों (Administrators) के लिए ही उपलब्ध है।"
+                : "🔒 **Access Restricted: Confidential Information**\n\nThis requested information is confidential and accessible only to authorized Administrators (NDMA/DDMA). Under AapdaNetra security policy, non-administrative users are not permitted to access internal records, system credentials, or administrative configurations.",
+            actionableFacilities: {
+                locationName: district || "Restricted",
+                hospitals: [],
+                shelters: []
+            },
+            context: {
+                restricted: true,
+                dataTimestamp: new Date().toISOString()
+            },
+            source: "AapdaNetra Security Policy"
+        };
+    }
 
     // 1. Live Context Retrieval from Database
     let activeAlerts = [];
@@ -260,25 +344,40 @@ async function getFallbackResponse(message, lat, lon, language = "auto", distric
     const isLandslide = /landslide|mudslide|rockfall|slope|hill\s*collapse|भूस्खलन|पहाड़|ভূমিধ্বস/.test(lower);
     const isFlood = /flood|water|inundat|overflow|drown|baadh|baad|बाढ़|जलभराव|বানপানী/.test(lower);
     const isEarthquake = /earthquake|tremor|quake|shak|bhookamp|bhuichal|भूकंप|कंपन|ভূমিকম্প/.test(lower);
+    const isWildfire = /wildfire|forest\s*fire|bushfire|jungle\s*fire|जंगल\s*की\s*आग|দাবানল/.test(lower);
     const isFire = /fire|wildfire|smoke|flame|burn|blaze|aag|आग|धुआं|अग्नि|জুই/.test(lower);
     const isGasLeak = /gas|lpg|cylinder|leak|chemical|smell|toxic|ammonia|fumes|गैस|रिसाव|বিষাক্ত/.test(lower);
     const isHeatwave = /heat|heatwave|loo|sunstroke|temperature|dehydration|ors|लू|गर्मी|উত্তাপ/.test(lower);
     const isTsunami = /tsunami|coastal\s*wave|sea\s*retreat|सुनामी|সুনামি/.test(lower);
     const isWaterFood = /water\s*purif|clean\s*water|boil|drink|food\s*safe|contamination|पीने\s*का\s*पानी|उबाल|বিশুদ্ধ\s*পানী/.test(lower);
-    const isHospital = /hospital|doctor|ambulance|trauma|clinic|icu|bed|chot|injured|aspataal|ilaj|अस्पताल|डॉक्टर|চিকিৎসালয়|হাসপাতাল/.test(lower);
-    const isShelter = /shelter|relief\s*cent|camp|where\s*to\s*go|kaha\s*jaun|kaha\s*jaye|pass\s*me|paas\s*me|ashray|sharan|आश्रय|राहत|আশ্ৰয়/.test(lower);
+    const isHospital = /hospital|doctor|ambulance|trauma|clinic|icu|aspataal|अस्पताल|डॉक्टर|চিকিৎসালয়|হাসপাতাল/.test(lower);
+    const isShelter = /shelter|relief\s*cent|camp|where\s*to\s*go|kaha\s*jaun|kaha\s*jaye|ashray|sharan|आश्रय|राहत|আশ্ৰয়/.test(lower);
     const isAlertsStatus = /alert|warning|threat|status|situation|condition|is\s*it\s*safe|live\s*update|what\s*happened|चेतावनी|अलर्ट|स्थिति|खतरा|সতৰ্কবাৰ্তা/.test(lower);
     const isHelplines = /helpline|contact|phone|number|dial|call|control\s*room|ndma|police|हेल्पलाइन|नंबर|फोन|নম্বৰ/.test(lower);
     const isFamilyPets = /family|child|baby|elderly|pet|animal|dog|cat|livestock|परिवार|बच्चे|बुजुर्ग|पशु/.test(lower);
     const isReportIncident = /report|citizen\s*report|how\s*to\s*report|submit\s*incident|रिपोर्ट|शिकायत/.test(lower);
 
-    let scenario = "GENERAL";
-    let showHospitals = true;
-    let showShelters = true;
+    // Specific intent detection: did the user explicitly ask for facilities or phone numbers?
+    const wantsHospitals = Boolean(
+        isHospital || 
+        /\b(hospital|hospitals|doctor|doctors|ambulance|trauma\s*center|clinic|icu|aspataal|dawa|medical\s*facility|अस्पताल|चिकित्सा|চিকিৎসালয়|হাসপাতাল)\b/i.test(lower)
+    );
+    const wantsShelters = Boolean(
+        isShelter || 
+        /\b(shelter|shelters|relief\s*camp|relief\s*center|evacuation\s*center|camp|camps|ashray|sharan|kaha\s*jaun|kaha\s*jaye|where\s*to\s*go|आश्रय|राहत\s*शिविर|আশ্ৰয়)\b/i.test(lower)
+    );
+    const wantsHelplines = Boolean(
+        isHelplines || 
+        /\b(helpline|helplines|contact|contacts|phone|phones|number|numbers|toll\s*free|dial|call|control\s*room|whom\s*to\s*call|who\s*to\s*call|हेल्पलाइन|नंबर|फोन|নম্বৰ)\b/i.test(lower)
+    );
 
-    // 3. Format Emergency Facility Helpers
+    let scenario = "GENERAL";
+    let showHospitals = wantsHospitals;
+    let showShelters = wantsShelters;
+
+    // 3. Format Emergency Facility Helpers - ONLY produce output if explicitly asked by the user!
     const formatHospitalsList = (lang) => {
-        if (!facilities.hospitals || facilities.hospitals.length === 0) return "";
+        if (!wantsHospitals || !facilities.hospitals || facilities.hospitals.length === 0) return "";
         const title = {
             hi: "🏥 **निकटतम सत्यापित 24x7 आपातकालीन अस्पताल (Verified Hospitals):**",
             hinglish: "🏥 **NEARBY 24x7 EMERGENCY TRAUMA HOSPITALS (VERIFIED):**",
@@ -301,7 +400,7 @@ async function getFallbackResponse(message, lat, lon, language = "auto", distric
     };
 
     const formatSheltersList = (lang) => {
-        if (!facilities.shelters || facilities.shelters.length === 0) return "";
+        if (!wantsShelters || !facilities.shelters || facilities.shelters.length === 0) return "";
         const title = {
             hi: "⛺ **सक्रिय राहत केंद्र एवं उपलब्ध बिस्तर (Designated Relief Shelters):**",
             hinglish: "⛺ **ACTIVE RELIEF SHELTERS & BED VACANCIES (LIVE):**",
@@ -325,6 +424,7 @@ async function getFallbackResponse(message, lat, lon, language = "auto", distric
     };
 
     const formatHelplinesList = (lang) => {
+        if (!wantsHelplines) return "";
         if (lang === "hi" || lang === "hinglish") {
             return `📞 **24x7 राष्ट्रीय व राज्य आपातकालीन नंबर (Direct Helplines):**\n• राष्ट्रीय आपातकालीन एकीकृत नंबर: **112**\n• एम्बुलेंस / मेडिकल इमरजेंसी: **108 / 102**\n• राष्ट्रीय आपदा प्रबंधन (NDMA): **1078**\n• राज्य आपदा नियंत्रण कक्ष (SDMA): **1070**\n• अग्निशमन दल (Fire): **101** | पुलिस: **100**\n• महिला सुरक्षा: **1091** | बाल सहायता: **1098**`;
         } else {
@@ -664,10 +764,73 @@ ${formatSheltersList("en")}
 ${formatHelplinesList("en")}`;
         }
     } else if (isFire) {
-        scenario = "FIRE";
-        showHospitals = true;
-        showShelters = false;
-        if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+        scenario = isWildfire ? "WILDFIRE" : "FIRE";
+        showHospitals = wantsHospitals;
+        showShelters = wantsShelters;
+        if (isWildfire) {
+            if (resolvedLang === "hi" || resolvedLang === "hinglish") {
+                response = `### 🌲🔥 जंगल की आग / वाइल्डफायर आपातकालीन सुरक्षा निर्देश (Wildfire Protocol)
+
+🚨 **वाइल्डफायर (जंगल की आग) में फंसे होने पर तत्काल जीवन-रक्षक कदम (${locName}):**
+
+1. **कभी भी ढलान पर ऊपर की ओर न भागें (Never Run Uphill):**
+   • आग ढलान पर ऊपर की तरफ अत्यधिक तेजी से फैलती है क्योंकि उठती हुई गर्म हवा और लपटें ऊपर के पेड़ों और झाड़ियों को पहले ही सुलगा देती हैं। हमेशा नीचे की ओर या हवा के बहाव के लंबवत (perpendicular) दिशा में आगे बढ़ें।
+
+2. **सुरक्षित खुले स्थान या पहले से जले हुए क्षेत्र ("Black Zone") की ओर जाएं:**
+   • बिना पेड़-पौधों वाले क्षेत्र जैसे चौड़ी सड़कें, सूखी नदी के तल, चट्टानी मैदान, या ऐसे क्षेत्र की ओर जाएं जो पहले ही पूरी तरह जल चुका हो ("The Black"), क्योंकि वहां दोबारा जलने के लिए सूखा ईंधन (घास-फूस) नहीं बचता।
+
+3. **सांस और फेफड़ों की सुरक्षा करें (धुआं व गर्म हवा जानलेवा हैं):**
+   • गर्म गैसों और जहरीले धुएं से फेफड़ों को जलने से बचाने के लिए मुंह और नाक को गीले कपड़े या मास्क से ढकें।
+   • जमीन के जितना करीब हो सके झुककर चलें या रेंगें, क्योंकि जमीन के पास ताजी और ठंडी हवा रहती है।
+
+4. **यदि आप बाहर फंस जाएं और निकलने का कोई रास्ता न हो:**
+   • किसी गड्ढे, खाई या नाले में जाएं और आसपास के सूखे पत्तों, टहनियों व घास को हटाकर नंगी मिट्टी निकालें।
+   • मुंह नीचे करके जमीन पर लेट जाएं (पैर आग की दिशा में हों)। अपने पूरे शरीर को मिट्टी या भारी सूती/ऊनी कपड़े से ढक लें जब तक आग का मुख्य मोर्चा गुजर न जाए (आमतौर पर 5–15 मिनट)।
+
+5. **यदि वाहन (कार) में फंसे हों:**
+   • गाड़ी को घनी झाड़ियों और पेड़ों से दूर किसी खुले स्थान पर रोकें।
+   • खिड़कियां पूरी तरह बंद करें और एयर वेंट को बंद कर दें (Recirculation मोड)।
+   • हेडलाइट्स और हजार्ड लाइट ऑन रखें ताकि धुएं में दिखाई दें, इंजन बंद करें, और सीट के नीचे फर्श पर सिर ढककर लेट जाएं।
+
+${formatHospitalsList(resolvedLang)}
+
+${formatSheltersList(resolvedLang)}
+
+${formatHelplinesList(resolvedLang)}`;
+            } else {
+                response = `### 🌲🔥 WILDFIRE / FOREST FIRE SURVIVAL DIRECTIVE (${locName})
+
+🚨 **Immediate Life-Saving Protocols When Trapped in a Wildfire:**
+
+1. **Move Downhill & Crosswind (Never Attempt to Run Uphill):**
+   • Wildfires travel rapidly uphill because rising heat and convection currents preheat vegetation above. Always move downhill or perpendicular to the wind and flame spread.
+   • Never attempt to outrun approaching flames up a slope.
+
+2. **Head for Non-Combustible Clearings (The "Black" Zone):**
+   • Seek out areas with minimal vegetation: wide dirt/gravel roads, river beds, rock outcrops, or areas that have **already burned** completely (the "black"), where there is no remaining fuel to sustain fire.
+
+3. **Protect Your Lungs & Airways (Critical Priority):**
+   • Inhaling superheated air and particulate smoke causes fatal airway burns and asphyxiation.
+   • Cover your nose and mouth with a damp cloth or particulate mask. Keep your head low to the ground where air is cooler and oxygen concentration is highest.
+
+4. **If Trapped Outdoors with No Escape Route:**
+   • Clear away all dry brush, pine needles, and leaves down to bare mineral soil in a ditch, trench, or depression.
+   • Lie face down with feet pointing toward the oncoming fire front.
+   • Cover your entire body with dirt, non-synthetic clothing, or a heavy wool/cotton blanket. Shield your face and breathe ground-level air until the main fire front passes (typically 5–15 minutes).
+
+5. **If Trapped in a Vehicle:**
+   • Park away from heavy brush or overhanging trees in the clearest available spot.
+   • Keep headlights and emergency hazard flashers ON for visibility in dense smoke.
+   • Roll up all windows, close all exterior air vents (turn climate control to RECIRCULATE), and turn off the engine.
+   • Lie flat on the vehicle floorboards below window level and cover yourself with a jacket or blanket.
+
+${formatHospitalsList("en")}
+
+${formatSheltersList("en")}
+
+${formatHelplinesList("en")}`;
+            }
+        } else if (resolvedLang === "hi" || resolvedLang === "hinglish") {
             response = `### 🔥 आग एवं धुआं आपातकालीन सुरक्षा निर्देश (Fire Evacuation Protocol)
 
 🚨 **आग लगने पर तत्काल कदम (${locName}):**
@@ -686,6 +849,8 @@ ${formatHelplinesList("en")}`;
    • **P**ull pin | **A**im at base of fire | **S**queeze handle | **S**weep side-to-side.
 
 ${formatHospitalsList(resolvedLang)}
+
+${formatSheltersList(resolvedLang)}
 
 ${formatHelplinesList(resolvedLang)}`;
         } else {
@@ -711,12 +876,14 @@ ${formatHelplinesList(resolvedLang)}`;
 
 ${formatHospitalsList("en")}
 
+${formatSheltersList("en")}
+
 ${formatHelplinesList("en")}`;
         }
     } else if (isGasLeak) {
         scenario = "GAS_LEAK";
-        showHospitals = true;
-        showShelters = false;
+        showHospitals = wantsHospitals;
+        showShelters = wantsShelters;
         if (resolvedLang === "hi" || resolvedLang === "hinglish") {
             response = `### ⚠️ गैस रिसाव / रासायनिक आपातकाल (Gas Leak & Chemical Safety)
 
@@ -736,6 +903,8 @@ ${formatHelplinesList("en")}`;
    • घर के सभी सदस्यों को लेकर खुले में हवा की विपरीत दिशा (Upwind) में जाएं और **112 / 101** पर कॉल करें।
 
 ${formatHospitalsList(resolvedLang)}
+
+${formatSheltersList(resolvedLang)}
 
 ${formatHelplinesList(resolvedLang)}`;
         } else {
@@ -757,6 +926,8 @@ ${formatHelplinesList(resolvedLang)}`;
    • Evacuate all occupants outdoors immediately. Move upwind (into the wind) away from low depressions where heavy gases pool. Call **112 / 101**.
 
 ${formatHospitalsList("en")}
+
+${formatSheltersList("en")}
 
 ${formatHelplinesList("en")}`;
         }
@@ -802,7 +973,7 @@ ${formatHelplinesList("en")}`;
     } else if (isHospital) {
         scenario = "HOSPITAL";
         showHospitals = true;
-        showShelters = false;
+        showShelters = wantsShelters;
         if (resolvedLang === "hi" || resolvedLang === "hinglish") {
             response = `### 🏥 24x7 आपातकालीन ट्रॉमा अस्पताल एवं एम्बुलेंस नेविगेशन (${locName})
 
@@ -822,7 +993,7 @@ ${formatHelplinesList("en")}`;
         }
     } else if (isShelter) {
         scenario = "SHELTER";
-        showHospitals = false;
+        showHospitals = wantsHospitals;
         showShelters = true;
         if (resolvedLang === "hi" || resolvedLang === "hinglish") {
             response = `### ⛺ निकटतम सक्रिय राहत केंद्र एवं उपलब्ध बिस्तर (${locName})
@@ -843,8 +1014,8 @@ ${formatHelplinesList("en")}`;
         }
     } else if (isHelplines) {
         scenario = "HELPLINES";
-        showHospitals = true;
-        showShelters = false;
+        showHospitals = wantsHospitals;
+        showShelters = wantsShelters;
         if (resolvedLang === "hi" || resolvedLang === "hinglish") {
             response = `### 📞 24x7 राष्ट्रीय व राज्य आपदा आपातकालीन हेल्पलाइन नंबर
 
@@ -942,12 +1113,12 @@ ${formatHelplinesList("en")}`;
     }
 
     return {
-        response,
+        response: (response || "").replace(/\n{3,}/g, "\n\n").trim(),
         actionableFacilities: {
             disasterScenario: scenario,
             locationName: locName,
-            hospitals: showHospitals ? facilities.hospitals : [],
-            shelters: showShelters ? facilities.shelters : []
+            hospitals: (wantsHospitals || scenario === "HOSPITAL") ? facilities.hospitals : [],
+            shelters: (wantsShelters || scenario === "SHELTER") ? facilities.shelters : []
         },
         context: {
             activeAlerts: activeAlerts.length,
@@ -961,9 +1132,27 @@ ${formatHelplinesList("en")}`;
 /**
  * AI Emergency Copilot (for responders)
  */
-const chatWithCopilot = async (query, lat, lon) => {
+const chatWithCopilot = async (query, lat, lon, language = "auto", district = "", userRole = "RESPONDER") => {
+    const isAdmin = ["ADMIN", "ADMINISTRATOR"].includes(String(userRole || "").toUpperCase());
+    const resolvedLang = detectLanguage(query, language);
+
+    // Confidentiality gate for Copilot
+    if (!isAdmin && isConfidentialRequest(query)) {
+        const isHindi = resolvedLang === "hi" || resolvedLang === "hinglish";
+        return {
+            response: isHindi
+                ? "🔒 **पहुंच प्रतिबंधित (Access Restricted)**\n\nयह जानकारी गोपनीय (Confidential) है। सुरक्षा प्रोटोकॉल एवं NDMA/DDMA दिशानिर्देशों के अनुसार, सिस्टम सेटिंग्स, एडमिन क्रेडेंशियल्स, और नागरिकों का व्यक्तिगत डेटा केवल अधिकृत प्रशासकों (Administrators) के लिए ही उपलब्ध है।"
+                : "🔒 **Access Restricted: Confidential Information**\n\nThis requested information is confidential and accessible only to authorized Administrators (NDMA/DDMA). In accordance with security policies, non-administrative accounts cannot view internal system configurations, administrative credentials, or restricted records.",
+            context: {
+                restricted: true,
+                dataTimestamp: new Date().toISOString()
+            },
+            source: "AapdaNetra Security Policy"
+        };
+    }
+
     if (!openai) {
-        return getCopilotFallback(query, lat, lon);
+        return getCopilotFallback(query, lat, lon, userRole);
     }
 
     try {
@@ -1015,7 +1204,7 @@ const chatWithCopilot = async (query, lat, lon) => {
         };
     } catch (error) {
         console.error("Copilot error:", error.message);
-        return getCopilotFallback(query, lat, lon);
+        return getCopilotFallback(query, lat, lon, userRole);
     }
 };
 
@@ -1064,8 +1253,20 @@ const generateIncidentSummary = async (hours = 2) => {
     }
 };
 
-async function getCopilotFallback(query, lat, lon) {
+async function getCopilotFallback(query, lat, lon, userRole = "RESPONDER") {
     try {
+        const isAdmin = ["ADMIN", "ADMINISTRATOR"].includes(String(userRole || "").toUpperCase());
+        if (!isAdmin && isConfidentialRequest(query)) {
+            return {
+                response: "🔒 **Access Restricted: Confidential Information**\n\nThis requested operational data is confidential and accessible only to authorized Administrators (NDMA/DDMA). Non-administrative accounts are restricted from viewing internal system secrets or classified records.",
+                context: {
+                    restricted: true,
+                    dataTimestamp: new Date().toISOString()
+                },
+                source: "AapdaNetra Security Policy"
+            };
+        }
+
         const context = await gatherContext(lat, lon);
         const q = (query || "").toLowerCase();
 

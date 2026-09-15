@@ -2,12 +2,12 @@ const { chatWithAssistant, chatWithCopilot, generateIncidentSummary } = require(
 const { calculateUnifiedRisk, generateRiskExplanation } = require("../services/riskEngine");
 
 // AI Emergency Assistant (citizen)
-// AI Emergency Assistant (citizen)
 const chatAssistant = async (req, res) => {
     try {
         const { latitude, longitude, language, district } = req.body;
         const messageText = req.body.message || req.body.query;
-        const result = await chatWithAssistant(messageText, latitude, longitude, language, district);
+        const userRole = req.user?.role || req.body?.userRole || "CITIZEN";
+        const result = await chatWithAssistant(messageText, latitude, longitude, language, district, userRole);
         res.status(200).json({ success: true, data: result });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -19,7 +19,8 @@ const chatCopilot = async (req, res) => {
     try {
         const { latitude, longitude, language, district } = req.body;
         const messageText = req.body.message || req.body.query;
-        const result = await chatWithCopilot(messageText, latitude, longitude, language, district);
+        const userRole = req.user?.role || req.body?.userRole || "RESPONDER";
+        const result = await chatWithCopilot(messageText, latitude, longitude, language, district, userRole);
         res.status(200).json({ success: true, data: result });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
