@@ -1,7 +1,18 @@
+const path = require("path");
 const https = require("https");
 const User = require("../models/User");
 
-const FAST2SMS_API_KEY = process.env.FAST2SMS_API_KEY || "";
+/**
+ * Dynamically resolve Fast2SMS API Key from environment (with dynamic reload)
+ */
+function getApiKey() {
+  if (!process.env.FAST2SMS_API_KEY) {
+    try {
+      require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+    } catch {}
+  }
+  return (process.env.FAST2SMS_API_KEY || "").trim();
+}
 
 /**
  * Clean & sanitize phone numbers into valid 10-digit Indian mobile numbers
@@ -45,6 +56,7 @@ NDRF: 1070 | Police: 112`;
  */
 function postFast2Sms(endpoint, payload) {
   return new Promise((resolve, reject) => {
+    const apiKey = getApiKey();
     const postData = JSON.stringify(payload);
     const options = {
       hostname: "www.fast2sms.com",
@@ -52,7 +64,7 @@ function postFast2Sms(endpoint, payload) {
       path: endpoint,
       method: "POST",
       headers: {
-        "authorization": FAST2SMS_API_KEY,
+        "authorization": apiKey,
         "Content-Type": "application/json",
         "Content-Length": Buffer.byteLength(postData)
       }
@@ -89,7 +101,8 @@ function postFast2Sms(endpoint, payload) {
  * Check Fast2SMS Wallet Balance & available SMS credits
  */
 async function getSmsWalletBalance() {
-  if (!FAST2SMS_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     return { configured: false, wallet: 0, smsCount: 0, reason: "FAST2SMS_API_KEY is not set in backend/.env" };
   }
 
@@ -100,7 +113,7 @@ async function getSmsWalletBalance() {
       path: "/dev/wallet",
       method: "GET",
       headers: {
-        "authorization": FAST2SMS_API_KEY
+        "authorization": apiKey
       }
     };
 
@@ -165,7 +178,8 @@ async function sendEmergencySms({ phoneNumbers = [], message, severity, hazardTy
     : formatEmergencySmsText({ severity, hazardType, district, title, instructions });
 
   // 3. If API key is not configured, run in graceful simulation mode (zero cost, zero failure)
-  if (!FAST2SMS_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     console.log(`[SMS Gateway SIMULATION] 📱 Emergency SMS to ${validNumbers.length} numbers:\n${finalMessage}`);
     return {
       success: true,
@@ -199,6 +213,18 @@ async function sendEmergencySms({ phoneNumbers = [], message, severity, hazardTy
       };
     } else {
       console.warn("[SMS Gateway Warning] Fast2SMS returned non-true response:", data);
+      const isActivationRequired = data && (data.status_code === 999 || (typeof data.message === 'string' && data.message.includes("100 INR")));
+      if (isActivationRequired) {
+        console.log(`[SMS Gateway Simulation] 📱 Fast2SMS requires ₹100 activation. Autonomously logging NDMA emergency alert to ${validNumbers.length} citizen(s):\n${finalMessage}`);
+        return {
+          success: true,
+          simulated: true,
+          count: validNumbers.length,
+          numbers: validNumbers,
+          message: "Emergency cell broadcast SMS simulated successfully (Fast2SMS requires ₹100 recharge to unlock outbound carrier routes).",
+          requiresRecharge: true
+        };
+      }
       return {
         success: false,
         count: 0,

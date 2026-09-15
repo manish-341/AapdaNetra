@@ -1,5 +1,6 @@
 const Alert = require("../models/Alert");
 const CitizenReport = require("../models/CitizenReport");
+const { broadcastEmergencySmsToCitizens } = require("./smsService");
 
 /**
  * Intelligent Alert Engine
@@ -48,6 +49,17 @@ const createIntelligentAlert = async ({ title, message, severity, hazardType, so
         isActive: true,
         expiresAt: new Date(Date.now() + expiresInHours * 60 * 60 * 1000)
     });
+
+    // Autonomously broadcast high-priority SMS alerts to registered citizens in hazard region
+    if (["WARNING", "HIGH", "CRITICAL"].includes(severity?.toUpperCase())) {
+        broadcastEmergencySmsToCitizens({
+            district: title,
+            title,
+            instructions: message,
+            severity,
+            hazardType
+        }).catch((err) => console.warn("[Intelligent Alert Engine] Automated SMS warning:", err.message));
+    }
 
     return { alert, action: "created" };
 };

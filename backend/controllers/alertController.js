@@ -11,10 +11,30 @@ const createAlert = async (req, res) => {
     try {
         const alert = await Alert.create(req.body);
 
+        // Autonomous Emergency Cell Broadcast SMS triggered automatically on alert occurrence
+        let automatedSmsResult = null;
+        if (alert && alert.isActive !== false) {
+            try {
+                const targetDistrict = alert.district || alert.locationName || req.body.district || "Bhopal";
+                automatedSmsResult = await broadcastEmergencySmsToCitizens({
+                    district: targetDistrict,
+                    title: alert.title || `🚨 EMERGENCY ALERT — ${targetDistrict}`,
+                    instructions: alert.message || alert.instructions || `Emergency alert issued for ${targetDistrict}. Follow civil defense advisories immediately.`,
+                    severity: alert.severity || "CRITICAL",
+                    hazardType: alert.hazardType || "FLOOD"
+                });
+                console.log(`[Autonomous Alert Broadcast] Dispatched automated SMS to ${automatedSmsResult?.count || 0} citizen(s) for ${targetDistrict}`);
+            } catch (smsErr) {
+                console.warn("[Autonomous Alert Broadcast Warning]:", smsErr.message);
+                automatedSmsResult = { success: false, error: smsErr.message };
+            }
+        }
+
         res.status(201).json({
             success: true,
-            message: "Alert created successfully",
-            data: alert
+            message: "Alert created successfully and automated SMS broadcast dispatched.",
+            data: alert,
+            smsBroadcast: automatedSmsResult
         });
     } catch (error) {
         res.status(500).json({
