@@ -33,7 +33,9 @@ import {
   Layers,
   Sparkles,
   Search,
-  CheckCheck
+  CheckCheck,
+  Trash2,
+  RotateCcw
 } from 'lucide-react';
 import { getAlerts, dispatchEmergencyAlert } from '../services/api';
 import { playEmergencySiren, stopEmergencySiren, isSirenActive, unlockAudioContext } from '../utils/emergencyAudio';
@@ -42,7 +44,15 @@ import { useLocationContext } from '../context/LocationContext';
 import { useThemeMode } from '../context/ThemeContext';
 import { getCurrentUser } from '../lib/auth';
 import { alertMatchesLocation, isTrueCriticalAlert, getAlertRegionName } from '../utils/alertMatcher';
-import { isAlertRead, markAlertAsRead, markAllAlertsAsRead } from '../utils/notificationsStore';
+import {
+  isAlertRead,
+  markAlertAsRead,
+  markAllAlertsAsRead,
+  clearAlertNotification,
+  clearAllAlertNotifications,
+  isAlertCleared,
+  restoreClearedAlertNotifications
+} from '../utils/notificationsStore';
 
 const NOTIFICATIONS_STORAGE_KEY = 'aapdanetra_notifications_config';
 const ACKNOWLEDGED_ALERTS_KEY = 'an_acknowledged_critical_alerts';
@@ -59,8 +69,18 @@ export default function EmergencyAlertSentinel() {
   const [toastPopupOpen, setToastPopupOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [sirenPlaying, setSirenPlaying] = useState(false);
-  const [activeTab, setActiveTab] = useState(0); // 0: Area-Wise Search & Briefing, 1: National Overview
-  const [areaSearchQuery, setAreaSearchQuery] = useState('');
+  const [zoneCategory, setZoneCategory] = useState('ALL'); // 'ALL' | 'CRITICAL' | 'WARNING' | 'LOCAL' | 'ADVISORY'
+  const [selectedRegionZone, setSelectedRegionZone] = useState('ALL');
+  const [notificationsVersion, setNotificationsVersion] = useState(0);
+
+  // Sync state when notifications are updated (read, cleared, restored)
+  useEffect(() => {
+    const handleUpdate = () => {
+      setNotificationsVersion((v) => v + 1);
+    };
+    window.addEventListener('notifications-updated', handleUpdate);
+    return () => window.removeEventListener('notifications-updated', handleUpdate);
+  }, []);
 
   const lastSoundedAlertIdRef = useRef(null);
   const currentUser = getCurrentUser() || {};
@@ -288,62 +308,82 @@ export default function EmergencyAlertSentinel() {
     setSirenPlaying(true);
   };
 
-  // Local alerts for the current district (clean and sorted by priority)
+  // Local alerts for current district
   const rank = { CRITICAL: 4, HIGH: 3, WARNING: 2, INFO: 1 };
   const districtAlerts = alerts
     .filter((a) => a.isActive !== false && alertMatchesLocation(a, location))
     .sort((a, b) => (rank[b.severity] || 0) - (rank[a.severity] || 0));
 
-  // The single most important alert
   const primaryDistrictAlert = districtAlerts[0] || null;
-  // Secondary alerts limited to top 2 to avoid clutter
   const secondaryDistrictAlerts = districtAlerts.slice(1, 3);
 
-  // Group alerts across all regions and pick the single most important alert per region (no duplicates or mess)
-  const regionalImportantAlerts = React.useMemo(() => {
-    const active = alerts.filter((a) => a.isActive !== false);
-    const regionMap = new Map();
-    const rankMap = { CRITICAL: 4, HIGH: 3, WARNING: 2, INFO: 1 };
+  // Uncleared active alerts
+  const unclearedAlerts = React.useMemo(() => {
+    return (alerts || []).filter((a) => a.isActive !== false && !isAlertCleared(a));
+  }, [alerts, notificationsVersion]);
 
-    for (const a of active) {
-      const region = getAlertRegionName(a);
-      if (!regionMap.has(region)) {
-        regionMap.set(region, a);
-      } else {
-        const existing = regionMap.get(region);
-        if ((rankMap[a.severity] || 0) > (rankMap[existing.severity] || 0)) {
-          regionMap.set(region, a);
-        }
-      }
+  // Cleared alerts count
+  const clearedAlertsCount = React.useMemo(() => {
+    return (alerts || []).filter((a) => a.isActive !== false && isAlertCleared(a)).length;
+  }, [alerts, notificationsVersion]);
+
+  // All recent alerts sorted by creation time (most recent first)
+  const recentAlerts = React.useMemo(() => {
+    return [...unclearedAlerts].sort((a, b) => {
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [unclearedAlerts]);
+
+  // Red Zone Alerts (Critical hazard zones)
+  const redZoneAlerts = React.useMemo(() => {
+    return recentAlerts.filter((a) => a.severity === 'CRITICAL' || isTrueCriticalAlert(a));
+  }, [recentAlerts]);
+
+  // Orange Zone Alerts (High / Warning risk zones)
+  const orangeZoneAlerts = React.useMemo(() => {
+    return recentAlerts.filter((a) => !isTrueCriticalAlert(a) && (a.severity === 'HIGH' || a.severity === 'WARNING'));
+  }, [recentAlerts]);
+
+  // Advisory Zone Alerts (Info / Low risk zones)
+  const advisoryZoneAlerts = React.useMemo(() => {
+    return recentAlerts.filter((a) => a.severity === 'INFO' || a.severity === 'ADVISORY' || a.severity === 'LOW');
+  }, [recentAlerts]);
+
+  // Local Zone Alerts (Current jurisdiction)
+  const localZoneAlerts = React.useMemo(() => {
+    return recentAlerts.filter((a) => alertMatchesLocation(a, location));
+  }, [recentAlerts, location?.district, location?.name]);
+
+  // Unique Region Zones
+  const uniqueRegionZones = React.useMemo(() => {
+    const zones = new Set();
+    recentAlerts.forEach((a) => {
+      const reg = getAlertRegionName(a);
+      if (reg) zones.add(reg);
+    });
+    return Array.from(zones);
+  }, [recentAlerts]);
+
+  // Filtered alerts according to chosen Zone Category & Region Zone
+  const filteredAlerts = React.useMemo(() => {
+    let list = recentAlerts;
+    if (zoneCategory === 'CRITICAL') {
+      list = redZoneAlerts;
+    } else if (zoneCategory === 'WARNING') {
+      list = orangeZoneAlerts;
+    } else if (zoneCategory === 'ADVISORY') {
+      list = advisoryZoneAlerts;
+    } else if (zoneCategory === 'LOCAL') {
+      list = localZoneAlerts;
     }
 
-    return Array.from(regionMap.entries())
-      .map(([region, alert]) => ({ region, alert }))
-      .sort((a, b) => (rankMap[b.alert.severity] || 0) - (rankMap[a.alert.severity] || 0));
-  }, [alerts]);
-
-  // Alerts filtered strictly according to what area is being searched / viewed
-  const displayedAreaAlerts = React.useMemo(() => {
-    if (!areaSearchQuery.trim()) {
-      return districtAlerts;
+    if (selectedRegionZone !== 'ALL') {
+      list = list.filter((a) => getAlertRegionName(a) === selectedRegionZone);
     }
-    if (areaSearchQuery === '__ALL__') {
-      return [...alerts]
-        .filter((a) => a.isActive !== false)
-        .sort((a, b) => (rank[b.severity] || 0) - (rank[a.severity] || 0));
-    }
-    const q = areaSearchQuery.trim().toLowerCase();
-    return alerts
-      .filter((a) => {
-        if (a.isActive === false) return false;
-        const title = (a.title || '').toLowerCase();
-        const msg = (a.message || a.description || '').toLowerCase();
-        const dist = (a.district || '').toLowerCase();
-        const region = getAlertRegionName(a).toLowerCase();
-        return title.includes(q) || msg.includes(q) || dist.includes(q) || region.includes(q);
-      })
-      .sort((a, b) => (rank[b.severity] || 0) - (rank[a.severity] || 0));
-  }, [alerts, areaSearchQuery, districtAlerts]);
+    return list;
+  }, [recentAlerts, zoneCategory, redZoneAlerts, orangeZoneAlerts, advisoryZoneAlerts, localZoneAlerts, selectedRegionZone]);
 
   return (
     <>
@@ -597,7 +637,7 @@ export default function EmergencyAlertSentinel() {
                 variant="contained"
                 onClick={() => {
                   setToastPopupOpen(false);
-                  setActiveTab(0);
+                  setZoneCategory('LOCAL');
                   setModalOpen(true);
                 }}
                 endIcon={<ChevronRight size={14} />}
@@ -666,7 +706,53 @@ export default function EmergencyAlertSentinel() {
             </Box>
           </Box>
 
-          <Box display="flex" alignItems="center" gap={0.5}>
+          <Box display="flex" alignItems="center" gap={1}>
+            {/* Clear All Notifications Button */}
+            {recentAlerts.length > 0 && (
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => clearAllAlertNotifications(recentAlerts)}
+                startIcon={<Trash2 size={13} />}
+                sx={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  textTransform: 'none',
+                  py: 0.3,
+                  px: 1,
+                  borderRadius: 2,
+                  borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
+                  color: 'text.secondary',
+                  '&:hover': {
+                    borderColor: '#ef4444',
+                    color: '#ef4444',
+                    bgcolor: 'rgba(239, 68, 68, 0.08)'
+                  }
+                }}
+              >
+                Clear All
+              </Button>
+            )}
+
+            {clearedAlertsCount > 0 && recentAlerts.length === 0 && (
+              <Button
+                size="small"
+                variant="text"
+                onClick={restoreClearedAlertNotifications}
+                startIcon={<RotateCcw size={13} />}
+                sx={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  textTransform: 'none',
+                  color: '#0284c7',
+                  py: 0.3,
+                  px: 1
+                }}
+              >
+                Restore ({clearedAlertsCount})
+              </Button>
+            )}
+
             {activeCriticalAlert && isTrueCriticalAlert(activeCriticalAlert) && (
               sirenPlaying ? (
                 <IconButton size="small" onClick={handleSilenceOnly} sx={{ color: '#ef4444' }}>
@@ -684,263 +770,256 @@ export default function EmergencyAlertSentinel() {
           </Box>
         </Box>
 
-        {/* Simple Tabs */}
+        {/* Zone Category Tabs */}
         <Box sx={{ px: 2.5, mt: 1.5, borderBottom: '1px solid var(--border-color)' }}>
           <Tabs
-            value={activeTab}
-            onChange={(e, val) => setActiveTab(val)}
+            value={zoneCategory}
+            onChange={(e, val) => setZoneCategory(val)}
+            variant="scrollable"
+            scrollButtons="auto"
             sx={{
-              minHeight: 36,
+              minHeight: 38,
               '& .MuiTab-root': {
-                minHeight: 36,
+                minHeight: 38,
                 textTransform: 'none',
                 fontWeight: 700,
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 py: 0.5,
-                px: 1.5,
+                px: 1.4,
                 minWidth: 'auto'
               }
             }}
           >
-            <Tab label={`Local (${displayedAreaAlerts.length})`} />
-            <Tab label={`All Regions (${regionalImportantAlerts.length})`} />
+            <Tab value="ALL" label={`All Zones (${recentAlerts.length})`} />
+            <Tab value="CRITICAL" label={`🔴 Red Zone (${redZoneAlerts.length})`} />
+            <Tab value="WARNING" label={`🟠 Orange Zone (${orangeZoneAlerts.length})`} />
+            <Tab value="LOCAL" label={`📍 Local (${localZoneAlerts.length})`} />
+            {advisoryZoneAlerts.length > 0 && (
+              <Tab value="ADVISORY" label={`🟡 Advisory (${advisoryZoneAlerts.length})`} />
+            )}
           </Tabs>
         </Box>
 
-        <DialogContent sx={{ p: 2.5, pt: 2, maxHeight: '55vh', overflowY: 'auto' }}>
-          {activeTab === 0 ? (
-            /* TAB 0: LOCAL ALERTS */
-            <Box display="flex" flexDirection="column" gap={1.5}>
-              {displayedAreaAlerts.length > 0 ? (
-                displayedAreaAlerts.map((item) => {
-                  const alertRegion = getAlertRegionName(item);
-                  const isTrulyCritical = isTrueCriticalAlert(item);
-                  const effectiveSev = isTrulyCritical
-                    ? 'CRITICAL'
-                    : item.severity === 'CRITICAL'
-                    ? 'WARNING'
-                    : item.severity || 'INFO';
-                  const isCrit = effectiveSev === 'CRITICAL';
-                  const isHigh = effectiveSev === 'HIGH';
-                  const themeColor = isCrit ? '#ef4444' : isHigh ? '#f97316' : '#0284c7';
-                  const isCurrentDistrict = alertMatchesLocation(item, location);
-                  const isRead = isAlertRead(item);
+        {/* Region Zone Quick Filter Chips (if multiple region zones exist) */}
+        {uniqueRegionZones.length > 1 && (
+          <Box sx={{ px: 2.5, pt: 1.2, pb: 0.2, display: 'flex', alignItems: 'center', gap: 0.8, overflowX: 'auto' }}>
+            <Typography variant="caption" sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary', flexShrink: 0 }}>
+              REGION:
+            </Typography>
+            <Chip
+              label="All Regions"
+              size="small"
+              onClick={() => setSelectedRegionZone('ALL')}
+              variant={selectedRegionZone === 'ALL' ? 'filled' : 'outlined'}
+              sx={{
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                height: 22,
+                cursor: 'pointer',
+                bgcolor: selectedRegionZone === 'ALL' ? '#0284c7' : 'transparent',
+                color: selectedRegionZone === 'ALL' ? '#fff' : 'text.secondary'
+              }}
+            />
+            {uniqueRegionZones.map((reg) => (
+              <Chip
+                key={reg}
+                label={reg}
+                size="small"
+                onClick={() => setSelectedRegionZone(reg === selectedRegionZone ? 'ALL' : reg)}
+                variant={selectedRegionZone === reg ? 'filled' : 'outlined'}
+                sx={{
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  height: 22,
+                  cursor: 'pointer',
+                  bgcolor: selectedRegionZone === reg ? '#0284c7' : 'transparent',
+                  color: selectedRegionZone === reg ? '#fff' : 'text.secondary'
+                }}
+              />
+            ))}
+          </Box>
+        )}
 
-                  return (
-                    <Box
-                      key={item._id || item.id || item.title}
-                      sx={{
-                        p: 2,
-                        borderRadius: 2.5,
-                        bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#fafafa',
-                        borderLeft: `4px solid ${themeColor}`,
-                        transition: 'background 0.15s',
-                        '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.05)' : '#f5f5f5' }
-                      }}
-                    >
-                      {/* Top row: severity + time */}
-                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.8}>
-                        <Box display="flex" alignItems="center" gap={0.8}>
-                          <Typography variant="caption" fontWeight={800} sx={{ color: themeColor, fontSize: '0.7rem', textTransform: 'uppercase' }}>
-                            {effectiveSev}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.68rem' }}>•</Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', fontWeight: 600 }}>
-                            {item.hazardType || 'Hazard'}
-                          </Typography>
-                          {!isRead && (
-                            <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0 }} />
-                          )}
-                        </Box>
-                        <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600, fontSize: '0.7rem' }}>
-                          {new Date(item.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </Typography>
-                      </Box>
+        <DialogContent sx={{ p: 2.5, pt: 1.5, maxHeight: '55vh', overflowY: 'auto' }}>
+          <Box display="flex" flexDirection="column" gap={1.5}>
+            {filteredAlerts.length > 0 ? (
+              filteredAlerts.map((item) => {
+                const alertRegion = getAlertRegionName(item);
+                const isTrulyCritical = isTrueCriticalAlert(item);
+                const effectiveSev = isTrulyCritical
+                  ? 'CRITICAL'
+                  : item.severity === 'CRITICAL'
+                  ? 'WARNING'
+                  : item.severity || 'INFO';
+                const isCrit = effectiveSev === 'CRITICAL';
+                const isHigh = effectiveSev === 'HIGH';
+                const themeColor = isCrit ? '#ef4444' : isHigh ? '#f97316' : '#0284c7';
+                const zoneBadge = isCrit ? 'RED ZONE' : isHigh ? 'ORANGE ZONE' : 'ADVISORY ZONE';
+                const zoneBadgeBg = isCrit ? 'rgba(239, 68, 68, 0.12)' : isHigh ? 'rgba(249, 115, 22, 0.12)' : 'rgba(2, 132, 199, 0.12)';
+                const isCurrentDistrict = alertMatchesLocation(item, location);
+                const isRead = isAlertRead(item);
 
-                      {/* Title */}
-                      <Typography variant="body2" fontWeight={700} sx={{ color: 'text.primary', mb: 0.5, lineHeight: 1.3, fontSize: '0.88rem' }}>
-                        {item.title}
-                      </Typography>
-
-                      {/* Description */}
-                      <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '0.8rem', mb: 1 }}>
-                        {item.message || item.description}
-                      </Typography>
-
-                      {/* Location + Actions */}
-                      <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={0.5}>
-                        <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600, fontSize: '0.7rem' }}>
-                          📍 {alertRegion}{item.affectedRadius ? ` • ${item.affectedRadius} km radius` : ''}
-                        </Typography>
-                        <Box display="flex" alignItems="center" gap={0.5}>
-                          {!isRead && (
-                            <Button size="small" onClick={() => markAlertAsRead(item)} sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', color: '#0284c7', minWidth: 'auto', px: 0.8 }}>
-                              Mark read
-                            </Button>
-                          )}
-                          {!isCurrentDistrict && (
-                            <Button
-                              size="small"
-                              onClick={() => { switchLocation(alertRegion.split('(')[0].trim()); setModalOpen(false); }}
-                              sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', color: 'text.secondary', minWidth: 'auto', px: 0.8 }}
-                            >
-                              Switch
-                            </Button>
-                          )}
-                          <Button
-                            size="small"
-                            onClick={() => { setModalOpen(false); navigate('/disaster-map'); }}
-                            sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', color: themeColor, minWidth: 'auto', px: 0.8 }}
-                          >
-                            View Map →
-                          </Button>
-                        </Box>
-                      </Box>
-                    </Box>
-                  );
-                })
-              ) : (
-                /* Clean "All Clear" state */
-                <Box sx={{ py: 5, textAlign: 'center' }}>
+                return (
                   <Box
+                    key={item._id || item.id || item.title}
                     sx={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: '50%',
-                      bgcolor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5',
-                      color: '#10b981',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      mx: 'auto',
-                      mb: 2
+                      p: 2,
+                      borderRadius: 2.5,
+                      bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#fafafa',
+                      borderLeft: `4px solid ${themeColor}`,
+                      border: '1px solid',
+                      borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                      borderLeftColor: `${themeColor} !important`,
+                      transition: 'background 0.15s',
+                      '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.05)' : '#f5f5f5' }
                     }}
                   >
-                    <CheckCircle2 size={28} />
-                  </Box>
-                  <Typography variant="h6" fontWeight={800} sx={{ color: 'text.primary', mb: 0.5, fontSize: '1rem' }}>
-                    All Clear
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                    No active alerts in {location?.name || location?.district || 'your area'}.
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                    You're safe — we'll notify you if anything changes.
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          ) : (
-            /* TAB 1: ALL REGIONS */
-            <Box display="flex" flexDirection="column" gap={1.5}>
-              {regionalImportantAlerts.length > 0 ? (
-                regionalImportantAlerts.map(({ region, alert: item }) => {
-                  const isTrulyCritical = isTrueCriticalAlert(item);
-                  const isRead = isAlertRead(item);
-                  const effectiveSev = isTrulyCritical
-                    ? 'CRITICAL'
-                    : item.severity === 'CRITICAL'
-                    ? 'WARNING'
-                    : item.severity || 'INFO';
-                  const isCrit = effectiveSev === 'CRITICAL';
-                  const isHigh = effectiveSev === 'HIGH';
-                  const themeColor = isCrit ? '#ef4444' : isHigh ? '#f97316' : '#0284c7';
-
-                  return (
-                    <Box
-                      key={item._id || region}
-                      sx={{
-                        p: 2,
-                        borderRadius: 2.5,
-                        bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#fafafa',
-                        borderLeft: `4px solid ${themeColor}`,
-                        transition: 'background 0.15s',
-                        '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.05)' : '#f5f5f5' }
-                      }}
-                    >
-                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.8}>
-                        <Box display="flex" alignItems="center" gap={0.8}>
-                          <Typography variant="caption" fontWeight={800} sx={{ color: themeColor, fontSize: '0.7rem', textTransform: 'uppercase' }}>
-                            {effectiveSev}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.68rem' }}>•</Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', fontWeight: 600 }}>
-                            {item.hazardType || 'Hazard'}
-                          </Typography>
-                          {!isRead && (
-                            <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0 }} />
-                          )}
+                    {/* Top row: Zone Badge + Severity + Hazard + Time */}
+                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.8} flexWrap="wrap" gap={0.5}>
+                      <Box display="flex" alignItems="center" gap={0.8} flexWrap="wrap">
+                        <Box
+                          sx={{
+                            fontSize: '0.65rem',
+                            fontWeight: 900,
+                            color: themeColor,
+                            bgcolor: zoneBadgeBg,
+                            px: 0.8,
+                            py: 0.2,
+                            borderRadius: 1,
+                            letterSpacing: '0.04em',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.4
+                          }}
+                        >
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: themeColor, display: 'inline-block' }}></span>
+                          {zoneBadge}
                         </Box>
-                        <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600, fontSize: '0.7rem' }}>
-                          {new Date(item.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.68rem' }}>•</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', fontWeight: 700 }}>
+                          {item.hazardType || 'Hazard'}
                         </Typography>
+                        {!isRead && (
+                          <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0 }} title="Unread" />
+                        )}
                       </Box>
+                      <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600, fontSize: '0.7rem' }}>
+                        {new Date(item.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Typography>
+                    </Box>
 
-                      <Typography variant="body2" fontWeight={700} sx={{ color: 'text.primary', mb: 0.5, lineHeight: 1.3, fontSize: '0.88rem' }}>
-                        {item.title}
+                    {/* Title */}
+                    <Typography variant="body2" fontWeight={700} sx={{ color: 'text.primary', mb: 0.5, lineHeight: 1.3, fontSize: '0.88rem' }}>
+                      {item.title}
+                    </Typography>
+
+                    {/* Description */}
+                    <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '0.8rem', mb: 1 }}>
+                      {item.message || item.description}
+                    </Typography>
+
+                    {/* Location + Actions */}
+                    <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={0.8} pt={0.5}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: 0.4 }}>
+                        <MapPin size={12} style={{ color: themeColor }} /> {alertRegion}{item.affectedRadius ? ` • ${item.affectedRadius} km radius` : ''}
                       </Typography>
 
-                      <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '0.8rem', mb: 1 }}>
-                        {item.message || item.description}
-                      </Typography>
+                      <Box display="flex" alignItems="center" gap={0.6}>
+                        {/* Clear notification button */}
+                        <Button
+                          size="small"
+                          onClick={() => clearAlertNotification(item)}
+                          sx={{
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            textTransform: 'none',
+                            color: 'text.secondary',
+                            minWidth: 'auto',
+                            px: 0.8,
+                            py: 0.2,
+                            borderRadius: 1.5,
+                            border: '1px solid var(--border-color)',
+                            '&:hover': {
+                              color: '#ef4444',
+                              borderColor: '#ef4444',
+                              bgcolor: 'rgba(239, 68, 68, 0.08)'
+                            }
+                          }}
+                          title="Clear this alert from notifications"
+                        >
+                          ✕ Clear
+                        </Button>
 
-                      <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={0.5}>
-                        <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600, fontSize: '0.7rem' }}>
-                          📍 {region}{item.affectedRadius ? ` • ${item.affectedRadius} km radius` : ''}
-                        </Typography>
-                        <Box display="flex" alignItems="center" gap={0.5}>
-                          {!isRead && (
-                            <Button size="small" onClick={() => markAlertAsRead(item)} sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', color: '#0284c7', minWidth: 'auto', px: 0.8 }}>
-                              Mark read
-                            </Button>
-                          )}
+                        {!isCurrentDistrict && (
                           <Button
                             size="small"
-                            onClick={() => { switchLocation(region.split('(')[0].trim()); setModalOpen(false); }}
+                            onClick={() => { switchLocation(alertRegion.split('(')[0].trim()); setModalOpen(false); }}
                             sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', color: 'text.secondary', minWidth: 'auto', px: 0.8 }}
                           >
                             Switch
                           </Button>
-                          <Button
-                            size="small"
-                            onClick={() => { setModalOpen(false); navigate('/disaster-map'); }}
-                            sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', color: themeColor, minWidth: 'auto', px: 0.8 }}
-                          >
-                            View Map →
-                          </Button>
-                        </Box>
+                        )}
+                        <Button
+                          size="small"
+                          onClick={() => { setModalOpen(false); navigate('/disaster-map'); }}
+                          sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', color: themeColor, minWidth: 'auto', px: 0.8 }}
+                        >
+                          View Map →
+                        </Button>
                       </Box>
                     </Box>
-                  );
-                })
-              ) : (
-                <Box sx={{ py: 5, textAlign: 'center' }}>
-                  <Box
+                  </Box>
+                );
+              })
+            ) : (
+              /* Empty State */
+              <Box sx={{ py: 4, textAlign: 'center' }}>
+                <Box
+                  sx={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: '50%',
+                    bgcolor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5',
+                    color: '#10b981',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mx: 'auto',
+                    mb: 1.5
+                  }}
+                >
+                  <CheckCircle2 size={26} />
+                </Box>
+                <Typography variant="h6" fontWeight={800} sx={{ color: 'text.primary', mb: 0.5, fontSize: '0.95rem' }}>
+                  {clearedAlertsCount > 0 ? 'All Notifications Cleared' : 'All Clear in this Category'}
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem', lineHeight: 1.5 }}>
+                  {clearedAlertsCount > 0
+                    ? 'You have cleared notifications. New alerts will appear here when issued.'
+                    : zoneCategory === 'LOCAL'
+                    ? `No active hazard alerts in ${location?.name || location?.district || 'your district'}.`
+                    : `No alerts currently registered in this zone category.`}
+                </Typography>
+                {clearedAlertsCount > 0 && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={restoreClearedAlertNotifications}
+                    startIcon={<RotateCcw size={13} />}
                     sx={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: '50%',
-                      bgcolor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5',
-                      color: '#10b981',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      mx: 'auto',
-                      mb: 2
+                      mt: 2,
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      textTransform: 'none',
+                      borderRadius: 2
                     }}
                   >
-                    <CheckCircle2 size={28} />
-                  </Box>
-                  <Typography variant="h6" fontWeight={800} sx={{ color: 'text.primary', mb: 0.5, fontSize: '1rem' }}>
-                    All Regions Clear
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                    No active alerts across all monitored regions nationwide.
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          )}
+                    Restore Cleared Alerts ({clearedAlertsCount})
+                  </Button>
+                )}
+              </Box>
+            )}
+          </Box>
         </DialogContent>
 
         {/* Simple Footer */}
@@ -948,19 +1027,35 @@ export default function EmergencyAlertSentinel() {
           <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>
             NDRF: <strong>1070</strong> • Police: <strong>112</strong> • Relief: <strong>1077</strong>
           </Typography>
-          <Button
-            size="small"
-            onClick={handleAcknowledgeAndSilence}
-            sx={{
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              textTransform: 'none',
-              color: 'text.secondary',
-              '&:hover': { color: 'text.primary' }
-            }}
-          >
-            Close
-          </Button>
+          <Box display="flex" alignItems="center" gap={1}>
+            {clearedAlertsCount > 0 && recentAlerts.length > 0 && (
+              <Button
+                size="small"
+                onClick={restoreClearedAlertNotifications}
+                sx={{
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  color: 'text.secondary'
+                }}
+              >
+                Restore ({clearedAlertsCount})
+              </Button>
+            )}
+            <Button
+              size="small"
+              onClick={handleAcknowledgeAndSilence}
+              sx={{
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                textTransform: 'none',
+                color: 'text.secondary',
+                '&:hover': { color: 'text.primary' }
+              }}
+            >
+              Close
+            </Button>
+          </Box>
         </Box>
       </Dialog>
     </>

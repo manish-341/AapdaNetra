@@ -2,6 +2,7 @@
 
 const READ_ALERT_IDS_KEY = 'aapdanetra_read_alert_ids';
 const LAST_READ_TIME_KEY = 'aapdanetra_notifications_last_read_time';
+const CLEARED_ALERT_IDS_KEY = 'aapdanetra_cleared_alert_ids';
 
 export function getReadAlertIds() {
   try {
@@ -18,6 +19,60 @@ export function getLastReadTimestamp() {
     return val ? parseInt(val, 10) : 0;
   } catch {
     return 0;
+  }
+}
+
+export function getClearedAlertIds() {
+  try {
+    const data = localStorage.getItem(CLEARED_ALERT_IDS_KEY);
+    return data ? new Set(JSON.parse(data)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+export function isAlertCleared(alert) {
+  if (!alert) return false;
+  const id = alert._id || alert.id || alert.title;
+  const clearedSet = getClearedAlertIds();
+  return id ? clearedSet.has(id) : false;
+}
+
+export function clearAlertNotification(alertOrId) {
+  const id = typeof alertOrId === 'string' ? alertOrId : (alertOrId?._id || alertOrId?.id || alertOrId?.title);
+  if (!id) return;
+  try {
+    const clearedSet = getClearedAlertIds();
+    clearedSet.add(id);
+    localStorage.setItem(CLEARED_ALERT_IDS_KEY, JSON.stringify(Array.from(clearedSet)));
+    markAlertAsRead(id);
+    window.dispatchEvent(new CustomEvent('notifications-updated', { detail: { type: 'clear', id } }));
+  } catch (e) {
+    console.warn('Failed to clear alert notification:', e);
+  }
+}
+
+export function clearAllAlertNotifications(alerts = []) {
+  try {
+    const clearedSet = getClearedAlertIds();
+    alerts.forEach((a) => {
+      const id = a._id || a.id || a.title;
+      if (id) clearedSet.add(id);
+    });
+    localStorage.setItem(CLEARED_ALERT_IDS_KEY, JSON.stringify(Array.from(clearedSet)));
+    markAllAlertsAsRead(alerts);
+    window.dispatchEvent(new CustomEvent('notifications-updated', { detail: { type: 'clear-all' } }));
+  } catch (e) {
+    console.warn('Failed to clear all alert notifications:', e);
+  }
+}
+
+export function restoreClearedAlertNotifications() {
+  try {
+    localStorage.removeItem(CLEARED_ALERT_IDS_KEY);
+    window.dispatchEvent(new CustomEvent('notifications-updated', { detail: { type: 'restore' } }));
+  } catch (e) {
+    console.warn('Failed to restore cleared alerts:', e);
   }
 }
 
@@ -66,7 +121,13 @@ export function markAllAlertsAsRead(alerts = []) {
 }
 
 export function getUnreadAlerts(alerts = [], location = null, alertMatchesLocationFn = null) {
-  const active = (alerts || []).filter((a) => a.isActive !== false);
+  const clearedSet = getClearedAlertIds();
+  const active = (alerts || []).filter((a) => {
+    if (a.isActive === false) return false;
+    const id = a._id || a.id || a.title;
+    if (id && clearedSet.has(id)) return false;
+    return true;
+  });
   let scoped = active;
   if (location && alertMatchesLocationFn) {
     const local = active.filter((a) => alertMatchesLocationFn(a, location));
