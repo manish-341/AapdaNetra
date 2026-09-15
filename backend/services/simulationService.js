@@ -72,7 +72,7 @@ const runSimulation = async (scenario, adjustmentPercent, lat, lon) => {
             modifier = (simulated.temperature - (baseWeather.temperature || 30)) * 2 +
                        ((baseWeather.humidity || 50) - simulated.humidity) * 0.8 +
                        (simulated.windSpeed - (baseWeather.windSpeed || 10)) * 1.5;
-        }       }
+        }
 
         const newScore = Math.min(Math.max(Math.round(baseRisk + modifier), 0), 100);
         const change = newScore - baseRisk;
