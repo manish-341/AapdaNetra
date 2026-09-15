@@ -692,15 +692,19 @@ export default function Dashboard() {
             </Box>
           </Box>
 
-          {/* ── 3. Master KPI Row (Enforced Generous 40px Spacing Below) ── */}
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
-              gap: 2.4,
-              mb: 5,
-            }}
-          >
+          {/* ── 3. Current Situation / Master KPI Row ── */}
+          <Box sx={{ mb: 5 }}>
+            <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: textPrimary, mb: 1.8 }}>
+              Current Situation
+            </Typography>
+
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+                gap: 2.4,
+              }}
+            >
             {/* Card 1: ACTIVE ALERTS */}
             <Paper
               elevation={0}
@@ -955,6 +959,7 @@ export default function Dashboard() {
               </Box>
             </Paper>
           </Box>
+        </Box>
 
           {/* ── 4. Middle Tri-Panel Analytics (3 Clean Balanced Cards) ── */}
           <Box

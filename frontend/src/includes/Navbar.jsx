@@ -90,7 +90,7 @@ const Navbar = () => {
     <header className="top-navbar">
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <ShieldAlert size={20} color={isDark ? '#38bdf8' : '#0284c7'} />
+          <img src="/aapdanetra-favicon.svg" alt="AapdaNetra Logo" style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }} />
           <h1 style={{ fontSize: '1.15rem', margin: 0, color: 'var(--text-primary)', fontWeight: 700 }}>
             AapdaNetra Crisis Decision Support
           </h1>

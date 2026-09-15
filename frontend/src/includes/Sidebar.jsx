@@ -39,15 +39,17 @@ const Sidebar = () => {
     <aside className="sidebar">
       <div style={{ paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-color)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 10,
-            background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 800, fontSize: '1.15rem',
-            boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)'
-          }}>
-            A
-          </div>
+          <img
+            src="/aapdanetra-favicon.svg"
+            alt="AapdaNetra App Icon"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              filter: 'drop-shadow(0 4px 10px rgba(2, 132, 199, 0.4))',
+              flexShrink: 0
+            }}
+          />
           <div>
             <h2 style={{ color: isDark ? '#38bdf8' : '#0284c7', margin: 0, fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
               AapdaNetra
