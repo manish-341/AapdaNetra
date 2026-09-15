@@ -32,6 +32,7 @@ import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext, PRESET_DISTRICTS } from '../context/LocationContext';
 import AdminOnlyModal from '../components/AdminOnlyModal';
 import EmergencyContactsModal from '../components/EmergencyContactsModal';
+import QuickActionModal from '../components/QuickActionModal';
 
 // Mini SVG Sparkline Component
 function MiniSparkline({ color, points = '0,18 12,12 24,19 36,9 48,15 60,6 72,11' }) {
@@ -232,6 +233,8 @@ export default function Dashboard() {
   const [openAdminModal, setOpenAdminModal] = useState(false);
   const [adminFeatureName, setAdminFeatureName] = useState('');
   const [openEmergencyModal, setOpenEmergencyModal] = useState(false);
+  const [openQuickModal, setOpenQuickModal] = useState(false);
+  const [selectedQuickAction, setSelectedQuickAction] = useState(null);
 
   const [stats, setStats] = useState(null);
   const [currentTime, setCurrentTime] = useState('');
@@ -324,6 +327,132 @@ export default function Dashboard() {
   const textSecondary = isDark ? '#9ca3af' : '#64748b';
   const textMuted = isDark ? '#6b7280' : '#94a3b8';
 
+  const quickActionsList = [
+    {
+      id: 'citizen-reports',
+      title: 'Citizen Reports Overview',
+      cardTitle: 'Citizen Reports',
+      subtitle: 'Crowdsourced field observations & incident telemetry',
+      icon: <DescriptionOutlinedIcon sx={{ color: '#3b82f6', fontSize: 22 }} />,
+      color: '#3b82f6',
+      bgLight: '#dbeafe',
+      bgDark: 'rgba(59,130,246,0.18)',
+      targetPath: '/citizen-reports',
+      targetLabel: 'Go to Citizen Reports Page',
+      adminRequired: false,
+      stats: [
+        { label: '24h Total Reports', value: reportsCount, color: '#3b82f6' },
+        { label: 'Verified Reports', value: verifiedReportsCount, color: '#10b981' },
+        { label: 'Active Sectors', value: activeSectors, color: '#f59e0b' }
+      ],
+      details: [
+        { label: 'Waterlogging & Inundation', value: '45% of total reports', badge: 'High Activity', badgeColor: '#ef4444', badgeBg: 'rgba(239, 68, 68, 0.15)' },
+        { label: 'Infrastructure & Road Obstructions', value: '25% of total reports', badge: 'Active Desk', badgeColor: '#f97316', badgeBg: 'rgba(249, 115, 22, 0.15)' },
+        { label: 'Emergency Medical & Power Deficit', value: '30% of total reports', badge: 'Dispatched', badgeColor: '#10b981', badgeBg: 'rgba(16, 185, 129, 0.15)' },
+        { label: 'Latest Incident Verification', value: `${locationName} Telemetry Sync Verified`, color: '#0284c7' }
+      ]
+    },
+    {
+      id: 'emergency-contacts',
+      cardTitle: 'Emergency Contacts',
+      icon: <PhoneInTalkOutlinedIcon sx={{ color: '#16a34a', fontSize: 22 }} />,
+      color: '#10b981',
+      bgLight: '#dcfce7',
+      bgDark: 'rgba(34,197,94,0.18)',
+      isEmergency: true,
+    },
+    {
+      id: 'shelter-capacity',
+      title: 'Shelter Capacity & Relief Operations',
+      cardTitle: 'Shelter Capacity',
+      subtitle: 'Relief center readiness, bed occupancy & supply intake',
+      icon: <HomeWorkOutlinedIcon sx={{ color: '#0d9488', fontSize: 22 }} />,
+      color: '#0d9488',
+      bgLight: '#ccfbf1',
+      bgDark: 'rgba(13,148,136,0.18)',
+      targetPath: '/carrying-capacity',
+      targetLabel: 'Go to Shelter Capacity Page',
+      adminRequired: true,
+      stats: [
+        { label: 'Shelters Ready', value: `${sheltersReady} / ${totalShelters}`, color: '#0d9488' },
+        { label: 'Occupancy Rate', value: `${shelterReadyPercent}%`, color: '#10b981' },
+        { label: 'Current Occupied', value: shelterOccupied.toLocaleString(), color: '#ea580c' }
+      ],
+      details: [
+        { label: 'District Central Relief Shelter', value: '120 Beds Occupied / 250 Capacity', badge: 'Operational', badgeColor: '#10b981', badgeBg: 'rgba(16, 185, 129, 0.15)' },
+        { label: 'North Community Center Shelter', value: '60 Beds Occupied / 150 Capacity', badge: 'Available', badgeColor: '#0284c7', badgeBg: 'rgba(2, 132, 199, 0.15)' },
+        { label: 'Emergency Rations & Food Supplies', value: 'Sufficient for 7 Days Intake', badge: 'Stocked', badgeColor: '#10b981', badgeBg: 'rgba(16, 185, 129, 0.15)' },
+        { label: 'Medical First-Aid & Hygiene Kits', value: '100% Deployed across all active shelters', color: '#0d9488' }
+      ]
+    },
+    {
+      id: 'early-warnings',
+      title: 'Early Warnings & Active Alerts',
+      cardTitle: 'Early Warnings',
+      subtitle: 'Hydrological telemetry, severe weather & risk level advisories',
+      icon: <NotificationsActiveOutlinedIcon sx={{ color: '#f59e0b', fontSize: 22 }} />,
+      color: '#f59e0b',
+      bgLight: '#ffedd5',
+      bgDark: 'rgba(245,158,11,0.18)',
+      targetPath: '/disaster-map',
+      targetLabel: 'Go to Early Warnings Page',
+      adminRequired: false,
+      stats: [
+        { label: 'Active Alerts', value: activeAlertsCount, color: '#ef4444' },
+        { label: 'Critical Level', value: criticalAlertsCount, color: '#ea580c' },
+        { label: 'Risk Score', value: '70 (Elevated)', color: '#f59e0b' }
+      ],
+      details: [
+        { label: `${riverName} Gauge Status`, value: `${riverLevel} ${riverTrend}`, badge: 'Surge Warning', badgeColor: '#ef4444', badgeBg: 'rgba(239, 68, 68, 0.15)' },
+        { label: 'Rainfall & Cloudburst Telemetry', value: rainfall, badge: 'Watch Active', badgeColor: '#f59e0b', badgeBg: 'rgba(245, 158, 11, 0.15)' },
+        { label: 'Critical Hazard Sectors', value: `${criticalSectors} Sectors High Threat`, color: '#ef4444' },
+        { label: 'Automatic Siren Broadcast System', value: 'Live Telemetry Stream Active', badge: 'ONLINE', badgeColor: '#10b981', badgeBg: 'rgba(16, 185, 129, 0.15)' }
+      ]
+    },
+    {
+      id: 'simulation',
+      title: '"What-If?" Disaster Risk Simulation',
+      cardTitle: 'What If? Simulation',
+      subtitle: 'Hydrodynamic inundation models & predictive evacuation scenarios',
+      icon: <ScienceOutlinedIcon sx={{ color: '#9333ea', fontSize: 22 }} />,
+      color: '#9333ea',
+      bgLight: '#f3e8ff',
+      bgDark: 'rgba(147,51,234,0.18)',
+      targetPath: '/simulation',
+      targetLabel: 'Go to Simulation Page',
+      adminRequired: true,
+      stats: [
+        { label: 'Model Accuracy', value: '96.4%', color: '#9333ea' },
+        { label: 'Simulated Inundation', value: '+2.8m Surge', color: '#ef4444' },
+        { label: 'Evacuation Lead Time', value: '45 Mins', color: '#0284c7' }
+      ],
+      details: [
+        { label: 'Active Hydro Dynamic Scenario Engine', value: 'Multi-Factor Cloudburst & Dam Breach', badge: 'Ready', badgeColor: '#9333ea', badgeBg: 'rgba(147, 51, 234, 0.15)' },
+        { label: 'Projected Population at Risk', value: `${populationAtRisk.toLocaleString()} Citizens`, color: '#ef4444' },
+        { label: 'High-Vulnerability Sectors', value: 'Sector 3 & Ramghat Basin Lowlands', badge: 'Critical', badgeColor: '#ef4444', badgeBg: 'rgba(239, 68, 68, 0.15)' },
+        { label: 'Relocation Strategy Optimizer', value: 'Automated Evacuation Route Calculation', badge: 'Enabled', badgeColor: '#10b981', badgeBg: 'rgba(16, 185, 129, 0.15)' }
+      ]
+    }
+  ];
+
+  const handleOpenQuickAction = (act) => {
+    if (act.isEmergency) {
+      setOpenEmergencyModal(true);
+    } else {
+      setSelectedQuickAction(act);
+      setOpenQuickModal(true);
+    }
+  };
+
+  const handleNavigateFromQuickAction = (targetPath, adminRequired) => {
+    if (adminRequired && !isAdmin) {
+      setAdminFeatureName(selectedQuickAction?.title || 'This feature');
+      setOpenAdminModal(true);
+    } else {
+      navigate(targetPath);
+    }
+  };
+
   const recentAlerts = (stats?.recentAlerts && stats.recentAlerts.length > 0)
     ? stats.recentAlerts.map((alert) => {
         let icon = <WarningAmberIcon sx={{ color: '#ef4444', fontSize: 20 }} />;
@@ -381,7 +510,7 @@ export default function Dashboard() {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
-              mb: 3,
+              mb: 2.5,
               gap: 2,
             }}
           >
@@ -450,7 +579,7 @@ export default function Dashboard() {
               </Typography>
             </Box>
 
-            {/* Right side live clock & button (strictly aligned, never wraps) */}
+            {/* Right side live clock & button */}
             <Box
               sx={{
                 display: 'flex',
@@ -517,7 +646,72 @@ export default function Dashboard() {
             </Box>
           </Box>
 
-          {/* ── 2. Master KPI Row (4 Horizontal Cards) ── */}
+          {/* ── 2. TOP ROW: Quick Actions (5 Balanced Horizontal Cards) ── */}
+          <Box mb={3}>
+            <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: textPrimary, mb: 1.6 }}>
+              Quick Actions
+            </Typography>
+
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' },
+                gap: 1.8,
+              }}
+            >
+              {quickActionsList.map((act) => (
+                <Paper
+                  key={act.id}
+                  elevation={0}
+                  onClick={() => handleOpenQuickAction(act)}
+                  sx={{
+                    p: 1.6,
+                    borderRadius: '12px',
+                    bgcolor: cardBg,
+                    border: cardBorder,
+                    boxShadow: cardShadow,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.4,
+                    cursor: 'pointer',
+                    transition: 'all 0.18s ease',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      borderColor: act.color || '#0284c7',
+                      boxShadow: `0 4px 14px ${act.color ? act.color + '25' : 'rgba(2,132,199,0.12)'}`,
+                    },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: '8px',
+                      bgcolor: isDark ? act.bgDark : act.bgLight,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {act.icon}
+                  </Box>
+                  <Box display="flex" alignItems="center" gap={0.8}>
+                    <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: textPrimary }}>
+                      {act.cardTitle}
+                    </Typography>
+                    {act.adminRequired && !isAdmin && (
+                      <span style={{ fontSize: '0.6rem', fontWeight: 800, padding: '1px 5px', borderRadius: 4, background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>
+                        ADMIN
+                      </span>
+                    )}
+                  </Box>
+                </Paper>
+              ))}
+            </Box>
+          </Box>
+
+          {/* ── 3. Master KPI Row (4 Horizontal Cards) ── */}
           <Box
             sx={{
               display: 'grid',
@@ -876,7 +1070,7 @@ export default function Dashboard() {
             </Paper>
           </Box>
 
-          {/* ── 3. Middle Tri-Panel Analytics (3 Clean Balanced Cards) ── */}
+          {/* ── 4. Middle Tri-Panel Analytics (3 Clean Balanced Cards) ── */}
           <Box
             sx={{
               display: 'grid',
@@ -1138,262 +1332,6 @@ export default function Dashboard() {
               <Box sx={{ pt: 1, borderTop: 'none' }} />
             </Paper>
           </Box>
-
-          {/* ── 4. Row 3: Quick Actions (5 Balanced Horizontal Cards) ── */}
-          <Box mb={2}>
-            <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: textPrimary, mb: 1.6 }}>
-              Quick Actions
-            </Typography>
-
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' },
-                gap: 1.8,
-              }}
-            >
-              {/* Action 1: Citizen Reports */}
-              <Paper
-                elevation={0}
-                onClick={() => navigate('/citizen-reports')}
-                sx={{
-                  p: 1.6,
-                  borderRadius: '12px',
-                  bgcolor: cardBg,
-                  border: cardBorder,
-                  boxShadow: cardShadow,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.4,
-                  cursor: 'pointer',
-                  transition: 'all 0.18s ease',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    borderColor: '#0284c7',
-                    boxShadow: '0 4px 14px rgba(2,132,199,0.12)',
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(59,130,246,0.18)' : '#dbeafe',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <DescriptionOutlinedIcon sx={{ color: '#3b82f6', fontSize: 20 }} />
-                </Box>
-                <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: textPrimary }}>
-                  Citizen Reports
-                </Typography>
-              </Paper>
-
-              {/* Action 2: Emergency Contacts */}
-              <Paper
-                elevation={0}
-                onClick={() => setOpenEmergencyModal(true)}
-                sx={{
-                  p: 1.6,
-                  borderRadius: '12px',
-                  bgcolor: cardBg,
-                  border: cardBorder,
-                  boxShadow: cardShadow,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.4,
-                  cursor: 'pointer',
-                  transition: 'all 0.18s ease',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    borderColor: '#10b981',
-                    boxShadow: '0 4px 14px rgba(16,185,129,0.12)',
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(34,197,94,0.18)' : '#dcfce7',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <PhoneInTalkOutlinedIcon sx={{ color: '#16a34a', fontSize: 20 }} />
-                </Box>
-                <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: textPrimary }}>
-                  Emergency Contacts
-                </Typography>
-              </Paper>
-
-              {/* Action 3: Shelter Capacity */}
-              <Tooltip title={!isAdmin ? "Only for Admin uses" : ""} arrow placement="top">
-                <Paper
-                  elevation={0}
-                  onClick={(e) => {
-                    if (!isAdmin) {
-                      e.preventDefault();
-                      setAdminFeatureName('Shelter Capacity & Intake Logistics');
-                      setOpenAdminModal(true);
-                    } else {
-                      navigate('/carrying-capacity');
-                    }
-                  }}
-                  sx={{
-                    p: 1.6,
-                    borderRadius: '12px',
-                    bgcolor: cardBg,
-                    border: cardBorder,
-                    boxShadow: cardShadow,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.4,
-                    cursor: 'pointer',
-                    transition: 'all 0.18s ease',
-                    position: 'relative',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      borderColor: '#0d9488',
-                      boxShadow: '0 4px 14px rgba(13,148,136,0.12)',
-                    },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: '8px',
-                      bgcolor: isDark ? 'rgba(13,148,136,0.18)' : '#ccfbf1',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <HomeWorkOutlinedIcon sx={{ color: '#0d9488', fontSize: 20 }} />
-                  </Box>
-                  <Box display="flex" alignItems="center" gap={0.8}>
-                    <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: textPrimary }}>
-                      Shelter Capacity
-                    </Typography>
-                    {!isAdmin && (
-                      <span style={{ fontSize: '0.6rem', fontWeight: 800, padding: '1px 5px', borderRadius: 4, background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>
-                        ADMIN
-                      </span>
-                    )}
-                  </Box>
-                </Paper>
-              </Tooltip>
-
-              {/* Action 4: Early Warnings */}
-              <Paper
-                elevation={0}
-                onClick={() => navigate('/disaster-map')}
-                sx={{
-                  p: 1.6,
-                  borderRadius: '12px',
-                  bgcolor: cardBg,
-                  border: cardBorder,
-                  boxShadow: cardShadow,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.4,
-                  cursor: 'pointer',
-                  transition: 'all 0.18s ease',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    borderColor: '#f59e0b',
-                    boxShadow: '0 4px 14px rgba(245,158,11,0.12)',
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(245,158,11,0.18)' : '#ffedd5',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <NotificationsActiveOutlinedIcon sx={{ color: '#f59e0b', fontSize: 20 }} />
-                </Box>
-                <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: textPrimary }}>
-                  Early Warnings
-                </Typography>
-              </Paper>
-
-              {/* Action 5: What If? Simulation */}
-              <Tooltip title={!isAdmin ? "Only for Admin uses" : ""} arrow placement="top">
-                <Paper
-                  elevation={0}
-                  onClick={(e) => {
-                    if (!isAdmin) {
-                      e.preventDefault();
-                      setAdminFeatureName('"What-If?" Disaster Simulation');
-                      setOpenAdminModal(true);
-                    } else {
-                      navigate('/simulation');
-                    }
-                  }}
-                  sx={{
-                    p: 1.6,
-                    borderRadius: '12px',
-                    bgcolor: cardBg,
-                    border: cardBorder,
-                    boxShadow: cardShadow,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.4,
-                    cursor: 'pointer',
-                    transition: 'all 0.18s ease',
-                    position: 'relative',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      borderColor: '#9333ea',
-                      boxShadow: '0 4px 14px rgba(147,51,234,0.12)',
-                    },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: '8px',
-                      bgcolor: isDark ? 'rgba(147,51,234,0.18)' : '#f3e8ff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <ScienceOutlinedIcon sx={{ color: '#9333ea', fontSize: 20 }} />
-                  </Box>
-                  <Box display="flex" alignItems="center" gap={0.8}>
-                    <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: textPrimary }}>
-                      What If? Simulation
-                    </Typography>
-                    {!isAdmin && (
-                      <span style={{ fontSize: '0.6rem', fontWeight: 800, padding: '1px 5px', borderRadius: 4, background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>
-                        ADMIN
-                      </span>
-                    )}
-                  </Box>
-                </Paper>
-              </Tooltip>
-            </Box>
-          </Box>
         </Box>
       </Fade>
 
@@ -1408,6 +1346,14 @@ export default function Dashboard() {
       <EmergencyContactsModal
         open={openEmergencyModal}
         onClose={() => setOpenEmergencyModal(false)}
+      />
+
+      {/* Quick Action Details Modal Popup with "Go to this page" Navigation */}
+      <QuickActionModal
+        open={openQuickModal}
+        onClose={() => setOpenQuickModal(false)}
+        action={selectedQuickAction}
+        onNavigate={handleNavigateFromQuickAction}
       />
     </Boilerplate>
   );
