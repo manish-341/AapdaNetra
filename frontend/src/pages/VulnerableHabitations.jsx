@@ -985,7 +985,7 @@ export default function VulnerableHabitations() {
               variant="contained"
               size="small"
               startIcon={<MapOutlinedIcon />}
-              onClick={() => navigate('/map')}
+              onClick={() => navigate('/disaster-map')}
               sx={{
                 fontWeight: 700,
                 fontSize: '0.78rem',
@@ -1000,61 +1000,207 @@ export default function VulnerableHabitations() {
           </Stack>
         </Box>
 
-        {/* Collapsible Explainer Guide */}
+        {/* Spacious, Easy-to-Read Explainer Guide */}
         <Collapse in={showGuide} timeout="auto">
           <Paper
             variant="outlined"
             sx={{
               mt: 2,
-              p: 2.5,
-              borderRadius: 3,
-              bgcolor: isDark ? 'rgba(15,23,42,0.85)' : '#f8fafc',
-              borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#cbd5e1',
+              p: { xs: 2, md: 3 },
+              borderRadius: 3.5,
+              bgcolor: isDark ? 'rgba(15,23,42,0.92)' : '#ffffff',
+              borderColor: isDark ? 'rgba(255,255,255,0.12)' : '#cbd5e1',
+              boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.45)' : '0 6px 20px rgba(0,0,0,0.06)',
             }}
           >
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-              <Typography variant="subtitle2" fontWeight={800} sx={{ color: isDark ? '#f8fafc' : '#0f172a', display: 'flex', alignItems: 'center', gap: 1 }}>
-                <HelpOutlineOutlinedIcon sx={{ fontSize: 18, color: '#38bdf8' }} />
-                Understanding Vulnerable Habitation Assessment
-              </Typography>
-              <IconButton size="small" onClick={() => setShowGuide(false)}>
-                <CloseIcon fontSize="small" />
-              </IconButton>
+            {/* Guide Header */}
+            <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2.5} pb={1.5} sx={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0' }}>
+              <Box>
+                <Typography variant="h6" fontWeight={800} sx={{ color: isDark ? '#f8fafc' : '#0f172a', display: 'flex', alignItems: 'center', gap: 1, fontSize: '1.05rem' }}>
+                  <HelpOutlineOutlinedIcon sx={{ fontSize: 22, color: '#38bdf8' }} />
+                  How to Understand &amp; Use Habitation Risk Assessments
+                </Typography>
+                <Typography variant="body2" sx={{ color: isDark ? '#94a3b8' : '#64748b', mt: 0.25, fontSize: '0.84rem' }}>
+                  A plain-English operational guide for district relief commissioners, incident commanders, and field officers.
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => setShowGuide(false)}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.75rem',
+                  borderRadius: 2,
+                  color: isDark ? '#94a3b8' : '#64748b',
+                  borderColor: isDark ? 'rgba(255,255,255,0.15)' : '#cbd5e1',
+                  flexShrink: 0,
+                  ml: 2,
+                }}
+              >
+                Close Guide ✕
+              </Button>
             </Box>
 
-            <Grid container spacing={2}>
+            {/* 3 Spacious Feature Cards */}
+            <Grid container spacing={2.5}>
+              {/* Card 1: Score & Thresholds */}
               <Grid size={{ xs: 12, md: 4 }}>
-                <Box p={1.5} borderRadius={2} sx={{ bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#ffffff', border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e2e8f0' }}>
-                  <Typography variant="caption" fontWeight={800} sx={{ color: '#f43f5e', textTransform: 'uppercase' }}>
-                    1. Composite Risk Score (0-100)
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: isDark ? '#cbd5e1' : '#334155', fontSize: '0.8rem', mt: 0.5 }}>
-                    Formulated from: <strong>(Physical Hazard Proximity × Structural Fragility Index × Population Density)</strong> ÷ <strong>Evacuation Egress Capacity</strong>. Scores ≥80 require immediate evacuation directives.
-                  </Typography>
+                <Box
+                  sx={{
+                    p: 2.5,
+                    borderRadius: 3,
+                    bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+                    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={800} sx={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: 1, mb: 1, fontSize: '0.92rem' }}>
+                      🎯 1. Composite Risk Score (0–100)
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: isDark ? '#cbd5e1' : '#334155', fontSize: '0.85rem', lineHeight: 1.6 }}>
+                      Measures overall human danger by evaluating <strong>how close the settlement is to active hazards</strong>, <strong>how easily homes collapse</strong>, and <strong>how many residents need transport</strong>.
+                    </Typography>
+                  </Box>
+
+                  <Stack spacing={0.75} mt={2} pt={1.5} sx={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e2e8f0' }}>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Chip label="80 – 100" size="small" sx={{ bgcolor: '#ffe4e6', color: '#9f1239', fontWeight: 800, fontSize: '0.72rem', height: 22 }} />
+                      <Typography variant="caption" sx={{ color: isDark ? '#f8fafc' : '#0f172a', fontWeight: 700, fontSize: '0.78rem' }}>
+                        Critical: Immediate evacuation needed
+                      </Typography>
+                    </Box>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Chip label="60 – 79" size="small" sx={{ bgcolor: '#ffedd5', color: '#9a3412', fontWeight: 800, fontSize: '0.72rem', height: 22 }} />
+                      <Typography variant="caption" sx={{ color: isDark ? '#f8fafc' : '#0f172a', fontWeight: 700, fontSize: '0.78rem' }}>
+                        High: Prepare buses &amp; safe shelters
+                      </Typography>
+                    </Box>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Chip label="< 60" size="small" sx={{ bgcolor: '#fef9c3', color: '#854d0e', fontWeight: 800, fontSize: '0.72rem', height: 22 }} />
+                      <Typography variant="caption" sx={{ color: isDark ? '#f8fafc' : '#0f172a', fontWeight: 700, fontSize: '0.78rem' }}>
+                        Moderate/Low: Active monitoring
+                      </Typography>
+                    </Box>
+                  </Stack>
                 </Box>
               </Grid>
 
+              {/* Card 2: Housing Types */}
               <Grid size={{ xs: 12, md: 4 }}>
-                <Box p={1.5} borderRadius={2} sx={{ bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#ffffff', border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e2e8f0' }}>
-                  <Typography variant="caption" fontWeight={800} sx={{ color: '#f97316', textTransform: 'uppercase' }}>
-                    2. Housing Fragility Types
+                <Box
+                  sx={{
+                    p: 2.5,
+                    borderRadius: 3,
+                    bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+                    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0',
+                    height: '100%',
+                  }}
+                >
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ color: '#f97316', display: 'flex', alignItems: 'center', gap: 1, mb: 1, fontSize: '0.92rem' }}>
+                    🏚️ 2. Housing Fragility Types
                   </Typography>
-                  <Typography variant="body2" sx={{ color: isDark ? '#cbd5e1' : '#334155', fontSize: '0.8rem', mt: 0.5 }}>
-                    • <strong>Kutcha</strong>: Mud, bamboo, unmortared stones, or thatch. Collapses rapidly when submerged.<br />
-                    • <strong>Semi-Pucca</strong>: Brick/masonry with weak cement mortar; moderate resilience.<br />
-                    • <strong>Pucca</strong>: Reinforced cement concrete (RCC); high resilience.
+                  <Typography variant="body2" sx={{ color: isDark ? '#cbd5e1' : '#334155', fontSize: '0.85rem', lineHeight: 1.6, mb: 1.5 }}>
+                    The physical structure dictates whether families can shelter in place or face total home destruction:
                   </Typography>
+
+                  <Stack spacing={1.25}>
+                    <Box>
+                      <Typography variant="caption" fontWeight={800} sx={{ color: '#f43f5e', textTransform: 'uppercase', fontSize: '0.74rem' }}>
+                        • Kutcha (Severe Collapse Risk)
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: isDark ? '#94a3b8' : '#475569', fontSize: '0.8rem', lineHeight: 1.4 }}>
+                        Built from mud, bamboo, unmortared stones, or thatch. Water quickly softens foundations, causing rapid structural collapse.
+                      </Typography>
+                    </Box>
+
+                    <Box>
+                      <Typography variant="caption" fontWeight={800} sx={{ color: '#eab308', textTransform: 'uppercase', fontSize: '0.74rem' }}>
+                        • Semi-Pucca (Moderate Risk)
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: isDark ? '#94a3b8' : '#475569', fontSize: '0.8rem', lineHeight: 1.4 }}>
+                        Brick masonry with light mortar. Survives mild rain, but prone to sliding on steep, saturated slopes.
+                      </Typography>
+                    </Box>
+
+                    <Box>
+                      <Typography variant="caption" fontWeight={800} sx={{ color: '#10b981', textTransform: 'uppercase', fontSize: '0.74rem' }}>
+                        • Pucca (High Resilience)
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: isDark ? '#94a3b8' : '#475569', fontSize: '0.8rem', lineHeight: 1.4 }}>
+                        Reinforced concrete (RCC) with solid foundations. Safe from ordinary urban flooding.
+                      </Typography>
+                    </Box>
+                  </Stack>
                 </Box>
               </Grid>
 
+              {/* Card 3: Action Directives */}
               <Grid size={{ xs: 12, md: 4 }}>
-                <Box p={1.5} borderRadius={2} sx={{ bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#ffffff', border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e2e8f0' }}>
-                  <Typography variant="caption" fontWeight={800} sx={{ color: '#38bdf8', textTransform: 'uppercase' }}>
-                    3. Action Directives
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: isDark ? '#cbd5e1' : '#334155', fontSize: '0.8rem', mt: 0.5 }}>
-                    Click <strong>"View Plan"</strong> on any settlement row to reveal: exact transit routes, designated safe shelters, emergency contacts, and one-click SMS warning triggers for local responders.
-                  </Typography>
+                <Box
+                  sx={{
+                    p: 2.5,
+                    borderRadius: 3,
+                    bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+                    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={800} sx={{ color: '#0284c7', display: 'flex', alignItems: 'center', gap: 1, mb: 1, fontSize: '0.92rem' }}>
+                      📋 3. How to Respond
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: isDark ? '#cbd5e1' : '#334155', fontSize: '0.85rem', lineHeight: 1.6 }}>
+                      Every settlement includes an end-to-end tactical response plan tailored to local conditions:
+                    </Typography>
+
+                    <Stack spacing={1.25} mt={1.5}>
+                      <Box display="flex" alignItems="flex-start" gap={1}>
+                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#0284c7', mt: 0.8, flexShrink: 0 }} />
+                        <Typography variant="body2" sx={{ color: isDark ? '#cbd5e1' : '#475569', fontSize: '0.82rem', lineHeight: 1.4 }}>
+                          Click <strong>"View Plan"</strong> to see designated shelters, route distance, and nodal officer contacts.
+                        </Typography>
+                      </Box>
+                      <Box display="flex" alignItems="flex-start" gap={1}>
+                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#0284c7', mt: 0.8, flexShrink: 0 }} />
+                        <Typography variant="body2" sx={{ color: isDark ? '#cbd5e1' : '#475569', fontSize: '0.82rem', lineHeight: 1.4 }}>
+                          Click <strong>"Issue SMS Alert"</strong> to immediately broadcast warnings to local Civil Defence volunteers.
+                        </Typography>
+                      </Box>
+                      <Box display="flex" alignItems="flex-start" gap={1}>
+                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#0284c7', mt: 0.8, flexShrink: 0 }} />
+                        <Typography variant="body2" sx={{ color: isDark ? '#cbd5e1' : '#475569', fontSize: '0.82rem', lineHeight: 1.4 }}>
+                          Click <strong>"Relocation Plan"</strong> to coordinate buses, shelter beds, and food logistics.
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Box>
+
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<MapOutlinedIcon />}
+                    onClick={() => navigate('/disaster-map')}
+                    sx={{
+                      mt: 2,
+                      bgcolor: '#0284c7',
+                      fontWeight: 700,
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      py: 0.8,
+                      '&:hover': { bgcolor: '#0369a1' },
+                    }}
+                  >
+                    Open Live GIS Disaster Map →
+                  </Button>
                 </Box>
               </Grid>
             </Grid>
