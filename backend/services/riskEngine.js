@@ -28,7 +28,7 @@ const calculateUnifiedRisk = async (lat, lon, hazardType = null) => {
                 wind_speed: weather.windSpeed,
                 pressure: weather.pressure,
                 soil_moisture_pct: weather.soilMoisturePct || 50
-            }, { timeout: 1500 });
+            }, { timeout: 3500 });
             mlPredictions = mlResponse.data;
         } catch (mlError) {
             mlPredictions = getRuleBasedPrediction(weather, lat, lon);
