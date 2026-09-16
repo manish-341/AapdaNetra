@@ -1,0 +1,16 @@
+Variable,Source,Description
+latitude / longitude,Survey of India / WGS-84,Geographic coordinates across Indian disaster belts
+elevation_m,Copernicus DEM GLO-30 (ESA),Ground surface elevation (meters above sea level)
+slope_deg,Copernicus DEM GLO-30,Terrain inclination in degrees
+annual_rainfall_mm,IMD Pune 0.25° Gridded,Long-period mean annual precipitation (mm)
+max_daily_rainfall_mm,IMD / CHIRPS,Single-day maximum extreme precipitation intensity
+dist_to_river_km,CWC / India-WRIS / HydroSHEDS,Euclidean distance to nearest drainage/river channel
+river_density_km_sqkm,CWC India-WRIS,Length of river channels per square kilometer
+ndvi,Sentinel-2 / MODIS,Normalized Difference Vegetation Index (vegetation density & fuel)
+lulc,Dynamic World 10m (ESA/Google),Land-use and land-cover classification
+pop_density_per_sqkm,Census of India / WorldPop,Habitation population per square kilometer
+prob_flood,Calibrated ML Output,Calibrated occurrence probability of flood (0.0 to 1.0)
+prob_landslide,Calibrated ML Output,Calibrated occurrence probability of landslide (0.0 to 1.0)
+prob_wildfire,Calibrated ML Output,Calibrated occurrence probability of wildfire (0.0 to 1.0)
+multihazard_risk_score,AapdaNetra Risk Engine,Composite Multi-Hazard Risk Index (0 to 100)
+carrying_capacity_persons,NDMA Relief Guidelines,Number of displaced persons that safe zone can shelter

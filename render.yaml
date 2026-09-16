@@ -1,5 +1,16 @@
 services:
-  # Backend API Web Service
+  # AI/ML Prediction Microservice (FastAPI + Retrained Govt Models + Live Weather Engine)
+  - type: web
+    name: aapdanetra-ai
+    runtime: python
+    rootDir: ai-services
+    buildCommand: pip install -r requirement.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PORT
+        value: 8000
+
+  # Backend API Web Service (Node.js / Express)
   - type: web
     name: aapdanetra
     runtime: node
@@ -11,8 +22,10 @@ services:
         value: production
       - key: PORT
         value: 5000
+      - key: AI_SERVICE_URL
+        value: https://aapdanetra-ai.onrender.com
 
-  # Frontend Static Site
+  # Frontend Static Site (React / Vite)
   - type: static
     name: aapdanetra-frontend
     rootDir: frontend
@@ -25,4 +38,3 @@ services:
     envVars:
       - key: VITE_API_BASE_URL
         value: https://aapdanetra.onrender.com/api
-
