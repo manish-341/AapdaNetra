@@ -28,7 +28,6 @@ const HABITATIONS = [
     id: 'VH-01',
     cluster: 'Kunda Basti, Ward 7',
     zone: 'Flood Plain R-12',
-    image: 'https://images.unsplash.com/photo-1547683905-f686c993aae5?w=500&auto=format&fit=crop&q=80',
     tags: [
       { label: 'Flood Plain', icon: '🌊', bg: '#e0f2fe', color: '#0369a1' },
       { label: 'Kutcha', icon: '🏚️', bg: '#ffedd5', color: '#c2410c' },
@@ -61,7 +60,6 @@ const HABITATIONS = [
     id: 'VH-02',
     cluster: 'Nala Colony',
     zone: 'Landslide Zone L-4',
-    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=500&auto=format&fit=crop&q=80',
     tags: [
       { label: 'Landslide Prone', icon: '⛰️', bg: '#ffedd5', color: '#c2410c' },
       { label: 'Semi-Pucca', icon: '🧱', bg: '#f3e8ff', color: '#7e22ce' },
@@ -94,7 +92,6 @@ const HABITATIONS = [
     id: 'VH-03',
     cluster: 'Ghat Para',
     zone: 'Riverbank Erosion Zone E-03',
-    image: 'https://images.unsplash.com/photo-1511497584788-87676104235f?w=500&auto=format&fit=crop&q=80',
     tags: [
       { label: 'Bank Erosion', icon: '🌊', bg: '#ffedd5', color: '#c2410c' },
       { label: 'Kutcha', icon: '🏚️', bg: '#ffedd5', color: '#c2410c' },
@@ -127,7 +124,6 @@ const HABITATIONS = [
     id: 'VH-04',
     cluster: 'Station Road Settlement',
     zone: 'Transit Corridor S-08',
-    image: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=500&auto=format&fit=crop&q=80',
     tags: [
       { label: 'Waterlogging', icon: '⚠️', bg: '#fef9c3', color: '#854d0e' },
       { label: 'Pucca', icon: '🏢', bg: '#dcfce7', color: '#15803d' },
@@ -414,49 +410,33 @@ export default function VulnerableHabitations() {
             }}
           >
             <Grid container spacing={3} alignItems="flex-start">
-              {/* Left Column: Image & Settlement Details */}
+              {/* Left Column: Settlement Details (No Images) */}
               <Grid size={{ xs: 12, md: 5.5 }}>
-                <Box display="flex" gap={2}>
-                  {/* Rank Badge */}
-                  <Box
-                    sx={{
-                      alignSelf: 'flex-start',
-                      px: 1.25,
-                      py: 0.5,
-                      borderRadius: 1.5,
-                      bgcolor: row.rank <= 2 ? '#fee2e2' : '#ffedd5',
-                      color: row.rank <= 2 ? '#dc2626' : '#ea580c',
-                      fontWeight: 800,
-                      fontSize: '0.82rem',
-                    }}
-                  >
-                    #{row.rank}
-                  </Box>
-
-                  {/* Settlement Image Thumbnail */}
-                  <Box
-                    component="img"
-                    src={row.image}
-                    alt={row.cluster}
-                    sx={{
-                      width: 110,
-                      height: 85,
-                      borderRadius: 2.5,
-                      objectFit: 'cover',
-                      flexShrink: 0,
-                      border: '1px solid rgba(0,0,0,0.08)',
-                    }}
-                  />
-
-                  {/* Titles & Bullets */}
-                  <Box flex={1}>
-                    <Typography variant="subtitle1" fontWeight={800} sx={{ color: isDark ? '#f8fafc' : '#0f172a', display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '1rem' }}>
-                      <LocationOnIcon sx={{ fontSize: 16, color: '#0284c7' }} />
+                <Box>
+                  {/* Rank Badge & Cluster Title */}
+                  <Box display="flex" alignItems="center" gap={1.25} mb={1}>
+                    <Box
+                      sx={{
+                        px: 1.25,
+                        py: 0.4,
+                        borderRadius: 1.5,
+                        bgcolor: row.rank <= 2 ? '#fee2e2' : '#ffedd5',
+                        color: row.rank <= 2 ? '#dc2626' : '#ea580c',
+                        fontWeight: 800,
+                        fontSize: '0.82rem',
+                        flexShrink: 0,
+                      }}
+                    >
+                      #{row.rank}
+                    </Box>
+                    <Typography variant="subtitle1" fontWeight={800} sx={{ color: isDark ? '#f8fafc' : '#0f172a', display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '1.05rem' }}>
+                      <LocationOnIcon sx={{ fontSize: 18, color: '#0284c7' }} />
                       {row.cluster}
                     </Typography>
+                  </Box>
 
-                    {/* Chips Row */}
-                    <Box display="flex" gap={0.75} mt={0.75} flexWrap="wrap">
+                  {/* Chips Row */}
+                  <Box display="flex" gap={0.75} mt={0.5} flexWrap="wrap">
                       {row.tags.map((t, idx) => (
                         <Chip
                           key={idx}
@@ -491,8 +471,7 @@ export default function VulnerableHabitations() {
                       ))}
                     </Stack>
                   </Box>
-                </Box>
-              </Grid>
+                </Grid>
 
               {/* Middle Column: Risk Score Card */}
               <Grid size={{ xs: 12, sm: 4, md: 2.2 }}>
