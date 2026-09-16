@@ -236,19 +236,6 @@ const broadcastEmergencyAlert = async (req, res) => {
             console.warn("[Broadcast] Real-time telemetry lookup warning:", weaErr.message);
         }
 
-        // For critical disaster areas (like Bhopal with active flood disaster), ensure realistic telemetry
-        if (/bhopal/i.test(targetDistrict)) {
-            liveWeather = {
-                temperature: 24.5,
-                rainfall: 88.5,
-                humidity: 98,
-                windSpeed: 42.6,
-                soilMoisturePct: 94,
-                source: "Central Water Commission (CWC) & IMD Doppler Radar",
-                basinStatus: "Upper Lake / Bada Talab Overtopping (Critical Flash Flood)"
-            };
-        }
-
         let finalTitle = title || `🚨 CRITICAL DISASTER WARNING — ${targetDistrict}`;
         let finalSeverity = severity || "CRITICAL";
         let finalHazard = hazardType || "FLOOD";

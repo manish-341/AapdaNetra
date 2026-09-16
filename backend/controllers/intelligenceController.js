@@ -299,13 +299,13 @@ const REGIONAL_TELEMETRY = {
     },
     "bhopal": {
         riverName: "Upper Lake Basin",
-        riverLevel: "1668.5 ft (Danger Mark Exceeded)",
-        riverTrend: "(+1.8 ft Surge)",
-        riverStatus: "Critical",
-        rainfall: "88.5mm (Extreme Precipitation)",
-        activeSectors: 6,
-        criticalSectors: 3,
-        occupiedShelterCount: 1450
+        riverLevel: "1658.2 ft",
+        riverTrend: "(Stable)",
+        riverStatus: "Normal",
+        rainfall: "0.0mm (Clear)",
+        activeSectors: 2,
+        criticalSectors: 0,
+        occupiedShelterCount: 65
     },
     "indore": {
         riverName: "Kanh River Gauge",
@@ -457,39 +457,55 @@ const getDashboardStats = async (req, res) => {
             };
         }
 
-        // Enrich telemetry with live weather when safe, BUT PRESERVE simulated/critical extreme telemetry
-        const isDisasterScenario = criticalAlerts > 0 || telemetry.riverStatus === "Critical";
-        if (!isDisasterScenario) {
-            try {
-                const { getCurrentWeather } = require("../services/weatherService");
-                let lat = req.query.lat ? parseFloat(req.query.lat) : null;
-                let lon = req.query.lng ? parseFloat(req.query.lng) : null;
-                if (!lat || !lon) {
-                    const COORDS_MAP = {
-                        "bhopal": { lat: 23.2599, lng: 77.4126 },
-                        "delhi": { lat: 28.6139, lng: 77.2090 },
-                        "central delhi": { lat: 28.6139, lng: 77.2090 },
-                        "mumbai": { lat: 19.0760, lng: 72.8777 },
-                        "pune": { lat: 18.5204, lng: 73.8567 },
-                        "gautam buddha nagar": { lat: 28.4744, lng: 77.5040 },
-                        "noida": { lat: 28.5355, lng: 77.3910 },
-                        "indore": { lat: 22.7196, lng: 75.8577 },
-                        "dehradun": { lat: 30.3165, lng: 78.0322 },
-                        "ranchi": { lat: 23.3441, lng: 85.3096 }
-                    };
-                    const mapped = COORDS_MAP[cleanKey] || { lat: 28.6139, lng: 77.2090 };
-                    lat = mapped.lat;
-                    lon = mapped.lng;
-                }
-                const liveWeather = await getCurrentWeather(lat, lon);
-                if (liveWeather && liveWeather.rainfall !== undefined) {
-                    const rainVal = Number(liveWeather.rainfall) || 0;
-                    const rainDesc = rainVal >= 50 ? "Heavy" : rainVal >= 10 ? "Moderate" : rainVal > 0 ? "Light" : "None";
-                    telemetry.rainfall = `${rainVal.toFixed(1)}mm (${rainDesc})`;
-                }
-            } catch (weaErr) {
-                console.warn("[getDashboardStats] Live weather enrichment notice:", weaErr.message);
+        // Enrich telemetry with live real-time satellite & meteorological telemetry
+        try {
+            const { getCurrentWeather } = require("../services/weatherService");
+            let lat = req.query.lat ? parseFloat(req.query.lat) : null;
+            let lon = req.query.lng ? parseFloat(req.query.lng) : null;
+            if (!lat || !lon) {
+                const COORDS_MAP = {
+                    "bhopal": { lat: 23.2599, lng: 77.4126 },
+                    "delhi": { lat: 28.6139, lng: 77.2090 },
+                    "central delhi": { lat: 28.6139, lng: 77.2090 },
+                    "mumbai": { lat: 19.0760, lng: 72.8777 },
+                    "pune": { lat: 18.5204, lng: 73.8567 },
+                    "gautam buddha nagar": { lat: 28.4744, lng: 77.5040 },
+                    "noida": { lat: 28.5355, lng: 77.3910 },
+                    "indore": { lat: 22.7196, lng: 75.8577 },
+                    "dehradun": { lat: 30.3165, lng: 78.0322 },
+                    "ranchi": { lat: 23.3441, lng: 85.3096 }
+                };
+                const mapped = COORDS_MAP[cleanKey] || { lat: 28.6139, lng: 77.2090 };
+                lat = mapped.lat;
+                lon = mapped.lng;
             }
+            const liveWeather = await getCurrentWeather(lat, lon);
+            if (liveWeather && liveWeather.rainfall !== undefined) {
+                const rainVal = Number(liveWeather.rainfall) || 0;
+                const rainDesc = rainVal >= 50 ? "Heavy Rainfall" : rainVal >= 10 ? "Moderate Rainfall" : rainVal > 0 ? "Light Rainfall" : (liveWeather.description || "Clear");
+                telemetry.rainfall = `${rainVal.toFixed(1)}mm (${rainDesc})`;
+
+                // Dynamically adjust river and gauge status based on genuine real-time rainfall
+                if (rainVal >= 60) {
+                    telemetry.riverStatus = "Critical";
+                    telemetry.riverTrend = "(+1.8 ft Surge)";
+                    telemetry.riverLevel = `${telemetry.riverLevel.split(" ")[0]} (Danger Mark Exceeded)`;
+                    telemetry.criticalSectors = Math.max(telemetry.criticalSectors || 1, 2);
+                } else if (rainVal >= 25) {
+                    telemetry.riverStatus = "Elevated";
+                    telemetry.riverTrend = "(Rising)";
+                    telemetry.criticalSectors = 1;
+                } else {
+                    telemetry.riverStatus = "Normal";
+                    telemetry.riverTrend = "(Stable)";
+                    telemetry.criticalSectors = 0;
+                    if (telemetry.riverLevel && telemetry.riverLevel.includes("Danger Mark")) {
+                        telemetry.riverLevel = telemetry.riverLevel.split(" ")[0];
+                    }
+                }
+            }
+        } catch (weaErr) {
+            console.warn("[getDashboardStats] Live weather enrichment notice:", weaErr.message);
         }
 
         // Realistic fallbacks without fabricating fake critical alerts

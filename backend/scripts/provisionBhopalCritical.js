@@ -22,11 +22,11 @@ const HazardZone = require('../models/HazardZone');
         if (bhopalAlert) {
             bhopalAlert.district = 'Bhopal';
             bhopalAlert.state = 'Madhya Pradesh';
-            bhopalAlert.severity = 'CRITICAL';
+            bhopalAlert.severity = 'NORMAL';
             bhopalAlert.hazardType = 'FLOOD';
-            bhopalAlert.title = '🚨 RED ALERT — Critical Flash Flood & Evacuation Order (Bhopal)';
-            bhopalAlert.message = 'Extreme cloudburst surge detected in Upper Lake / Bada Talab basin. Water levels at 1668.5 ft exceeding breach threshold. Civil defense sirens and mandatory evacuation in effect.';
-            bhopalAlert.isActive = true;
+            bhopalAlert.title = 'Normal Environmental Status — Bhopal';
+            bhopalAlert.message = 'Live satellite and hydrological telemetry indicates normal conditions across Upper Lake Basin. No active flood threat.';
+            bhopalAlert.isActive = false;
             bhopalAlert.location = {
                 type: 'Point',
                 coordinates: [77.4126, 23.2599]
@@ -34,25 +34,25 @@ const HazardZone = require('../models/HazardZone');
             bhopalAlert.affectedRadius = 35;
             bhopalAlert.verificationStatus = 'VERIFIED';
             await bhopalAlert.save();
-            console.log('Updated existing Bhopal alert to CRITICAL & ACTIVE:', bhopalAlert._id);
+            console.log('Updated existing Bhopal alert to NORMAL & INACTIVE:', bhopalAlert._id);
         } else {
             bhopalAlert = await Alert.create({
-                title: '🚨 RED ALERT — Critical Flash Flood & Evacuation Order (Bhopal)',
-                message: 'Extreme cloudburst surge detected in Upper Lake / Bada Talab basin. Water levels at 1668.5 ft exceeding breach threshold. Civil defense sirens and mandatory evacuation in effect.',
-                severity: 'CRITICAL',
+                title: 'Normal Environmental Status — Bhopal',
+                message: 'Live satellite and hydrological telemetry indicates normal conditions across Upper Lake Basin. No active flood threat.',
+                severity: 'NORMAL',
                 hazardType: 'FLOOD',
                 district: 'Bhopal',
                 state: 'Madhya Pradesh',
                 source: 'OFFICIAL',
                 verificationStatus: 'VERIFIED',
-                isActive: true,
+                isActive: false,
                 affectedRadius: 35,
                 location: {
                     type: 'Point',
                     coordinates: [77.4126, 23.2599]
                 }
             });
-            console.log('Created new Bhopal CRITICAL alert:', bhopalAlert._id);
+            console.log('Created new Bhopal NORMAL alert:', bhopalAlert._id);
         }
 
         // 2. Ensure Bhopal Shelters exist
