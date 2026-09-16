@@ -214,6 +214,18 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
 
         const isChitrakoot = districtName.toLowerCase().includes("chitrakoot");
 
+        // Fetch real-time weather to calibrate provisioned risk metrics
+        let liveWeather = null;
+        try {
+            const { getCurrentWeather } = require("./weatherService");
+            liveWeather = await getCurrentWeather(lat, lng);
+        } catch (weaErr) {
+            console.warn(`[districtProvisioner] Weather lookup warning for ${districtName}:`, weaErr.message);
+        }
+        const liveRain = Number(liveWeather?.rainfall) || 0;
+        const isRainSevere = liveRain >= 50;
+        const isRainModerate = liveRain >= 15;
+
         // 1. Create Localized Habitations
         const habitationData = isChitrakoot ? [
             {
@@ -278,9 +290,9 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                 state: stateName || coords.state,
                 population: 3800,
                 vulnerablePopulation: 950,
-                vulnerabilityScore: 84,
-                currentRiskScore: 82,
-                riskCategory: "CRITICAL",
+                vulnerabilityScore: isRainSevere ? 84 : 35,
+                currentRiskScore: isRainSevere ? 82 : isRainModerate ? 55 : 22,
+                riskCategory: isRainSevere ? "CRITICAL" : isRainModerate ? "AMBER" : "GREEN",
                 location: { type: "Point", coordinates: [lng + 0.012, lat - 0.008] }
             },
             {
@@ -289,9 +301,9 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                 state: stateName || coords.state,
                 population: 4100,
                 vulnerablePopulation: 780,
-                vulnerabilityScore: 75,
-                currentRiskScore: 72,
-                riskCategory: "RED",
+                vulnerabilityScore: isRainSevere ? 75 : 30,
+                currentRiskScore: isRainSevere ? 72 : isRainModerate ? 45 : 18,
+                riskCategory: isRainSevere ? "RED" : isRainModerate ? "AMBER" : "GREEN",
                 location: { type: "Point", coordinates: [lng - 0.015, lat + 0.014] }
             },
             {
@@ -300,9 +312,9 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                 state: stateName || coords.state,
                 population: 2600,
                 vulnerablePopulation: 520,
-                vulnerabilityScore: 68,
-                currentRiskScore: 64,
-                riskCategory: "AMBER",
+                vulnerabilityScore: isRainSevere ? 68 : 25,
+                currentRiskScore: isRainSevere ? 64 : isRainModerate ? 40 : 15,
+                riskCategory: isRainSevere ? "AMBER" : "GREEN",
                 location: { type: "Point", coordinates: [lng + 0.022, lat + 0.018] }
             }
         ];
@@ -389,41 +401,41 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
         ];
         const shelters = await Shelter.insertMany(shelterData);
 
-        // 3. Create Localized Hazard Zones
+        // 3. Create Localized Hazard Zones calibrated to live conditions
         await HazardZone.insertMany([
             {
-                name: isChitrakoot ? "Mandakini River Inundation Zone" : `${districtName} Basin Inundation Sector`,
+                name: isChitrakoot ? "Mandakini River Inundation Zone" : `${districtName} Basin Drainage Sector`,
                 hazardType: "FLOOD",
                 district: districtName,
                 state: stateName || coords.state,
-                severity: 92,
-                riskScore: 91,
-                riskCategory: "CRITICAL",
-                probability: 0.88,
+                severity: isRainSevere ? 88 : isRainModerate ? 45 : 18,
+                riskScore: isRainSevere ? 85 : isRainModerate ? 40 : 15,
+                riskCategory: isRainSevere ? "CRITICAL" : isRainModerate ? "AMBER" : "GREEN",
+                probability: isRainSevere ? 0.85 : isRainModerate ? 0.40 : 0.12,
                 geometry: {
                     type: "Polygon",
                     coordinates: [[[lng - 0.03, lat - 0.03], [lng + 0.03, lat - 0.03], [lng + 0.03, lat + 0.03], [lng - 0.03, lat + 0.03], [lng - 0.03, lat - 0.03]]]
                 },
-                source: "District Disaster Management Authority"
+                source: "District Hydrological & Topographical Survey"
             },
             {
-                name: isChitrakoot ? "Karwi Low Basin Inundation Fringe" : `${districtName} Slope Instability Zone`,
+                name: isChitrakoot ? "Karwi Low Basin Inundation Fringe" : `${districtName} Terrain Slope Sector`,
                 hazardType: isChitrakoot ? "FLOOD" : "LANDSLIDE",
                 district: districtName,
                 state: stateName || coords.state,
-                severity: 80,
-                riskScore: 78,
-                riskCategory: "CRITICAL",
-                probability: 0.72,
+                severity: isRainSevere ? 75 : isRainModerate ? 40 : 15,
+                riskScore: isRainSevere ? 72 : isRainModerate ? 35 : 12,
+                riskCategory: isRainSevere ? "RED" : isRainModerate ? "AMBER" : "GREEN",
+                probability: isRainSevere ? 0.70 : isRainModerate ? 0.35 : 0.10,
                 geometry: {
                     type: "Polygon",
                     coordinates: [[[lng - 0.05, lat + 0.02], [lng - 0.02, lat + 0.02], [lng - 0.02, lat + 0.05], [lng - 0.05, lat + 0.05], [lng - 0.05, lat + 0.02]]]
                 },
-                source: "Hydrological Survey Analysis"
+                source: "Geological Survey Analysis"
             }
         ]);
 
-        // 4. Create Active Relocation Plan
+        // 4. Create Relocation Plan (Only Active if Severe, otherwise Planned / Standby)
         await Relocation.create({
             habitation: habs[0]._id,
             fromLocation: {
@@ -431,13 +443,13 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                 coordinates: habs[0].location.coordinates
             },
             destinationShelter: shelters[0]._id,
-            populationToRelocate: isChitrakoot ? 5200 : 950,
-            priority: "IMMEDIATE",
-            status: "IN_PROGRESS",
-            reason: `Urgent evacuation due to critical Mandakini river flood surge in ${districtName}`
+            populationToRelocate: isChitrakoot ? 5200 : (isRainSevere ? 950 : 0),
+            priority: isChitrakoot || isRainSevere ? "IMMEDIATE" : "MONITOR",
+            status: isChitrakoot || isRainSevere ? "IN_PROGRESS" : "PLANNED",
+            reason: isRainSevere ? `Urgent evacuation due to heavy precipitation in ${districtName}` : `Routine seasonal contingency protocol for ${districtName}`
         });
 
-        // 5. Create Local Alert (CRITICAL for Chitrakoot, Advisory for others)
+        // 5. Create Local Alert (Only ACTIVE if true severe emergency exists)
         if (isChitrakoot) {
             await Alert.create({
                 title: `🚨 CRITICAL FLASH FLOOD & EVACUATION ORDER — ${districtName}`,
@@ -453,10 +465,10 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                 isActive: true,
                 expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000)
             });
-        } else {
+        } else if (isRainSevere) {
             await Alert.create({
-                title: `EARLY WARNING — Flood & Inundation Watch (${districtName})`,
-                message: `Hydrological gauge thresholds in ${districtName} approaching warning marks. Responders on monitoring status.`,
+                title: `🚨 HEAVY RAINFALL WARNING — ${districtName}`,
+                message: `Severe precipitation (${liveRain.toFixed(1)}mm) detected by satellite telemetry in ${districtName}. Water levels rising. Responders on alert.`,
                 severity: "WARNING",
                 district: districtName,
                 state: stateName || coords.state,
@@ -466,6 +478,21 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                 location: { type: "Point", coordinates: [lng, lat] },
                 affectedRadius: 15,
                 isActive: true,
+                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+            });
+        } else {
+            await Alert.create({
+                title: `Environmental Monitoring Status — ${districtName}`,
+                message: `Current meteorological telemetry confirms normal conditions (${liveRain.toFixed(1)}mm rain). Civil defense monitoring active.`,
+                severity: "NORMAL",
+                district: districtName,
+                state: stateName || coords.state,
+                hazardType: "FLOOD",
+                source: "OFFICIAL",
+                verificationStatus: "VERIFIED",
+                location: { type: "Point", coordinates: [lng, lat] },
+                affectedRadius: 10,
+                isActive: false, // Inactive so it doesn't sound false sirens!
                 expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000)
             });
         }

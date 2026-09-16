@@ -138,52 +138,69 @@ const calculateUnifiedRisk = async (lat, lon, hazardType = null) => {
 };
 
 function getRuleBasedPrediction(weather, lat, lon) {
-    const soilFactor = (weather.soilMoisturePct || 50) / 100;
-    const terrainHash = (lat && lon) ? Math.abs(Math.sin(lat * 12.9898 + lon * 78.233) * 43758.5453) : 0.5;
-    const terrainVar = ((terrainHash % 1) - 0.5); // -0.5 to +0.5
+    const rainfall = Number(weather.rainfall) || 0;
+    const humidity = Number(weather.humidity) || 50;
+    const temp = Number(weather.temperature) || 28;
+    const soilFactor = (Number(weather.soilMoisturePct) || 45) / 100;
 
-    const floodBase = Math.min(Math.max((weather.rainfall / 60) * 0.45 + (weather.humidity / 100) * 0.25 + soilFactor * 0.2 + 0.28 + (terrainVar * 0.35), 0.15), 0.95);
-    const landslideBase = Math.min(Math.max((weather.rainfall / 50) * 0.4 + (weather.humidity / 100) * 0.2 + soilFactor * 0.3 + 0.18 - (terrainVar * 0.3), 0.1), 0.9);
-    const wildfireBase = Math.min(Math.max((weather.temperature / 45) * 0.4 + ((100 - weather.humidity) / 100) * 0.35 + ((1 - soilFactor) * 0.25) - (terrainVar * 0.25), 0.1), 0.92);
+    // Flood: strictly driven by precipitation and saturated soil
+    let floodBase = 0.03;
+    if (rainfall > 0) {
+        floodBase += Math.min(0.85, (rainfall / 100) * 0.75);
+    }
+    if (soilFactor > 0.75) {
+        floodBase += (soilFactor - 0.75) * 0.3;
+    }
+
+    // Landslide: requires significant precipitation (>10mm) and high soil moisture
+    let landslideBase = 0.02;
+    if (rainfall > 10) {
+        landslideBase += Math.min(0.80, ((rainfall - 10) / 80) * 0.70);
+    }
+    if (soilFactor > 0.8) {
+        landslideBase += (soilFactor - 0.8) * 0.3;
+    }
+
+    // Wildfire: high temperature (>30°C) + dry air (<45% humidity) + dry fuel
+    let wildfireBase = 0.02;
+    if (temp > 30 && humidity < 50) {
+        wildfireBase += Math.min(0.80, ((temp - 30) / 15) * 0.35 + ((50 - humidity) / 50) * 0.35 + (1 - soilFactor) * 0.2);
+    }
 
     return {
         flood: {
-            probability: Math.round(floodBase * 100) / 100,
+            probability: Math.round(Math.min(0.98, Math.max(0.01, floodBase)) * 100) / 100,
             confidence: 0.88
         },
         landslide: {
-            probability: Math.round(landslideBase * 100) / 100,
+            probability: Math.round(Math.min(0.98, Math.max(0.01, landslideBase)) * 100) / 100,
             confidence: 0.84
         },
         wildfire: {
-            probability: Math.round(wildfireBase * 100) / 100,
+            probability: Math.round(Math.min(0.98, Math.max(0.01, wildfireBase)) * 100) / 100,
             confidence: 0.79
         }
     };
 }
 
 function getWeatherRiskScore(weather, type) {
+    const rainfall = Number(weather.rainfall) || 0;
+    const humidity = Number(weather.humidity) || 50;
+    const temp = Number(weather.temperature) || 28;
+    const soilPct = Number(weather.soilMoisturePct) || 45;
+
     switch (type) {
         case "FLOOD":
-            return Math.min(
-                (weather.rainfall / 50) * 40 +
-                (weather.humidity / 100) * 30 +
-                (weather.cloudCover / 100) * 10, 100
-            );
+            if (rainfall <= 1) return Math.min(10, Math.round(humidity * 0.08));
+            return Math.min(100, Math.round((rainfall / 60) * 65 + (humidity / 100) * 20 + (soilPct / 100) * 15));
         case "LANDSLIDE":
-            return Math.min(
-                (weather.rainfall / 60) * 50 +
-                (weather.humidity / 100) * 25 +
-                (weather.windSpeed / 30) * 10, 100
-            );
+            if (rainfall < 5) return 4;
+            return Math.min(100, Math.round((rainfall / 70) * 70 + (soilPct / 100) * 20 + (humidity / 100) * 10));
         case "WILDFIRE":
-            return Math.min(
-                (weather.temperature / 45) * 35 +
-                ((100 - weather.humidity) / 100) * 35 +
-                (weather.windSpeed / 25) * 20, 100
-            );
+            if (temp < 30 || humidity > 55) return 5;
+            return Math.min(100, Math.round(((temp - 25) / 20) * 40 + ((100 - humidity) / 100) * 40 + ((weather.windSpeed || 10) / 25) * 20));
         default:
-            return 20;
+            return 10;
     }
 }
 

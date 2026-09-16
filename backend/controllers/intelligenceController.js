@@ -240,9 +240,9 @@ const REGIONAL_TELEMETRY = {
     "delhi": {
         riverName: "Yamuna Gauge",
         riverLevel: "204.10m",
-        riverTrend: "(-0.04m)",
+        riverTrend: "(Stable)",
         riverStatus: "Normal",
-        rainfall: "2.1mm (Light)",
+        rainfall: "0.0mm (Normal)",
         activeSectors: 2,
         criticalSectors: 0,
         occupiedShelterCount: 45
@@ -250,9 +250,9 @@ const REGIONAL_TELEMETRY = {
     "central delhi": {
         riverName: "Yamuna Gauge",
         riverLevel: "204.10m",
-        riverTrend: "(-0.04m)",
+        riverTrend: "(Stable)",
         riverStatus: "Normal",
-        rainfall: "2.1mm (Light)",
+        rainfall: "0.0mm (Normal)",
         activeSectors: 2,
         criticalSectors: 0,
         occupiedShelterCount: 45
@@ -260,9 +260,9 @@ const REGIONAL_TELEMETRY = {
     "north delhi": {
         riverName: "Yamuna Gauge (Wazirabad)",
         riverLevel: "204.25m",
-        riverTrend: "(-0.02m)",
+        riverTrend: "(Stable)",
         riverStatus: "Normal",
-        rainfall: "2.5mm (Light)",
+        rainfall: "0.0mm (Normal)",
         activeSectors: 2,
         criticalSectors: 0,
         occupiedShelterCount: 60
@@ -270,32 +270,32 @@ const REGIONAL_TELEMETRY = {
     "gautam buddha nagar": {
         riverName: "Hindon River Gauge",
         riverLevel: "198.40m",
-        riverTrend: "(+0.35m)",
-        riverStatus: "Watch",
-        rainfall: "52.0mm (Moderate)",
-        activeSectors: 5,
-        criticalSectors: 1,
-        occupiedShelterCount: 980
+        riverTrend: "(Stable)",
+        riverStatus: "Normal",
+        rainfall: "0.0mm (Normal)",
+        activeSectors: 2,
+        criticalSectors: 0,
+        occupiedShelterCount: 80
     },
     "noida": {
         riverName: "Hindon River Gauge",
         riverLevel: "198.40m",
-        riverTrend: "(+0.35m)",
-        riverStatus: "Watch",
-        rainfall: "52.0mm (Moderate)",
-        activeSectors: 5,
-        criticalSectors: 1,
-        occupiedShelterCount: 980
+        riverTrend: "(Stable)",
+        riverStatus: "Normal",
+        rainfall: "0.0mm (Normal)",
+        activeSectors: 2,
+        criticalSectors: 0,
+        occupiedShelterCount: 80
     },
     "mumbai": {
         riverName: "Mithi River Gauge",
-        riverLevel: "3.20m",
-        riverTrend: "(High Tide)",
-        riverStatus: "Elevated",
-        rainfall: "94.6mm (Very Heavy)",
-        activeSectors: 8,
-        criticalSectors: 3,
-        occupiedShelterCount: 3400
+        riverLevel: "2.10m",
+        riverTrend: "(Normal Tide)",
+        riverStatus: "Normal",
+        rainfall: "0.0mm (Normal)",
+        activeSectors: 3,
+        criticalSectors: 0,
+        occupiedShelterCount: 150
     },
     "bhopal": {
         riverName: "Upper Lake Basin",
@@ -310,42 +310,42 @@ const REGIONAL_TELEMETRY = {
     "indore": {
         riverName: "Kanh River Gauge",
         riverLevel: "540.2m",
-        riverTrend: "(+0.1m)",
+        riverTrend: "(Stable)",
         riverStatus: "Normal",
-        rainfall: "30.0mm (Normal)",
-        activeSectors: 3,
+        rainfall: "0.0mm (Normal)",
+        activeSectors: 2,
         criticalSectors: 0,
-        occupiedShelterCount: 520
+        occupiedShelterCount: 50
     },
     "dehradun": {
         riverName: "Bindal River Gauge",
-        riverLevel: "642m",
-        riverTrend: "(+0.25m)",
-        riverStatus: "Moderate",
-        rainfall: "82.4mm (Heavy)",
-        activeSectors: 5,
-        criticalSectors: 2,
-        occupiedShelterCount: 1100
+        riverLevel: "640m",
+        riverTrend: "(Stable)",
+        riverStatus: "Normal",
+        rainfall: "0.0mm (Normal)",
+        activeSectors: 2,
+        criticalSectors: 0,
+        occupiedShelterCount: 85
     },
     "guwahati": {
         riverName: "Brahmaputra Gauge",
-        riverLevel: "49.68m",
-        riverTrend: "(+0.65m)",
-        riverStatus: "Danger",
-        rainfall: "112.0mm (Monsoon Surge)",
-        activeSectors: 9,
-        criticalSectors: 4,
-        occupiedShelterCount: 4200
+        riverLevel: "46.20m",
+        riverTrend: "(Stable)",
+        riverStatus: "Normal",
+        rainfall: "0.0mm (Normal)",
+        activeSectors: 3,
+        criticalSectors: 0,
+        occupiedShelterCount: 120
     },
     "bengaluru": {
         riverName: "Vrishabhavathi Basin",
         riverLevel: "910m",
-        riverTrend: "(+0.10m)",
+        riverTrend: "(Stable)",
         riverStatus: "Normal",
-        rainfall: "18.5mm (Light)",
-        activeSectors: 3,
+        rainfall: "0.0mm (Normal)",
+        activeSectors: 2,
         criticalSectors: 0,
-        occupiedShelterCount: 410
+        occupiedShelterCount: 40
     }
 };
 
