@@ -153,17 +153,17 @@ export default function EmergencyAlertSentinel() {
 
         const currentLocKey = (location?.district || location?.name || '').toLowerCase().trim();
 
-        // 1. MUST strictly match current user's location AND must be severity === 'CRITICAL' AND active
+        // 1. MUST strictly match current user's location AND must be CRITICAL or RED situation AND active
         const localCriticalAlert = alertsList.find((a) =>
           a.isActive !== false &&
-          a.severity === 'CRITICAL' &&
+          isTrueCriticalAlert(a) &&
           alertMatchesLocation(a, location)
         );
 
         // Local non-critical alerts for current user jurisdiction (HIGH, WARNING, INFO)
         const localNonCriticals = alertsList.filter((a) =>
           a.isActive !== false &&
-          a.severity !== 'CRITICAL' &&
+          !isTrueCriticalAlert(a) &&
           alertMatchesLocation(a, location)
         );
         const rank = { HIGH: 3, WARNING: 2, INFO: 1 };
@@ -536,7 +536,7 @@ export default function EmergencyAlertSentinel() {
         const isCrit = isTrueCriticalAlert(activeAreaAlert);
         const isHigh = activeAreaAlert.severity === 'HIGH';
         const themeColor = isCrit ? '#ef4444' : isHigh ? '#f97316' : '#0284c7';
-        const sevLabel = isCrit ? 'CRITICAL EMERGENCY' : isHigh ? 'HIGH ALERT' : 'AREA ADVISORY';
+        const sevLabel = isCrit ? 'CRITICAL / RED ALERT' : isHigh ? 'HIGH ALERT' : 'AREA ADVISORY';
         const areaName = location?.name || location?.district || getAlertRegionName(activeAreaAlert);
 
         return (

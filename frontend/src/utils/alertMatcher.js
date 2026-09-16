@@ -84,8 +84,10 @@ export function alertMatchesLocation(alert, userLoc) {
  */
 export function isTrueCriticalAlert(alert) {
   if (!alert || alert.isActive === false) return false;
-  // Strictly verified: only alerts with CRITICAL severity trigger the emergency siren
-  return alert.severity === 'CRITICAL';
+  const sev = String(alert.severity || '').toUpperCase();
+  const risk = String(alert.riskCategory || '').toUpperCase();
+  if (sev === 'NORMAL' || sev === 'SAFE' || sev === 'INFO' || sev === 'LOW') return false;
+  return sev === 'CRITICAL' || sev === 'RED' || risk === 'CRITICAL' || risk === 'RED';
 }
 
 /**

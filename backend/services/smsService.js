@@ -29,13 +29,66 @@ function sanitizePhoneNumber(rawPhone) {
   return digits.length === 10 ? digits : "";
 }
 
+const DISTRICT_STATE_MAP = {
+  "bhopal": "Madhya Pradesh",
+  "indore": "Madhya Pradesh",
+  "jabalpur": "Madhya Pradesh",
+  "gwalior": "Madhya Pradesh",
+  "ujjain": "Madhya Pradesh",
+  "mumbai": "Maharashtra",
+  "pune": "Maharashtra",
+  "nagpur": "Maharashtra",
+  "thane": "Maharashtra",
+  "delhi": "Delhi",
+  "new delhi": "Delhi",
+  "central delhi": "Delhi",
+  "north delhi": "Delhi",
+  "south delhi": "Delhi",
+  "gautam buddha nagar": "Uttar Pradesh",
+  "noida": "Uttar Pradesh",
+  "ghaziabad": "Uttar Pradesh",
+  "lucknow": "Uttar Pradesh",
+  "bengaluru": "Karnataka",
+  "bangalore": "Karnataka",
+  "guwahati": "Assam",
+  "kamrup": "Assam",
+  "jaipur": "Rajasthan",
+  "jodhpur": "Rajasthan",
+  "dehradun": "Uttarakhand",
+  "haridwar": "Uttarakhand",
+  "shimla": "Himachal Pradesh",
+  "chennai": "Tamil Nadu",
+  "hyderabad": "Telangana",
+  "kolkata": "West Bengal",
+  "patna": "Bihar",
+  "ahmedabad": "Gujarat"
+};
+
+function resolveState(district, providedState) {
+  if (providedState && String(providedState).trim() && providedState.toLowerCase() !== 'india') {
+    return String(providedState).trim();
+  }
+  if (!district) return "";
+  const dNorm = String(district).toLowerCase().trim();
+  for (const [key, st] of Object.entries(DISTRICT_STATE_MAP)) {
+    if (dNorm.includes(key) || key.includes(dNorm)) {
+      return st;
+    }
+  }
+  return "";
+}
+
 /**
  * Format government NDMA-style emergency alert SMS within standard message envelope
  */
-function formatEmergencySmsText({ severity = "CRITICAL", hazardType = "FLOOD", district = "Bhopal", title, instructions }) {
+function formatEmergencySmsText({ severity = "CRITICAL", hazardType = "FLOOD", district = "Bhopal", state = "", title, instructions }) {
   const sevLabel = String(severity).toUpperCase();
   const hazLabel = String(hazardType).toUpperCase();
-  const distLabel = String(district).trim();
+  const distLabel = String(district || "").trim();
+  const stateLabel = String(state || "").trim();
+  const locationLabel = (stateLabel && distLabel && !distLabel.toLowerCase().includes(stateLabel.toLowerCase()))
+    ? `${distLabel} (${stateLabel})`
+    : (distLabel || stateLabel || "Hazard Zone");
   
   // Compact, high-urgency message conforming to Indian Emergency Cell Broadcast style
   const briefDirective = (instructions || "Immediate evacuation order in effect. Proceed to nearest verified safe shelter.")
@@ -46,7 +99,7 @@ function formatEmergencySmsText({ severity = "CRITICAL", hazardType = "FLOOD", d
   const truncatedDirective = briefDirective.length > 95 ? briefDirective.slice(0, 92) + "..." : briefDirective;
 
   return `🚨 [AAPDANETRA EMERGENCY ALERT]
-${sevLabel} ${hazLabel} — ${distLabel}
+${sevLabel} ${hazLabel} — ${locationLabel}
 ${truncatedDirective}
 NDRF: 1070 | Police: 112`;
 }
@@ -154,7 +207,7 @@ async function getSmsWalletBalance() {
 /**
  * Send Emergency Alert SMS to one or more mobile numbers via Fast2SMS Quick SMS route
  */
-async function sendEmergencySms({ phoneNumbers = [], message, severity, hazardType, district, title, instructions }) {
+async function sendEmergencySms({ phoneNumbers = [], message, severity, hazardType, district, state, title, instructions }) {
   // 1. Sanitize all incoming phone numbers
   const validNumbers = Array.from(
     new Set(
@@ -175,7 +228,7 @@ async function sendEmergencySms({ phoneNumbers = [], message, severity, hazardTy
   // 2. Prepare message text
   const finalMessage = (message && message.trim())
     ? message.trim()
-    : formatEmergencySmsText({ severity, hazardType, district, title, instructions });
+    : formatEmergencySmsText({ severity, hazardType, district, state, title, instructions });
 
   // 3. If API key is not configured, run in graceful simulation mode (zero cost, zero failure)
   const apiKey = getApiKey();
@@ -245,9 +298,10 @@ async function sendEmergencySms({ phoneNumbers = [], message, severity, hazardTy
 }
 
 /**
- * Broadcast Emergency SMS to all registered citizens in the specified district / hazard zone
+ * Broadcast Emergency SMS to all registered citizens in the specified district / state hazard zone.
+ * Automatically broadcasts to all registered users for that state when a critical alert occurs.
  */
-async function broadcastEmergencySmsToCitizens({ district, title, instructions, severity = "CRITICAL", hazardType = "FLOOD", directNumbers = [] }) {
+async function broadcastEmergencySmsToCitizens({ district, state, title, instructions, severity = "CRITICAL", hazardType = "FLOOD", directNumbers = [] }) {
   try {
     const targetNumbers = new Set();
 
@@ -262,19 +316,42 @@ async function broadcastEmergencySmsToCitizens({ district, title, instructions, 
       if (cleaned) targetNumbers.add(cleaned);
     }
 
-    // 2. Query registered citizens from MongoDB
+    // 2. Resolve target state from district if not provided
+    const targetState = resolveState(district, state);
+
+    // 3. Query registered citizens from MongoDB for that STATE & district
     const query = {
-      phone: { $exists: true, $ne: "" }
+      phone: { $exists: true, $ne: "" },
+      receiveAlerts: { $ne: false },
+      isActive: { $ne: false }
     };
+
+    const targetConditions = [];
+    if (targetState) {
+      const stateRegex = new RegExp(targetState.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      targetConditions.push({ state: stateRegex });
+      targetConditions.push({ district: stateRegex });
+    }
     if (district) {
-      const regex = new RegExp(district.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-      query.$or = [{ district: regex }, { state: regex }];
+      const distRegex = new RegExp(district.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      targetConditions.push({ district: distRegex });
+      targetConditions.push({ state: distRegex });
     }
 
-    let citizens = await User.find(query).select("phone name district").lean();
+    if (targetConditions.length > 0) {
+      query.$or = targetConditions;
+    }
+
+    let citizens = await User.find(query).select("phone name district state").lean();
+    console.log(`[Emergency Cell Broadcast] Found ${citizens.length} registered citizen(s) for State: "${targetState || 'All'}", District: "${district || 'All'}"`);
+
     if (citizens.length === 0 && (!directNumbers || (Array.isArray(directNumbers) && directNumbers.length === 0))) {
       // Fallback: alert all citizens registered with mobile numbers across regions
-      citizens = await User.find({ phone: { $exists: true, $ne: "" } }).select("phone name district").lean();
+      citizens = await User.find({
+        phone: { $exists: true, $ne: "" },
+        receiveAlerts: { $ne: false },
+        isActive: { $ne: false }
+      }).select("phone name district state").lean();
     }
     citizens.forEach((c) => {
       const cleaned = sanitizePhoneNumber(c.phone);
@@ -287,13 +364,14 @@ async function broadcastEmergencySmsToCitizens({ district, title, instructions, 
       return {
         success: true,
         count: 0,
-        message: `No registered citizen mobile numbers found for ${district || "monitored zone"}. Add mobile numbers in user profile to alert citizens.`
+        message: `No registered citizen mobile numbers found for ${district || targetState || "monitored zone"}. Add mobile numbers in user profile to alert citizens.`
       };
     }
 
     return await sendEmergencySms({
       phoneNumbers: finalNumbersList,
       district,
+      state: targetState,
       title,
       instructions,
       severity,
@@ -314,5 +392,6 @@ module.exports = {
   formatEmergencySmsText,
   getSmsWalletBalance,
   sendEmergencySms,
-  broadcastEmergencySmsToCitizens
+  broadcastEmergencySmsToCitizens,
+  resolveState
 };

@@ -11,19 +11,24 @@ const createAlert = async (req, res) => {
     try {
         const alert = await Alert.create(req.body);
 
-        // Autonomous Emergency Cell Broadcast SMS triggered automatically on alert occurrence
+        // Autonomous Emergency Cell Broadcast SMS triggered automatically on critical/red alert occurrence
         let automatedSmsResult = null;
-        if (alert && alert.isActive !== false) {
+        const sev = String(alert?.severity || req.body?.severity || "").toUpperCase();
+        const isCriticalOrRed = sev === "CRITICAL" || sev === "RED" || alert?.riskCategory === "CRITICAL" || alert?.riskCategory === "RED";
+
+        if (alert && alert.isActive !== false && isCriticalOrRed) {
             try {
-                const targetDistrict = alert.district || alert.locationName || req.body.district || "Bhopal";
+                const targetDistrict = alert.district || alert.locationName || req.body.district || "";
+                const targetState = alert.state || req.body.state || "";
                 automatedSmsResult = await broadcastEmergencySmsToCitizens({
                     district: targetDistrict,
-                    title: alert.title || `🚨 EMERGENCY ALERT — ${targetDistrict}`,
-                    instructions: alert.message || alert.instructions || `Emergency alert issued for ${targetDistrict}. Follow civil defense advisories immediately.`,
-                    severity: alert.severity || "CRITICAL",
-                    hazardType: alert.hazardType || "FLOOD"
+                    state: targetState,
+                    title: alert.title || `🚨 EMERGENCY ALERT — ${targetDistrict || targetState || "Hazard Zone"}`,
+                    instructions: alert.message || alert.instructions || `Critical emergency alert issued for ${targetDistrict || targetState}. Follow civil defense advisories immediately.`,
+                    severity: sev || "CRITICAL",
+                    hazardType: alert.hazardType || req.body.hazardType || "FLOOD"
                 });
-                console.log(`[Autonomous Alert Broadcast] Dispatched automated SMS to ${automatedSmsResult?.count || 0} citizen(s) for ${targetDistrict}`);
+                console.log(`[Autonomous Alert Broadcast] Dispatched automated SMS to ${automatedSmsResult?.count || 0} citizen(s) for ${targetDistrict} (${targetState})`);
             } catch (smsErr) {
                 console.warn("[Autonomous Alert Broadcast Warning]:", smsErr.message);
                 automatedSmsResult = { success: false, error: smsErr.message };
@@ -308,6 +313,7 @@ const broadcastEmergencyAlert = async (req, res) => {
             if (sendSms) {
                 smsResult = await broadcastEmergencySmsToCitizens({
                     district: targetDistrict,
+                    state: targetState,
                     title: finalTitle,
                     instructions: finalInstructions,
                     severity: finalSeverity,

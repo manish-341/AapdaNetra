@@ -50,10 +50,11 @@ const createIntelligentAlert = async ({ title, message, severity, hazardType, so
         expiresAt: new Date(Date.now() + expiresInHours * 60 * 60 * 1000)
     });
 
-    // Autonomously broadcast high-priority SMS alerts to registered citizens in hazard region
-    if (["WARNING", "HIGH", "CRITICAL"].includes(severity?.toUpperCase())) {
+    // Autonomously broadcast high-priority SMS alerts to registered citizens in hazard state/district
+    if (["CRITICAL", "RED"].includes(severity?.toUpperCase())) {
         broadcastEmergencySmsToCitizens({
-            district: title,
+            district: alert.district || title,
+            state: alert.state,
             title,
             instructions: message,
             severity,

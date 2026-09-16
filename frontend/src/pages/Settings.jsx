@@ -227,11 +227,11 @@ export default function Settings() {
 
   // Active Critical Disaster Region & Target Controls
   const [activeCriticalAlert, setActiveCriticalAlert] = useState(null);
-  const [broadcastDistrict, setBroadcastDistrict] = useState('Bhopal');
-  const [broadcastState, setBroadcastState] = useState('Madhya Pradesh');
-  const [broadcastTitle, setBroadcastTitle] = useState('🚨 CRITICAL FLASH FLOOD & EVACUATION ORDER — Bhopal');
+  const [broadcastDistrict, setBroadcastDistrict] = useState(location?.district || 'Central Delhi');
+  const [broadcastState, setBroadcastState] = useState(location?.state || 'Delhi');
+  const [broadcastTitle, setBroadcastTitle] = useState(`🚨 CRITICAL EMERGENCY & EVACUATION ORDER — ${location?.district || 'Monitored Region'}`);
   const [broadcastInstructions, setBroadcastInstructions] = useState(
-    'Extreme cloudburst surge detected in Upper Lake / Bada Talab basin. Water levels exceeding breach threshold. Civil defense sirens and mandatory evacuation in effect. Proceed to nearest safe concrete shelter immediately.'
+    'Critical meteorological hazard detected. Civil defense advisories and mandatory evacuation in effect. Proceed to nearest safe concrete shelter immediately.'
   );
 
   // Fast2SMS Automated Emergency Cell Broadcast Gateway State
@@ -293,13 +293,7 @@ export default function Settings() {
       const targetDist = broadcastDistrict || activeCriticalAlert?.district || location?.district || 'Bhopal';
       const targetSt = broadcastState || activeCriticalAlert?.state || location?.state || 'Madhya Pradesh';
 
-      // Critical emergency situation declared — trigger emergency siren sound!
-      try {
-        sessionStorage.removeItem('an_suppress_siren');
-        sessionStorage.removeItem('an_acknowledged_critical_alerts');
-      } catch {}
-      playEmergencySiren(8000);
-      setSirenPlaying(true);
+      // Note: Siren is strictly reserved for genuine critical zones/alerts when user is in the affected area, not on admin dispatch button click.
 
       // 1. Trigger native OS / browser notification
       await triggerDisasterNotification({
@@ -1032,20 +1026,21 @@ export default function Settings() {
                             const preset = PRESET_DISTRICTS.find(p => p.district?.toLowerCase() === val.toLowerCase() || p.name?.toLowerCase().includes(val.toLowerCase()));
                             if (preset) {
                               setBroadcastState(preset.state);
-                            } else if (val.toLowerCase() === 'bhopal') {
-                              setBroadcastState('Madhya Pradesh');
                             }
-                            setBroadcastTitle(`🚨 CRITICAL FLASH FLOOD & EVACUATION ORDER — ${val}`);
+                            setBroadcastTitle(`🚨 CRITICAL EMERGENCY & EVACUATION ORDER — ${val}`);
                           }}
                         >
-                          <MenuItem value="Bhopal" sx={{ fontWeight: 700, color: '#dc2626' }}>
-                            🚨 Bhopal (Madhya Pradesh) — Critical Alert Region
-                          </MenuItem>
-                          {PRESET_DISTRICTS.filter(p => p.district?.toLowerCase() !== 'bhopal').map((p) => (
-                            <MenuItem key={p.id} value={p.district}>
-                              {p.name} — {p.state}
-                            </MenuItem>
-                          ))}
+                          {PRESET_DISTRICTS.map((p) => {
+                            const isCritZone = activeCriticalAlert && (
+                              activeCriticalAlert.district?.toLowerCase() === p.district?.toLowerCase() ||
+                              activeCriticalAlert.state?.toLowerCase() === p.state?.toLowerCase()
+                            );
+                            return (
+                              <MenuItem key={p.id} value={p.district} sx={isCritZone ? { fontWeight: 700, color: '#dc2626' } : {}}>
+                                {isCritZone ? '🚨 ' : ''}{p.name} ({p.state}){isCritZone ? ' — Active Critical Zone' : ''}
+                              </MenuItem>
+                            );
+                          })}
                         </TextField>
                         <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.5 }}>
                           All registered citizens and field responders will receive alerts for <strong>{broadcastDistrict} ({broadcastState})</strong>.
