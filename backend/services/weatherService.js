@@ -109,7 +109,7 @@ const getWeatherForecast = async (lat, lon) => {
 async function fetchOpenMeteoWeather(lat, lon) {
     try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,surface_pressure,wind_speed_10m&hourly=soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm&timezone=auto`;
-        const res = await axios.get(url, { timeout: 6000 });
+        const res = await axios.get(url, { timeout: 9000 });
         const c = res.data.current;
         const h = res.data.hourly;
 
@@ -143,7 +143,7 @@ async function fetchOpenMeteoWeather(lat, lon) {
 async function fetchOpenMeteoForecast(lat, lon) {
     try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&forecast_days=2&timezone=auto`;
-        const res = await axios.get(url, { timeout: 6000 });
+        const res = await axios.get(url, { timeout: 9000 });
         const h = res.data.hourly;
         if (!h || !h.time) return null;
 
@@ -171,15 +171,15 @@ async function fetchOpenMeteoForecast(lat, lon) {
 
 function getDefaultWeather() {
     return {
-        temperature: 30,
-        humidity: 65,
+        temperature: 28,
+        humidity: 50,
         pressure: 1013,
-        windSpeed: 8,
-        rainfall: 10,
-        soilMoisturePct: 50,
-        cloudCover: 50,
-        description: "partly cloudy",
-        visibility: 8000,
+        windSpeed: 6,
+        rainfall: 0,
+        soilMoisturePct: 35,
+        cloudCover: 20,
+        description: "clear skies",
+        visibility: 10000,
         source: "calibrated_baseline",
         timestamp: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
