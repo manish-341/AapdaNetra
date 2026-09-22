@@ -1,7 +1,9 @@
 """
-AapdaNetra — Comprehensive AI Model Verification Script (v3)
-Verifies all three hazard models trained on real government data,
-validates weather risk adjuster, and tests end-to-end prediction pipeline.
+AapdaNetra — Comprehensive AI Model Verification Script (v3.1)
+Verifies:
+- Flood: Verified 23-feature XGBoost bundle with ColumnTransformer + Isotonic Calibration (0.20 threshold)
+- Landslide & Wildfire: Calibrated models trained on real government data
+Validates weather risk adjuster, feature transformation, and end-to-end prediction pipeline.
 """
 import os
 import sys
@@ -9,6 +11,28 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 import json
 import joblib
+import pandas as pd
+import numpy as np
+
+# Compatibility shims for scikit-learn unpickling
+try:
+    import sklearn.compose._column_transformer as _ct
+    if not hasattr(_ct, "_RemainderColsList"):
+        class _RemainderColsList(list):
+            pass
+        _ct._RemainderColsList = _RemainderColsList
+except Exception:
+    pass
+
+try:
+    from sklearn.impute import SimpleImputer as _SimpleImputer
+    if not hasattr(_SimpleImputer, "_fill_dtype"):
+        @property
+        def _fill_dtype_shim(self):
+            return getattr(self, "_fit_dtype", None)
+        _SimpleImputer._fill_dtype = _fill_dtype_shim
+except Exception:
+    pass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
@@ -22,66 +46,100 @@ def verify_model(hazard: str, display_name: str):
     print(f"  [{hazard.upper()}] {display_name} MODEL VERIFICATION")
     print(f"{'=' * 70}")
 
-    model_path = os.path.join(BASE_DIR, "models", f"{hazard}_model.joblib")
-    feat_path = os.path.join(BASE_DIR, "models", f"{hazard}_features.joblib")
-    comp_path = os.path.join(BASE_DIR, "models", f"{hazard}_comparison.json")
-    thresh_path = os.path.join(BASE_DIR, "models", f"{hazard}_thresholds.json")
+    if hazard == "flood":
+        flood_dir = os.path.join(BASE_DIR, "models", "Flood")
+        xgb_path = os.path.join(flood_dir, "aapdanetra_xgboost.json")
+        prep_path = os.path.join(flood_dir, "preprocessor.joblib")
+        cal_path = os.path.join(flood_dir, "isotonic_calibrator.joblib")
+        meta_path = os.path.join(flood_dir, "inference_metadata.json")
+        fn_path = os.path.join(flood_dir, "processed_feature_names.csv")
 
-    # ── File check ───────────────────────────────────────────────────────
-    for name, path in [("Model Weights", model_path), ("Feature Schema", feat_path),
-                       ("Benchmark Report", comp_path), ("Thresholds", thresh_path)]:
-        exists = os.path.exists(path)
-        size = f"({os.path.getsize(path):,} bytes)" if exists else ""
-        status = "✅ FOUND" if exists else "❌ MISSING"
-        print(f"  {name:<20}: {status} {size}")
+        files_to_check = [
+            ("XGBoost Model", xgb_path),
+            ("Preprocessor Pipeline", prep_path),
+            ("Isotonic Calibrator", cal_path),
+            ("Inference Metadata", meta_path),
+            ("Feature Names CSV", fn_path),
+        ]
 
-    if not os.path.exists(model_path) or not os.path.exists(feat_path):
-        print(f"  [!] {hazard} model files missing — run training first.")
-        return False
+        all_found = True
+        for name, path in files_to_check:
+            exists = os.path.exists(path)
+            size = f"({os.path.getsize(path):,} bytes)" if exists else ""
+            status = "✅ FOUND" if exists else "❌ MISSING"
+            print(f"  {name:<24}: {status} {size}")
+            if not exists:
+                all_found = False
 
-    model = joblib.load(model_path)
-    features = joblib.load(feat_path)
-    print(f"\n  Architecture : {type(model).__name__}")
-    print(f"  Features ({len(features)}): {features[:6]}...")
+        if not all_found:
+            print(f"  [!] Missing files in {flood_dir}")
+            return False
 
-    # ── Benchmark report ─────────────────────────────────────────────────
-    if os.path.exists(comp_path):
-        with open(comp_path, "r") as f:
-            comp = json.load(f)
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
 
-        print(f"\n  Dataset Source: {comp.get('dataset_source', 'N/A')}")
-        print(f"  Samples      : {comp.get('samples_count', 'N/A'):,}")
-        print(f"  Synthetic?   : {'❌ YES' if comp.get('synthetic_data_used') else '✅ NO (Real Govt Data)'}")
-        print(f"  Spatial Split: {'✅ Yes (by district)' if comp.get('spatial_split') else 'No'}")
-        print(f"  Best Model   : {comp.get('best', 'N/A')}")
-        print(f"  Version      : {comp.get('version', 'N/A')}")
+        raw_features = meta.get("raw_features", [])
+        print(f"\n  Architecture : XGBoost + ColumnTransformer + IsotonicRegression")
+        print(f"  Raw Features ({len(raw_features)}): {raw_features[:6]}...")
+        print(f"  Processed Features : {meta.get('processed_feature_count', 38)}")
+        print(f"  Operational Thresh : {meta.get('operational_threshold', 0.20)} (calibrated probability scale)")
+        print(f"  Training Period    : {meta.get('training_period', 'N/A')}")
+        print(f"  Spatial Unit       : {meta.get('spatial_unit', 'N/A')}")
+        print(f"  Synthetic Data     : {'❌ YES' if meta.get('synthetic_data_used') else '✅ NO (Real Observational Data)'}")
 
-        # Validate: must NOT use synthetic data
-        if comp.get("synthetic_data_used"):
-            print("  ⚠️  WARNING: Model trained on synthetic data — should be retrained!")
-
-        # Print benchmark comparison
-        rf = comp.get("results", {}).get("RandomForest", {})
-        xgb_res = comp.get("results", {}).get("XGBoost", {})
-        cal = comp.get("results", {}).get("Calibrated", {})
-
-        print(f"\n  {'Metric':<15} {'RandomForest':<15} {'XGBoost':<15} {'Calibrated':<15}")
+        test_metrics = meta.get("final_test_metrics", {})
+        print(f"\n  Final Test Metrics on Unseen Test Partition:")
         print(f"  {'-'*55}")
-        for m in ["accuracy", "f1", "roc_auc"]:
-            rf_v = rf.get(m, "—")
-            xgb_v = xgb_res.get(m, "—")
-            cal_v = cal.get(m, "—")
-            print(f"  {m:<15} {str(rf_v):<15} {str(xgb_v):<15} {str(cal_v):<15}")
+        print(f"  Accuracy           : {test_metrics.get('accuracy', '—')}")
+        print(f"  Balanced Accuracy  : {test_metrics.get('balanced_accuracy', '—')}")
+        print(f"  Recall (Sensitivity: {test_metrics.get('recall', '—')}")
+        print(f"  Precision          : {test_metrics.get('precision', '—')}")
+        print(f"  F1-Score           : {test_metrics.get('f1', '—')}")
 
-    # ── Thresholds ───────────────────────────────────────────────────────
-    if os.path.exists(thresh_path):
-        with open(thresh_path, "r") as f:
-            thresholds = json.load(f)
-        print(f"\n  Training Data Thresholds (top 3 variables):")
-        for i, (var, vals) in enumerate(list(thresholds.items())[:3]):
-            print(f"    {var}: P50={vals.get('p50', '—')}, P90={vals.get('p90', '—')}, P95={vals.get('p95', '—')}")
+        # Verification inference test: 23 features in -> 38 features out -> probability
+        preprocessor = joblib.load(prep_path)
+        calibrator = joblib.load(cal_path)
 
-    return True
+        dummy_input = pd.DataFrame([{col: np.nan for col in raw_features}])
+        dummy_input["rainfall_1d_pre"] = 15.0
+        dummy_input["Annual Precipitation"] = 1400.0
+        X_trans = preprocessor.transform(dummy_input)
+        assert X_trans.shape[1] == 38, f"Expected 38 processed features, got {X_trans.shape[1]}"
+        print(f"\n  Pipeline Integrity: 23 raw features successfully transformed to {X_trans.shape[1]} processed features")
+        return True
+
+    else:
+        # Standard verification for Landslide and Wildfire
+        model_path = os.path.join(BASE_DIR, "models", f"{hazard}_model.joblib")
+        feat_path = os.path.join(BASE_DIR, "models", f"{hazard}_features.joblib")
+        comp_path = os.path.join(BASE_DIR, "models", f"{hazard}_comparison.json")
+        thresh_path = os.path.join(BASE_DIR, "models", f"{hazard}_thresholds.json")
+
+        for name, path in [("Model Weights", model_path), ("Feature Schema", feat_path),
+                           ("Benchmark Report", comp_path), ("Thresholds", thresh_path)]:
+            exists = os.path.exists(path)
+            size = f"({os.path.getsize(path):,} bytes)" if exists else ""
+            status = "✅ FOUND" if exists else "❌ MISSING"
+            print(f"  {name:<20}: {status} {size}")
+
+        if not os.path.exists(model_path) or not os.path.exists(feat_path):
+            print(f"  [!] {hazard} model files missing — run training first.")
+            return False
+
+        model = joblib.load(model_path)
+        features = joblib.load(feat_path)
+        print(f"\n  Architecture : {type(model).__name__}")
+        print(f"  Features ({len(features)}): {features[:6]}...")
+
+        if os.path.exists(comp_path):
+            with open(comp_path, "r", encoding="utf-8") as f:
+                comp = json.load(f)
+            print(f"\n  Dataset Source: {comp.get('dataset_source', 'N/A')}")
+            print(f"  Samples      : {comp.get('samples_count', 'N/A'):,}")
+            print(f"  Synthetic?   : {'❌ YES' if comp.get('synthetic_data_used') else '✅ NO (Real Govt Data)'}")
+            print(f"  Best Model   : {comp.get('best', 'N/A')}")
+
+        return True
 
 
 def test_predictions():
@@ -91,24 +149,77 @@ def test_predictions():
     print(f"{'=' * 70}")
 
     # ── Flood scenarios ──────────────────────────────────────────────────
-    print("\n  [FLOOD] Assam Monsoon Surge (Dhubri):")
+    print("\n  [FLOOD - HIGH RISK] Assam Monsoon Surge (Dhubri - Heavy Antecedent Rain):")
     flood_high = {
         "latitude": 26.02, "longitude": 89.98,
-        "rainfall": 180.0, "humidity": 95.0, "temperature": 28.0,
-        "elevation_m": 35.0, "dist_to_river_km": 0.5,
+        "Drainage Area": 5000.0,
+        "Catchment Relief": 35.0,
+        "Annual Mean Temperature": 28.0,
+        "Annual Precipitation": 2600.0,
+        "Population Density": 450.0,
+        "Land cover": "Cropland",
+        "Soil type": "Fluvisols",
+        "lithology type": "Unconsolidated sediments",
+        "rainfall_1d_pre": 120.0,
+        "rainfall_3d_pre": 260.0,
+        "rainfall_5d_pre": 380.0,
+        "rainfall_7d_pre": 490.0,
+        "rainfall_10d_pre": 620.0,
+        "historical_flood_count": 8.0,
+        "days_since_previous_flood": 120.0,
+        "flood_count_1y_prior": 2.0,
+        "flood_count_3y_prior": 4.0,
+        "flood_count_5y_prior": 6.0,
+        "monsoon_season": "monsoon",
     }
-    p = predictor.predict_hazard("flood", flood_high)
-    print(f"    Probability: {p['probability']*100:.1f}% | Score: {p['risk_score']}/100")
-    print(f"    Model: {p['model_used']} | Source: {p.get('dataset_source', 'N/A')}")
+    p_high = predictor.predict_hazard("flood", flood_high)
+    print(f"    Raw Score: {p_high['raw_probability']:.4f} | Calibrated Prob: {p_high['probability']*100:.1f}% | Score: {p_high['risk_score']}/100")
+    print(f"    Decision: {p_high['prediction_label']} (Threshold: {p_high['operational_threshold']})")
+    print(f"    Model: {p_high['model_used']} | Raw Features: {p_high['raw_feature_count']} -> Processed: {p_high['processed_feature_count']}")
+    assert p_high["is_hazard_risk"] is True, "High risk flood scenario must exceed operational threshold 0.20!"
 
-    print("\n  [FLOOD] Rajasthan Arid Plains (Jodhpur):")
+    print("\n  [FLOOD - LOW RISK] Rajasthan Arid Plains (Jodhpur - Zero Rain, Arid):")
     flood_low = {
         "latitude": 26.29, "longitude": 73.02,
-        "rainfall": 2.0, "humidity": 18.0, "temperature": 42.0,
-        "elevation_m": 230.0, "dist_to_river_km": 30.0,
+        "Drainage Area": 100.0,
+        "Catchment Relief": 230.0,
+        "Annual Mean Temperature": 42.0,
+        "Annual Precipitation": 250.0,
+        "Population Density": 50.0,
+        "Land cover": "Cropland",
+        "Soil type": "Vertisols",
+        "lithology type": "No dominant class",
+        "rainfall_1d_pre": 0.0,
+        "rainfall_3d_pre": 0.0,
+        "rainfall_5d_pre": 0.0,
+        "rainfall_7d_pre": 0.0,
+        "rainfall_10d_pre": 0.0,
+        "historical_flood_count": 0.0,
+        "days_since_previous_flood": 9999.0,
+        "flood_count_1y_prior": 0.0,
+        "flood_count_3y_prior": 0.0,
+        "flood_count_5y_prior": 0.0,
+        "monsoon_season": "non_monsoon",
     }
-    p = predictor.predict_hazard("flood", flood_low)
-    print(f"    Probability: {p['probability']*100:.1f}% | Score: {p['risk_score']}/100")
+    p_low = predictor.predict_hazard("flood", flood_low)
+    print(f"    Raw Score: {p_low['raw_probability']:.4f} | Calibrated Prob: {p_low['probability']*100:.1f}% | Score: {p_low['risk_score']}/100")
+    print(f"    Decision: {p_low['prediction_label']} (Threshold: {p_low['operational_threshold']})")
+    assert p_low["is_hazard_risk"] is False, "Low risk flood scenario must remain below operational threshold 0.20!"
+
+    print("\n  [FLOOD - API ADAPTABILITY] Generic Backend Payload (testing REST contract compatibility):")
+    backend_payload = {
+        "latitude": 26.02,
+        "longitude": 89.98,
+        "temperature": 29.0,
+        "humidity": 85.0,
+        "rainfall": 45.0,
+        "wind_speed": 12.0,
+        "pressure": 1008.0,
+        "soil_moisture_pct": 75.0,
+    }
+    p_api = predictor.predict_hazard("flood", backend_payload)
+    print(f"    Probability: {p_api['probability']*100:.1f}% | Score: {p_api['risk_score']}/100 | Decision: {p_api['prediction_label']}")
+    print(f"    Missing features cleanly imputed: {len(p_api['missing_features_imputed'])} features")
 
     # ── Landslide scenarios ──────────────────────────────────────────────
     print("\n  [LANDSLIDE] Wayanad Western Ghats:")
@@ -149,78 +260,52 @@ def test_predictions():
     print(f"    Probability: {p['probability']*100:.1f}% | Score: {p['risk_score']}/100")
 
 
-def test_weather_adjuster():
-    """Test the weather risk adjuster with a sample location."""
+def test_unified_and_realtime():
+    """Test unified multi-hazard prediction and live weather dynamic adjustment."""
     print(f"\n{'=' * 70}")
-    print(f"  WEATHER RISK ADJUSTER TEST")
+    print(f"  UNIFIED & REALTIME API VERIFICATION")
     print(f"{'=' * 70}")
 
-    # Test with Mumbai coordinates
-    lat, lon = 19.076, 72.877
-    print(f"\n  Fetching live weather for Mumbai ({lat}, {lon})...")
+    test_coords = {"latitude": 26.14, "longitude": 91.73, "rainfall": 35.0, "temperature": 30.0}
 
-    weather = weather_adjuster.fetch_live_weather(lat, lon)
-    print(f"  Source : {weather.get('source')}")
-    print(f"  Status : {weather.get('status')}")
-    print(f"  Temp   : {weather.get('temperature_2m')}°C")
-    print(f"  Humidity: {weather.get('humidity_pct')}%")
-    print(f"  Precip : {weather.get('precipitation_now_mm')} mm")
+    print("\n  Testing /predict/unified:")
+    unified = predictor.predict_unified(test_coords)
+    for h, res in unified.items():
+        print(f"    {h.upper():<12}: Prob={res['probability']:.4f} (Score {res['risk_score']}/100) -> Model: {res['model_used']}")
 
-    # Test exceedance for each hazard
-    for hazard in ["flood", "landslide", "wildfire"]:
-        exc = weather_adjuster.compute_exceedance(hazard, weather)
-        print(f"\n  [{hazard.upper()}] Exceedance ratio: {exc['exceedance_ratio']:.4f}")
-        for var, pos in exc.get("percentile_position", {}).items():
-            print(f"    {var}: P{pos}")
-
-    # Test full adjusted prediction
-    print(f"\n  Full adjusted prediction (Mumbai, all hazards):")
-    result = predictor.predict_unified_realtime({
-        "latitude": lat, "longitude": lon,
-        "rainfall": 50, "temperature": 32, "humidity": 80,
-    })
-    for h, pred in result.items():
-        base = pred.get("base_probability", pred["probability"])
-        adj = pred["probability"]
-        mult = pred.get("adjustment_multiplier", 1.0)
-        print(f"    {h.upper():<12}: base={base:.3f} → adjusted={adj:.3f} (×{mult:.3f})")
-
-
-def test_thresholds():
-    """Verify thresholds are loaded."""
-    print(f"\n{'=' * 70}")
-    print(f"  TRAINING DATA THRESHOLDS")
-    print(f"{'=' * 70}")
-
-    thresholds = predictor.get_thresholds()
-    for hazard, vars_dict in thresholds.items():
-        print(f"\n  [{hazard.upper()}] {len(vars_dict)} variables with thresholds")
-        for var, vals in list(vars_dict.items())[:2]:
-            print(f"    {var}: mean={vals.get('mean', '—')}, P90={vals.get('p90', '—')}")
+    print("\n  Testing /predict/realtime (with Open-Meteo antecedent rainfall & telemetry):")
+    realtime = predictor.predict_unified_realtime(test_coords)
+    for h, res in realtime.items():
+        base = res.get("base_probability", res["probability"])
+        adj = res["probability"]
+        mult = res.get("adjustment_multiplier", 1.0)
+        print(f"    {h.upper():<12}: Base={base:.3f} -> Adjusted={adj:.3f} (x{mult:.3f})")
 
 
 def main():
     print("=" * 70)
-    print("  AAPDANETRA AI v3 — COMPREHENSIVE MODEL VERIFICATION")
-    print("  All models trained on real Indian Government data")
+    print("  AAPDANETRA AI v3.1 — COMPREHENSIVE MODEL VERIFICATION")
+    print("  Flood: Verified 23-Feature XGBoost Bundle (Threshold 0.20)")
+    print("  Landslide: GSI/NDMA Real Data Model")
+    print("  Wildfire: IMD/NDVI Real Data Model")
     print("=" * 70)
 
     all_ok = True
-    for hazard, name in [("flood", "Flood (IMD/CWC)"),
+    for hazard, name in [("flood", "Flood (Verified XGBoost Bundle)"),
                          ("landslide", "Landslide (GSI/NDMA)"),
                          ("wildfire", "Wildfire (IMD/NDVI)")]:
         if not verify_model(hazard, name):
             all_ok = False
 
     test_predictions()
-    test_weather_adjuster()
-    test_thresholds()
+    test_unified_and_realtime()
 
     print(f"\n{'=' * 70}")
     if all_ok:
-        print("  ✅ ALL MODELS VERIFIED — Trained on real government data, no synthetic data")
+        print("  ✅ ALL MODELS VERIFIED & OPERATIONAL")
+        print("  Flood inference follows exact 23 features -> preprocessor -> XGBoost -> isotonic calibrator -> threshold 0.20")
     else:
-        print("  ⚠️  Some models need retraining — run training scripts first")
+        print("  ⚠️  Verification encountered issues.")
     print(f"{'=' * 70}\n")
 
 

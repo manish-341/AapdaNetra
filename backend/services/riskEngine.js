@@ -1,5 +1,7 @@
 const axios = require("axios");
+const h3 = require("h3-js");
 const { getCurrentWeather } = require("./weatherService");
+const { computeAntecedentRainfall } = require("./weatherCollector");
 const HazardZone = require("../models/HazardZone");
 const CitizenReport = require("../models/CitizenReport");
 const Habitation = require("../models/Habitation");
@@ -16,7 +18,16 @@ const calculateUnifiedRisk = async (lat, lon, hazardType = null) => {
         // 1. Get weather data
         const weather = await getCurrentWeather(lat, lon);
 
-        // 2. Get ML predictions from Python service
+        // 2. Compute antecedent rainfall from MongoDB accumulator for flood model
+        let antecedentRainfall = {};
+        try {
+            const cellId = h3.latLngToCell(lat, lon, 7);
+            antecedentRainfall = await computeAntecedentRainfall(cellId, lat, lon);
+        } catch (arErr) {
+            console.warn("Antecedent rainfall computation skipped:", arErr.message);
+        }
+
+        // 3. Get ML predictions from Python service
         let mlPredictions = {};
         try {
             const mlResponse = await axios.post(`${AI_SERVICE_URL}/predict/unified`, {
@@ -27,7 +38,13 @@ const calculateUnifiedRisk = async (lat, lon, hazardType = null) => {
                 rainfall: weather.rainfall,
                 wind_speed: weather.windSpeed,
                 pressure: weather.pressure,
-                soil_moisture_pct: weather.soilMoisturePct || 50
+                soil_moisture_pct: weather.soilMoisturePct || 50,
+                // Antecedent rainfall from MongoDB accumulator (OpenWeather-sourced)
+                rainfall_1d_pre: antecedentRainfall.rainfall_1d_pre,
+                rainfall_3d_pre: antecedentRainfall.rainfall_3d_pre,
+                rainfall_5d_pre: antecedentRainfall.rainfall_5d_pre,
+                rainfall_7d_pre: antecedentRainfall.rainfall_7d_pre,
+                rainfall_10d_pre: antecedentRainfall.rainfall_10d_pre,
             }, { timeout: 3500 });
             mlPredictions = mlResponse.data;
         } catch (mlError) {
@@ -96,6 +113,8 @@ const calculateUnifiedRisk = async (lat, lon, hazardType = null) => {
                 riskScore: finalScore,
                 riskCategory: getRiskCategory(finalScore),
                 confidence: mlPredictions[type.toLowerCase()]?.confidence || 0.6,
+                missingFeaturesImputed: mlPredictions[type.toLowerCase()]?.missing_features_imputed || [],
+                operationalThreshold: mlPredictions[type.toLowerCase()]?.operational_threshold,
                 factors: {
                     mlPrediction: { score: Math.round(mlScore), weight: "40%" },
                     weatherConditions: { score: Math.round(weatherScore), weight: "25%", details: getWeatherFactors(weather, type) },
@@ -128,7 +147,15 @@ const calculateUnifiedRisk = async (lat, lon, hazardType = null) => {
                 weatherStatus: weather.status,
                 mlServiceAvailable: !!mlPredictions.flood || !!mlPredictions.FLOOD,
                 citizenReportsNearby: recentReports,
-                historicalZonesNearby: nearbyHazards.length
+                historicalZonesNearby: nearbyHazards.length,
+                antecedentRainfallHistory: {
+                    has_full_10d_history: !!antecedentRainfall.has_full_10d_history,
+                    history_status: antecedentRainfall.history_status || "no_data",
+                    history_days: antecedentRainfall.history_days || 0,
+                    data_hours: antecedentRainfall.data_hours || 0,
+                    observation_count: antecedentRainfall.observation_count || 0,
+                    message: antecedentRainfall.message || "Accumulator initializing."
+                }
             }
         };
     } catch (error) {

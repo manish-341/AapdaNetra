@@ -1,0 +1,39 @@
+feature_index,feature_name
+1,num__Drainage Area
+2,num__Catchment Relief
+3,num__Annual Mean Temperature
+4,num__Annual Precipitation
+5,num__Population Density
+6,num__rainfall_1d_pre
+7,num__rainfall_3d_pre
+8,num__rainfall_5d_pre
+9,num__rainfall_7d_pre
+10,num__rainfall_10d_pre
+11,num__historical_flood_count
+12,num__days_since_previous_flood
+13,num__flood_count_1y_prior
+14,num__flood_count_3y_prior
+15,num__flood_count_5y_prior
+16,num__year
+17,num__month
+18,num__day_of_year
+19,num__no_previous_flood
+20,cat__Land cover_Cropland
+21,cat__Land cover_Forest
+22,cat__Land cover_Mosaic vegetation
+23,cat__Land cover_No dominant class
+24,cat__Soil type_Acrisols
+25,cat__Soil type_Cambisols
+26,cat__Soil type_Fluvisols
+27,cat__Soil type_Leptosols
+28,cat__Soil type_Lixisols
+29,cat__Soil type_Luvisols
+30,cat__Soil type_No dominant class
+31,cat__Soil type_Vertisols
+32,cat__lithology type_Acid plutonic rocks
+33,cat__lithology type_Basic volcanic rocks
+34,cat__lithology type_Metamorphics
+35,cat__lithology type_No dominant class
+36,cat__lithology type_Unconsolidated sediments
+37,cat__monsoon_season_monsoon
+38,cat__monsoon_season_non_monsoon

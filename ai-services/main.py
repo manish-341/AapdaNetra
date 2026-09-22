@@ -10,6 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from prediction.predict import predictor
 from forecasting.time_series import forecast_time_series
@@ -23,7 +26,7 @@ app = FastAPI(
         "Multi-hazard risk prediction microservice trained on real Indian government data "
         "(IMD, CWC, GSI, NDMA). Supports XGBoost/RandomForest classification with "
         "probability calibration and live weather dynamic risk adjustment via "
-        "threshold-exceedance correlation against Open-Meteo satellite telemetry."
+        "threshold-exceedance correlation against OpenWeather telemetry."
     ),
 )
 
@@ -53,7 +56,6 @@ class RiskPredictionRequest(BaseModel):
     erosion_index: Optional[float] = None
     mining_activity: Optional[str] = "No"
 
-    # New fields aligned with real government data features
     slope_deg: Optional[float] = None
     curvature: Optional[float] = None
     ndvi: Optional[float] = None
@@ -63,6 +65,33 @@ class RiskPredictionRequest(BaseModel):
     dist_to_road_km: Optional[float] = None
     soil_moisture_pct: Optional[float] = None
     mean_temperature_c: Optional[float] = None
+
+    # Antecedent cumulative rainfall features from OpenWeather accumulator
+    rainfall_1d_pre: Optional[float] = None
+    rainfall_3d_pre: Optional[float] = None
+    rainfall_5d_pre: Optional[float] = None
+    rainfall_7d_pre: Optional[float] = None
+    rainfall_10d_pre: Optional[float] = None
+
+    # Flood raw features
+    drainage_area: Optional[float] = None
+    catchment_relief: Optional[float] = None
+    annual_mean_temperature: Optional[float] = None
+    annual_precipitation: Optional[float] = None
+    population_density: Optional[float] = None
+    land_cover: Optional[str] = None
+    soil_type: Optional[str] = None
+    lithology_type: Optional[str] = None
+    historical_flood_count: Optional[float] = None
+    days_since_previous_flood: Optional[float] = None
+    flood_count_1y_prior: Optional[float] = None
+    flood_count_3y_prior: Optional[float] = None
+    flood_count_5y_prior: Optional[float] = None
+    no_previous_flood: Optional[float] = None
+    monsoon_season: Optional[str] = None
+
+    class Config:
+        extra = "allow"
 
 
 class ForecastRequest(BaseModel):
@@ -135,14 +164,14 @@ def predict_unified(req: RiskPredictionRequest):
 def predict_realtime(req: RiskPredictionRequest):
     """
     Multi-hazard prediction with live weather dynamic risk adjustment.
-    Fetches current weather from Open-Meteo and applies threshold-exceedance
+    Fetches current weather from OpenWeather and applies threshold-exceedance
     correlation against IMD/CWC/GSI training data percentiles.
 
     Response includes:
     - base_probability: raw ML model output
     - probability: adjusted using live weather exceedance
     - weather_correlation: per-variable exceedance ratios and percentile positions
-    - live_weather: current Open-Meteo satellite telemetry
+    - live_weather: current OpenWeather telemetry
     """
     return predictor.predict_unified_realtime(req.dict())
 

@@ -1,6 +1,6 @@
 """
 AapdaNetra — Threshold-Exceedance-Based Dynamic Risk Adjuster
-Fetches live weather from Open-Meteo API (free, no key required) and computes
+Fetches live weather from OpenWeather API (production provider) and computes
 exceedance ratios against training-data-derived percentile thresholds.
 
 The adjusted probability formula:
@@ -23,6 +23,9 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timezone
 from functools import lru_cache
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
@@ -80,44 +83,36 @@ class WeatherRiskAdjuster:
 
     def fetch_live_weather(self, lat: float, lon: float) -> dict:
         """
-        Fetch current weather from Open-Meteo API (free, no key needed).
+        Fetch current weather from OpenWeather API (production provider).
         Returns a standardized weather dict mapped to our training feature names.
+
+        Antecedent rainfall (rainfall_Nd_pre) is NOT computed here — it comes
+        from the MongoDB accumulator via the backend. This method only provides
+        the current instantaneous weather snapshot for exceedance calculations.
         """
+        api_key = os.environ.get("OPENWEATHER_API_KEY", "")
+        if not api_key or api_key == "your_openweather_api_key_here":
+            print("[WeatherRiskAdjuster] OPENWEATHER_API_KEY not set — using baseline")
+            return self._default_weather(lat, lon)
+
         try:
             url = (
-                f"https://api.open-meteo.com/v1/forecast?"
-                f"latitude={lat}&longitude={lon}"
-                f"&current=temperature_2m,relative_humidity_2m,precipitation,rain,"
-                f"surface_pressure,wind_speed_10m"
-                f"&hourly=soil_moisture_0_to_1cm"
-                f"&daily=precipitation_sum,temperature_2m_max,temperature_2m_min"
-                f"&timezone=auto&forecast_days=1"
+                f"https://api.openweathermap.org/data/2.5/weather?"
+                f"lat={lat}&lon={lon}&appid={api_key}&units=metric"
             )
-            req = urllib.request.Request(url, headers={"User-Agent": "AapdaNetra/3.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": "AapdaNetra/3.1"})
             with urllib.request.urlopen(req, timeout=8) as resp:
                 data = json.loads(resp.read().decode())
 
-            current = data.get("current", {})
-            daily = data.get("daily", {})
-            hourly = data.get("hourly", {})
-
-            # Extract current precipitation (mm in last hour)
-            precip_now = current.get("precipitation", 0) or current.get("rain", 0) or 0
-            # Daily precipitation sum
-            daily_precip = (daily.get("precipitation_sum", [0]) or [0])[0] or 0
-            # Temperature
-            temp = current.get("temperature_2m", 28)
-            humidity = current.get("relative_humidity_2m", 65)
-            wind = current.get("wind_speed_10m", 8)
-
-            # Soil moisture (m³/m³ → percentage)
-            soil_moisture_raw = 0.35
-            if hourly and hourly.get("soil_moisture_0_to_1cm"):
-                sm_vals = [v for v in hourly["soil_moisture_0_to_1cm"] if v is not None]
-                if sm_vals:
-                    soil_moisture_raw = sm_vals[0]
-
-            soil_moisture_pct = min(100, max(10, soil_moisture_raw * 200))
+            # Extract current weather fields
+            temp = data.get("main", {}).get("temp", 28)
+            humidity = data.get("main", {}).get("humidity", 65)
+            wind = data.get("wind", {}).get("speed", 8)
+            pressure = data.get("main", {}).get("pressure", 1013)
+            precip_1h = data.get("rain", {}).get("1h", 0) or 0
+            description = ""
+            if data.get("weather") and len(data["weather"]) > 0:
+                description = data["weather"][0].get("description", "")
 
             # Compute derived features that match training data schema
             weather = {
@@ -125,19 +120,24 @@ class WeatherRiskAdjuster:
                 "temperature_2m": temp,
                 "humidity_pct": humidity,
                 "wind_speed_ms": wind,
-                "precipitation_now_mm": precip_now,
-                "daily_precipitation_mm": daily_precip,
-                "soil_moisture_pct": soil_moisture_pct,
+                "precipitation_now_mm": precip_1h,
+                "daily_precipitation_mm": precip_1h,  # best instantaneous estimate
+                "pressure_hpa": pressure,
 
                 # Mapped to training feature names for exceedance calculation
-                "max_daily_rainfall_mm": max(precip_now * 24, daily_precip),  # projected
-                "annual_rainfall_mm": daily_precip * 365 * 0.3,  # rough annualized proxy
-                "monsoon_rainfall_mm": daily_precip * 120 * 0.4,  # monsoon proxy
+                "max_daily_rainfall_mm": precip_1h * 24,  # projected worst-case
+                "annual_rainfall_mm": precip_1h * 24 * 365 * 0.3,  # rough annualized proxy
+                "monsoon_rainfall_mm": precip_1h * 24 * 120 * 0.4,  # monsoon proxy
                 "mean_temperature_c": temp,
                 "fuel_aridity_index": max(0, (temp / 3.5) - (humidity / 15)),  # FAI proxy
 
+                # Antecedent rainfall: NOT computed here.
+                # These are populated from the MongoDB accumulator via the backend
+                # request payload (predict.py reads them from the incoming data dict).
+                # We intentionally do NOT fabricate multi-day rainfall from a single reading.
+
                 # Metadata
-                "source": "Open-Meteo Satellite Telemetry",
+                "source": "OpenWeather",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "status": "live",
                 "lat": lat,
@@ -146,7 +146,7 @@ class WeatherRiskAdjuster:
             return weather
 
         except (urllib.error.URLError, Exception) as e:
-            print(f"[WeatherRiskAdjuster] Open-Meteo fetch failed: {e}")
+            print(f"[WeatherRiskAdjuster] OpenWeather fetch failed: {e}")
             return self._default_weather(lat, lon)
 
     def _default_weather(self, lat: float, lon: float) -> dict:
@@ -154,7 +154,6 @@ class WeatherRiskAdjuster:
         return {
             "temperature_2m": 30, "humidity_pct": 65, "wind_speed_ms": 8,
             "precipitation_now_mm": 5, "daily_precipitation_mm": 10,
-            "soil_moisture_pct": 50,
             "max_daily_rainfall_mm": 15, "annual_rainfall_mm": 1100,
             "monsoon_rainfall_mm": 800, "mean_temperature_c": 30,
             "fuel_aridity_index": 6.5,
@@ -304,7 +303,6 @@ class WeatherRiskAdjuster:
                 "precipitation": live_weather.get("precipitation_now_mm"),
                 "daily_precipitation": live_weather.get("daily_precipitation_mm"),
                 "wind_speed": live_weather.get("wind_speed_ms"),
-                "soil_moisture_pct": live_weather.get("soil_moisture_pct"),
                 "source": live_weather.get("source"),
                 "status": live_weather.get("status"),
                 "timestamp": live_weather.get("timestamp"),

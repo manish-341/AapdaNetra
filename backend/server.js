@@ -119,6 +119,9 @@ app.use((req, res) => {
 // Error middleware
 app.use(errorMiddleware);
 
+// Weather Collector Service (OpenWeather background rainfall accumulator)
+const { startCollector } = require("./services/weatherCollector");
+
 // Server
 const PORT = process.env.PORT || 5000;
 
@@ -128,4 +131,7 @@ app.listen(PORT, "0.0.0.0", () => {
     console.log(`   AI Service: ${process.env.AI_SERVICE_URL || "http://localhost:8000"}`);
     console.log(`   Frontend: ${process.env.FRONTEND_URL || "http://localhost:5173"}`);
     console.log(`   SMTP Relay: ${process.env.SMTP_USER ? `Configured (${process.env.SMTP_USER}) via ${process.env.SMTP_HOST || "brevo"}` : "Not configured (Ethereal fallback)"}\n`);
+
+    // Start background OpenWeather observation collector
+    startCollector();
 });

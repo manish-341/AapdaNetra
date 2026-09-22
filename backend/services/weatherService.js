@@ -6,25 +6,19 @@ const cache = new NodeCache({ stdTTL: 300 }); // 5-minute cache
 const OPENWEATHER_BASE = "https://api.openweathermap.org/data/2.5";
 
 /**
- * Fetch current weather data for a location
- */
-/**
- * Fetch current weather & hydrological data for a location
- * Uses Open-Meteo (100% free, zero key required) or OpenWeatherMap if key configured.
+ * Fetch current weather & hydrological data for a location.
+ *
+ * Priority order:
+ *   1. OpenWeather API  (production provider — requires OPENWEATHER_API_KEY)
+ *   2. Open-Meteo       (free fallback — no key required)
+ *   3. Calibrated static baseline
  */
 const getCurrentWeather = async (lat, lon) => {
     const cacheKey = `weather_${lat.toFixed(2)}_${lon.toFixed(2)}`;
     const cached = cache.get(cacheKey);
     if (cached) return cached;
 
-    // 1. Try Open-Meteo first for live satellite & soil moisture measurements
-    const openMeteoData = await fetchOpenMeteoWeather(lat, lon);
-    if (openMeteoData) {
-        cache.set(cacheKey, openMeteoData);
-        return openMeteoData;
-    }
-
-    // 2. Try OpenWeatherMap if key is provided
+    // 1. Try OpenWeather first (production provider)
     const apiKey = process.env.OPENWEATHER_API_KEY;
     if (apiKey && apiKey !== "your_openweather_api_key_here") {
         try {
@@ -39,11 +33,11 @@ const getCurrentWeather = async (lat, lon) => {
                 pressure: data.main?.pressure || 1013,
                 windSpeed: data.wind?.speed || 5,
                 rainfall: data.rain?.["1h"] || data.rain?.["3h"] || 0,
-                soilMoisturePct: 55,
+                soilMoisturePct: 55, // OpenWeather free tier does not provide soil moisture
                 cloudCover: data.clouds?.all || 0,
                 description: data.weather?.[0]?.description || "clear",
                 visibility: data.visibility || 10000,
-                source: "OpenWeatherMap",
+                source: "OpenWeather",
                 timestamp: new Date().toISOString(),
                 lastUpdated: new Date().toISOString(),
                 status: "live"
@@ -55,7 +49,14 @@ const getCurrentWeather = async (lat, lon) => {
         }
     }
 
-    // 3. Fallback
+    // 2. Fallback: Open-Meteo (free, no key required)
+    const openMeteoData = await fetchOpenMeteoWeather(lat, lon);
+    if (openMeteoData) {
+        cache.set(cacheKey, openMeteoData);
+        return openMeteoData;
+    }
+
+    // 3. Static baseline fallback
     return getDefaultWeather();
 };
 
@@ -67,14 +68,7 @@ const getWeatherForecast = async (lat, lon) => {
     const cached = cache.get(cacheKey);
     if (cached) return cached;
 
-    // 1. Try Open-Meteo forecast
-    const openMeteoForecast = await fetchOpenMeteoForecast(lat, lon);
-    if (openMeteoForecast) {
-        cache.set(cacheKey, openMeteoForecast);
-        return openMeteoForecast;
-    }
-
-    // 2. Try OpenWeatherMap
+    // 1. Try OpenWeather forecast first
     const apiKey = process.env.OPENWEATHER_API_KEY;
     if (apiKey && apiKey !== "your_openweather_api_key_here") {
         try {
@@ -92,7 +86,7 @@ const getWeatherForecast = async (lat, lon) => {
             }));
             const result = {
                 forecasts,
-                source: "OpenWeatherMap",
+                source: "OpenWeather",
                 timestamp: new Date().toISOString(),
                 status: "live"
             };
@@ -101,6 +95,13 @@ const getWeatherForecast = async (lat, lon) => {
         } catch (error) {
             console.error("Weather forecast API error:", error.message);
         }
+    }
+
+    // 2. Fallback: Open-Meteo forecast
+    const openMeteoForecast = await fetchOpenMeteoForecast(lat, lon);
+    if (openMeteoForecast) {
+        cache.set(cacheKey, openMeteoForecast);
+        return openMeteoForecast;
     }
 
     return getDefaultForecast();
@@ -129,7 +130,7 @@ async function fetchOpenMeteoWeather(lat, lon) {
             cloudCover: 35,
             description: (c.precipitation > 0 ? (c.precipitation > 10 ? "heavy rainfall" : "rainfall") : "clear skies"),
             visibility: 10000,
-            source: "Open-Meteo Satellite Telemetry",
+            source: "Open-Meteo (fallback)",
             timestamp: new Date().toISOString(),
             lastUpdated: new Date().toISOString(),
             status: "live"
@@ -160,7 +161,7 @@ async function fetchOpenMeteoForecast(lat, lon) {
         }
         return {
             forecasts,
-            source: "Open-Meteo Meteorological Forecast",
+            source: "Open-Meteo (fallback)",
             timestamp: new Date().toISOString(),
             status: "live"
         };
