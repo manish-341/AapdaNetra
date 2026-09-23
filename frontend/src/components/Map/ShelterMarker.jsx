@@ -9,64 +9,34 @@ import { useThemeMode } from "../../context/ThemeContext";
  * modern tactical pin design, and rich shelter operational details.
  * Fully adaptive: white badge in light mode, dark badge in dark mode.
  */
-const createShelterIcon = (status, availableCapacity, isDark) => {
-  const isAvailable = status === "AVAILABLE" || availableCapacity > 0;
-  const isFull = status === "FULL" || availableCapacity === 0;
-
-  const statusColor = isAvailable ? "#10b981" : isFull ? "#f97316" : "#ef4444";
-  const badgeText = isAvailable ? `${availableCapacity || "Open"}` : "FULL";
-
-  const badgeBg = isDark ? "rgba(15, 23, 42, 0.92)" : "#ffffff";
-  const badgeTextColor = isDark ? statusColor : "#0f172a";
-  const badgeShadow = isDark ? "0 2px 6px rgba(0,0,0,0.4)" : "0 2px 8px rgba(0,0,0,0.15)";
+const createShelterIcon = (shelter, _isDark) => {
+  const available = shelter.availableCapacity ?? Math.max(0, (shelter.capacity || 0) - (shelter.currentOccupancy || 0));
+  const isAvailable = shelter.status === "AVAILABLE" || available > 0;
+  const isNear = shelter.status === "NEAR_CAPACITY";
+  const iconBg = isAvailable ? "#10b981" : isNear ? "#f59e0b" : "#ef4444";
 
   return L.divIcon({
     className: "shelter-tactical-marker",
     html: `
-      <div style="
-        position: relative;
+      <div class="relief-shelter-icon-circle" title="Relief Shelter: ${shelter.name}" style="
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: ${iconBg};
+        border: 2px solid #ffffff;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
         display: flex;
-        flex-direction: column;
         align-items: center;
-        transform: translate(-50%, -100%);
+        justify-content: center;
+        cursor: pointer;
+        transition: transform 0.2s ease;
       ">
-        <!-- Top Vacancy Badge -->
-        <div style="
-          background: ${badgeBg};
-          border: 1.5px solid ${statusColor};
-          color: ${badgeTextColor};
-          font-size: 9px;
-          font-weight: 800;
-          padding: 1px 6px;
-          border-radius: 4px;
-          white-space: nowrap;
-          margin-bottom: 2px;
-          box-shadow: ${badgeShadow};
-        ">${badgeText}</div>
-
-        <!-- Shelter Pin Body -->
-        <div style="
-          width: 28px;
-          height: 28px;
-          background: #0284c7;
-          border: 2px solid #ffffff;
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        ">
-          <span style="
-            transform: rotate(45deg);
-            font-size: 13px;
-          ">🏠</span>
-        </div>
+        <span style="font-size: 14px; line-height: 1;">🏠</span>
       </div>
     `,
-    iconSize: [40, 48],
-    iconAnchor: [20, 48],
-    popupAnchor: [0, -48],
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -16],
   });
 };
 
@@ -85,7 +55,7 @@ const ShelterMarker = ({ shelter }) => {
   return (
     <Marker
       position={[lat, lng]}
-      icon={createShelterIcon(shelter.status, available, isDark)}
+      icon={createShelterIcon(shelter, isDark)}
     >
       <Popup>
         <div style={{ minWidth: 230, padding: "8px 10px", fontFamily: "inherit" }}>

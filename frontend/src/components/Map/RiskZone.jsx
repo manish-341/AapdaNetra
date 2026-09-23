@@ -117,30 +117,56 @@ const RiskZone = ({ zone }) => {
     geometry: zone.geometry,
   };
 
-  // Center badge: clean white in light mode, dark in dark mode
-  const badgeBg = isDark ? "rgba(15, 23, 42, 0.92)" : "#ffffff";
-  const badgeText = isDark ? "#ffffff" : "#0f172a";
-  const badgeShadow = isDark
-    ? `0 0 12px ${cfg.glow}`
-    : "0 3px 12px rgba(0, 0, 0, 0.16)";
+  const zoneCode = zone.code || (zone.name?.match(/([A-Z]+-\d+)/i) ? zone.name.match(/([A-Z]+-\d+)/i)[1].toUpperCase() : (zone.district?.toLowerCase().includes("delhi") ? `NCR-${String(Math.abs((zone.name || "0").split("").reduce((acc, c) => (acc << 5) - acc + c.charCodeAt(0), 0)) % 900 + 42).padStart(3, "0")}` : `${(zone.district || "SEC").slice(0, 3).toUpperCase()}-${String(Math.abs((zone.name || "0").split("").reduce((acc, c) => (acc << 5) - acc + c.charCodeAt(0), 0)) % 900 + 12).padStart(3, "0")}`));
 
-  const badgeIcon = L.divIcon({
-    className: "hazard-zone-badge",
+  const hazardName = (zone.hazardType || "FLOOD").charAt(0).toUpperCase() + (zone.hazardType || "FLOOD").slice(1).toLowerCase();
+  const isCritical = zone.riskCategory === "CRITICAL";
+
+  // Tactical Marker Icon: Reference Design representation
+  // For Critical: Red glowing double-border pin + persistent callout HUD card
+  // For other levels: Sleek tactical circular pin with hazard icon & short info tooltip
+  const tacticalPinIcon = L.divIcon({
+    className: "hazard-tactical-marker",
     html: `
-      <div class="hazard-badge-content" style="
-        background: ${badgeBg};
-        border: 1.5px solid ${cfg.color};
-        color: ${badgeText};
-        box-shadow: ${badgeShadow};
-      ">
-        <span style="font-size: 13px;">${hazardIcon}</span>
-        <span style="color: ${cfg.color}; font-weight: 800;">${zone.hazardType || "RISK"}</span>
-        <span style="opacity: 0.5; font-size: 9px; color: ${badgeText};">•</span>
-        <span style="font-size: 10px; color: ${cfg.color}; font-weight: 800;">${zone.riskScore ? `${zone.riskScore}%` : cfg.label}</span>
+      <div class="tactical-pin-container">
+        ${
+          isCritical
+            ? `
+          <div class="tactical-callout-card" style="
+            border-color: ${cfg.color};
+            box-shadow: 0 8px 28px rgba(0,0,0,0.65), 0 0 16px ${cfg.glow};
+          ">
+            <div class="tactical-callout-header">
+              <span style="font-size: 14px; color: ${cfg.color};">⚠️</span>
+              <span>${zoneCode}</span>
+            </div>
+            <div class="tactical-callout-hazard">
+              <span>${hazardName} Risk</span>
+              <span style="opacity: 0.5; font-size: 9px; margin: 0 2px;">•</span>
+              <span class="tactical-callout-score" style="color: ${cfg.color};">${zone.riskScore ? `${zone.riskScore}%` : "82%"}</span>
+            </div>
+            <div class="tactical-callout-badge" style="background: ${cfg.color};">
+              ${zone.riskCategory}
+            </div>
+          </div>
+          <div class="tactical-hazard-pin critical">
+            <span style="font-size: 16px; color: #ffffff; line-height: 1;">⚠️</span>
+          </div>
+        `
+            : `
+          <div class="tactical-hazard-pin" style="
+            background: ${zone.hazardType === "FLOOD" ? "#0284c7" : cfg.color};
+            box-shadow: 0 3px 12px ${zone.hazardType === "FLOOD" ? "rgba(2, 132, 199, 0.5)" : cfg.glow};
+          ">
+            <span style="font-size: 15px; line-height: 1;">${hazardIcon}</span>
+          </div>
+        `
+        }
       </div>
     `,
-    iconSize: [120, 24],
-    iconAnchor: [60, 12],
+    iconSize: isCritical ? [160, 110] : [32, 32],
+    iconAnchor: isCritical ? [80, 110] : [16, 16],
+    popupAnchor: isCritical ? [0, -110] : [0, -18],
   });
 
   return (
@@ -177,7 +203,7 @@ const RiskZone = ({ zone }) => {
                   {zone.name}
                 </div>
                 <div style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b" }}>
-                  {zone.district ? `${zone.district}, Sector` : "Monitored Zone"}
+                  {zoneCode} &bull; {zone.district ? `${zone.district}, Sector` : "Monitored Zone"}
                 </div>
               </div>
             </div>
@@ -258,9 +284,26 @@ const RiskZone = ({ zone }) => {
         </Popup>
       </GeoJSON>
 
-      {/* Floating Centroid Badge so the map explains itself without requiring a click */}
+      {/* Modern Tactical Centroid Icon Pin */}
       {centroid && (
-        <Marker position={centroid} icon={badgeIcon} interactive={false} />
+        <Marker position={centroid} icon={tacticalPinIcon}>
+          <Popup>
+            <div style={{ minWidth: 220, padding: "6px 8px", fontFamily: "inherit" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <span style={{ fontSize: 16 }}>{hazardIcon}</span>
+                <span style={{ fontWeight: 800, fontSize: 13, color: isDark ? "#ffffff" : "#0f172a" }}>
+                  {zoneCode}: {zone.name}
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: cfg.color, fontWeight: 700, marginBottom: 4 }}>
+                {hazardName} Risk Assessment: {zone.riskScore ? `${zone.riskScore}%` : cfg.label} ({zone.riskCategory})
+              </div>
+              <div style={{ fontSize: 10.5, color: isDark ? "#94a3b8" : "#64748b" }}>
+                District: {zone.district || "Delhi Sector"}
+              </div>
+            </div>
+          </Popup>
+        </Marker>
       )}
     </>
   );

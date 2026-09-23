@@ -11,6 +11,7 @@ import {
   Marker,
   Popup,
   Polyline,
+  Rectangle,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
@@ -631,7 +632,7 @@ const HazardMap = forwardRef(
           )}
         </Box>
 
-        {/* TOP-RIGHT: Tactical HUD Actions (zIndex: 500) */}
+        {/* TOP-RIGHT: Tactical HUD Actions & Reference Threat Matrix Legend (zIndex: 500) */}
         <Box
           sx={{
             position: "absolute",
@@ -639,148 +640,141 @@ const HazardMap = forwardRef(
             right: 14,
             zIndex: 500,
             display: "flex",
-            alignItems: "center",
+            flexDirection: "column",
+            alignItems: "flex-end",
             gap: 1,
           }}
         >
-          {/* Live AI Sentinel Badge */}
-          <Paper
-            elevation={3}
-            sx={{
-              py: 0.5,
-              px: 1.25,
-              borderRadius: 2,
-              bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.96)",
-              backdropFilter: "blur(8px)",
-              border: isDark ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(16, 185, 129, 0.3)",
-              display: "flex",
-              alignItems: "center",
-              gap: 0.75,
-              boxShadow: isDark ? "0 4px 14px rgba(0,0,0,0.25)" : "0 2px 8px rgba(0,0,0,0.06)",
-            }}
-          >
-            <Box
+          {/* Top Actions Row: AI Sentinel Badge, GPS, Fullscreen */}
+          <Box display="flex" alignItems="center" gap={1}>
+            {/* Live AI Sentinel Badge */}
+            <Paper
+              elevation={3}
               sx={{
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                bgcolor: "#10b981",
-                boxShadow: "0 0 8px #10b981",
-                animation: "pulse-red 2s infinite",
-              }}
-            />
-            <Typography variant="caption" sx={{ fontWeight: 800, fontSize: "0.68rem", color: "#10b981" }}>
-              AI SENTINEL ACTIVE • 80 H3 CELLS
-            </Typography>
-          </Paper>
-
-          {/* GPS Live Locate Button */}
-          <Tooltip title="Recenter to Live GPS Location">
-            <Button
-              size="small"
-              onClick={detectLiveGPS}
-              disabled={gpsLoading}
-              sx={{
-                minWidth: "auto",
-                px: 1.25,
                 py: 0.5,
+                px: 1.25,
                 borderRadius: 2,
                 bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.96)",
                 backdropFilter: "blur(8px)",
-                border: isDark ? "1px solid rgba(56, 189, 248, 0.35)" : "1px solid rgba(2, 132, 199, 0.25)",
-                color: isDark ? "#38bdf8" : "#0284c7",
-                fontWeight: 700,
-                fontSize: "0.7rem",
-                textTransform: "none",
+                border: isDark ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(16, 185, 129, 0.3)",
                 display: "flex",
-                gap: 0.5,
+                alignItems: "center",
+                gap: 0.75,
                 boxShadow: isDark ? "0 4px 14px rgba(0,0,0,0.25)" : "0 2px 8px rgba(0,0,0,0.06)",
-                "&:hover": {
-                  bgcolor: isDark ? "rgba(56, 189, 248, 0.2)" : "rgba(2, 132, 199, 0.08)",
-                },
               }}
             >
-              {gpsLoading ? (
-                <CircularProgress size={12} sx={{ color: isDark ? "#38bdf8" : "#0284c7" }} />
-              ) : (
-                <MyLocationIcon sx={{ fontSize: 14 }} />
-              )}
-              {gpsLoading ? "Locating..." : "GPS"}
-            </Button>
-          </Tooltip>
+              <Box
+                sx={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  bgcolor: "#10b981",
+                  boxShadow: "0 0 8px #10b981",
+                  animation: "pulse-red 2s infinite",
+                }}
+              />
+              <Typography variant="caption" sx={{ fontWeight: 800, fontSize: "0.68rem", color: "#10b981" }}>
+                AI SENTINEL ACTIVE • 80 H3 CELLS
+              </Typography>
+            </Paper>
 
-          {/* Fullscreen Toggle */}
-          <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Expand Fullscreen Map"}>
-            <IconButton
-              size="small"
-              onClick={toggleFullscreen}
-              sx={{
-                bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.96)",
-                backdropFilter: "blur(8px)",
-                border: isDark ? "1px solid rgba(255, 255, 255, 0.15)" : "1px solid rgba(0, 0, 0, 0.12)",
-                color: isDark ? "#f8fafc" : "#0f172a",
-                boxShadow: isDark ? "0 4px 14px rgba(0,0,0,0.25)" : "0 2px 8px rgba(0,0,0,0.06)",
-                "&:hover": {
-                  bgcolor: isDark ? "rgba(56, 189, 248, 0.2)" : "rgba(2, 132, 199, 0.08)",
-                },
-              }}
-            >
-              {isFullscreen ? <FullscreenExitIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
-            </IconButton>
-          </Tooltip>
-        </Box>
+            {/* GPS Live Locate Button */}
+            <Tooltip title="Recenter to Live GPS Location">
+              <Button
+                size="small"
+                onClick={detectLiveGPS}
+                disabled={gpsLoading}
+                sx={{
+                  minWidth: "auto",
+                  px: 1.25,
+                  py: 0.5,
+                  borderRadius: 2,
+                  bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.96)",
+                  backdropFilter: "blur(8px)",
+                  border: isDark ? "1px solid rgba(56, 189, 248, 0.35)" : "1px solid rgba(2, 132, 199, 0.25)",
+                  color: isDark ? "#38bdf8" : "#0284c7",
+                  fontWeight: 700,
+                  fontSize: "0.7rem",
+                  textTransform: "none",
+                  display: "flex",
+                  gap: 0.5,
+                  boxShadow: isDark ? "0 4px 14px rgba(0,0,0,0.25)" : "0 2px 8px rgba(0,0,0,0.06)",
+                  "&:hover": {
+                    bgcolor: isDark ? "rgba(56, 189, 248, 0.2)" : "rgba(2, 132, 199, 0.08)",
+                  },
+                }}
+              >
+                {gpsLoading ? (
+                  <CircularProgress size={12} sx={{ color: isDark ? "#38bdf8" : "#0284c7" }} />
+                ) : (
+                  <MyLocationIcon sx={{ fontSize: 14 }} />
+                )}
+                {gpsLoading ? "Locating..." : "GPS"}
+              </Button>
+            </Tooltip>
 
-        {/* BOTTOM-RIGHT: Threat Matrix Legend (zIndex: 500) */}
-        <Paper
-          elevation={3}
-          sx={{
-            position: "absolute",
-            bottom: 16,
-            right: 16,
-            zIndex: 500,
-            p: 1.25,
-            px: 1.5,
-            borderRadius: 2.5,
-            bgcolor: isDark ? "rgba(15, 23, 42, 0.92)" : "rgba(255, 255, 255, 0.96)",
-            backdropFilter: "blur(12px)",
-            border: isDark ? "1px solid rgba(56, 189, 248, 0.3)" : "1px solid rgba(0, 0, 0, 0.1)",
-            color: isDark ? "#f8fafc" : "#0f172a",
-            minWidth: 180,
-            boxShadow: isDark ? "0 8px 24px rgba(0,0,0,0.3)" : "0 4px 16px rgba(0,0,0,0.08)",
-          }}
-        >
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.75}>
-            <Typography variant="caption" sx={{ fontWeight: 800, fontSize: "0.68rem", letterSpacing: 0.5, color: isDark ? "#94a3b8" : "#64748b" }}>
-              THREAT MATRIX
-            </Typography>
-            <Typography variant="caption" sx={{ fontSize: "0.65rem", color: isDark ? "#38bdf8" : "#0284c7" }}>
-              Live
-            </Typography>
+            {/* Fullscreen Toggle */}
+            <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Expand Fullscreen Map"}>
+              <IconButton
+                size="small"
+                onClick={toggleFullscreen}
+                sx={{
+                  bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.96)",
+                  backdropFilter: "blur(8px)",
+                  border: isDark ? "1px solid rgba(255, 255, 255, 0.15)" : "1px solid rgba(0, 0, 0, 0.12)",
+                  color: isDark ? "#f8fafc" : "#0f172a",
+                  boxShadow: isDark ? "0 4px 14px rgba(0,0,0,0.25)" : "0 2px 8px rgba(0,0,0,0.06)",
+                  "&:hover": {
+                    bgcolor: isDark ? "rgba(56, 189, 248, 0.2)" : "rgba(2, 132, 199, 0.08)",
+                  },
+                }}
+              >
+                {isFullscreen ? <FullscreenExitIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
           </Box>
-          <Stack spacing={0.4}>
-            {RISK_CATEGORIES.map((item) => (
-              <Box key={item.value} display="flex" alignItems="center" justifyContent="space-between">
-                <Box display="flex" alignItems="center" gap={0.75}>
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      bgcolor: item.color,
-                      boxShadow: `0 0 6px ${item.color}`,
-                    }}
-                  />
-                  <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.68rem" }}>
-                    {item.label}
-                  </Typography>
-                </Box>
-                <Typography variant="caption" sx={{ fontSize: "0.62rem", color: isDark ? "#94a3b8" : "#64748b" }}>
-                  {item.desc}
+
+          {/* Reference Design: Top-Right Threat Matrix Legend Card */}
+          <Paper
+            elevation={4}
+            sx={{
+              py: 0.85,
+              px: 1.75,
+              borderRadius: 2.5,
+              bgcolor: isDark ? "rgba(15, 23, 42, 0.94)" : "rgba(255, 255, 255, 0.98)",
+              backdropFilter: "blur(14px)",
+              border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(0, 0, 0, 0.1)",
+              boxShadow: isDark ? "0 8px 24px rgba(0,0,0,0.4)" : "0 4px 16px rgba(0,0,0,0.08)",
+            }}
+          >
+            <Box display="grid" gridTemplateColumns="1fr 1fr" columnGap={2.5} rowGap={0.8} alignItems="center">
+              <Box display="flex" alignItems="center" gap={0.85}>
+                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "#10b981", boxShadow: "0 0 6px #10b981" }} />
+                <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 700, color: isDark ? "#f8fafc" : "#0f172a" }}>
+                  Low
                 </Typography>
               </Box>
-            ))}
-          </Stack>
-        </Paper>
+              <Box display="flex" alignItems="center" gap={0.85}>
+                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "#eab308", boxShadow: "0 0 6px #eab308" }} />
+                <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 700, color: isDark ? "#f8fafc" : "#0f172a" }}>
+                  Moderate
+                </Typography>
+              </Box>
+              <Box display="flex" alignItems="center" gap={0.85}>
+                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "#f97316", boxShadow: "0 0 6px #f97316" }} />
+                <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 700, color: isDark ? "#f8fafc" : "#0f172a" }}>
+                  High
+                </Typography>
+              </Box>
+              <Box display="flex" alignItems="center" gap={0.85}>
+                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "#ef4444", boxShadow: "0 0 6px #ef4444" }} />
+                <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 700, color: isDark ? "#f8fafc" : "#0f172a" }}>
+                  Critical
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+        </Box>
 
         {/* BOTTOM-LEFT: Coordinate & Area Telemetry (zIndex: 500) */}
         <Box
@@ -1026,9 +1020,9 @@ const HazardMap = forwardRef(
                     key={route.planId || idx}
                     positions={route.coordinates}
                     pathOptions={{
-                      color: route.priority === "IMMEDIATE" ? "#f43f5e" : "#0284c7",
-                      weight: 5,
-                      dashArray: "10, 14",
+                      color: "#0284c7",
+                      weight: 4.5,
+                      dashArray: "8, 12",
                       className: "evac-corridor-animated",
                       opacity: 0.95,
                     }}
