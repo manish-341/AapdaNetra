@@ -47,7 +47,6 @@ import MyLocationIcon from "@mui/icons-material/MyLocation";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import CloseIcon from "@mui/icons-material/Close";
-import DownloadIcon from "@mui/icons-material/Download";
 
 // ---- Map default icons fix ------------------------------------------
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -61,14 +60,13 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// ---- Tactical Basemap Configurations ---------------------------------
+// ---- CARTO & Satellite Basemap Configurations -----------------------
 const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY || "cb1_3uw2_1_b5a5aa8095425d7d5594ddce";
 
 const BASEMAP_TILES = {
   dark: {
     id: "dark",
     name: "Dark Cockpit",
-    icon: "🌙",
     url: `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
     attribution:
       '&copy; <a href="https://carto.com/" target="_blank" rel="noopener noreferrer">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
@@ -76,8 +74,7 @@ const BASEMAP_TILES = {
   },
   voyager: {
     id: "voyager",
-    name: "Tactical Street",
-    icon: "🗺️",
+    name: "Light Clean Map",
     url: `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
     attribution:
       '&copy; <a href="https://carto.com/" target="_blank" rel="noopener noreferrer">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
@@ -86,20 +83,11 @@ const BASEMAP_TILES = {
   satellite: {
     id: "satellite",
     name: "Satellite Hybrid",
-    icon: "🛰️",
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     labelsUrl:
       "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
     attribution:
       "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics",
-  },
-  topo: {
-    id: "topo",
-    name: "Terrain Topo",
-    icon: "🏔️",
-    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-    attribution:
-      'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM',
   },
 };
 
@@ -126,7 +114,7 @@ function ChangeMapView({ center, zoom }) {
 // Single source of truth for risk categories
 export const RISK_CATEGORIES = [
   { value: "CRITICAL", label: "CRITICAL", desc: "Immediate Danger", color: "#ef4444" },
-  { value: "RED", label: "RED", desc: "High Risk Inundation", color: "#f97316" },
+  { value: "RED", label: "RED", desc: "High Inundation", color: "#f97316" },
   { value: "AMBER", label: "AMBER", desc: "Moderate Advisory", color: "#eab308" },
   { value: "GREEN", label: "GREEN", desc: "Safe Operational Baseline", color: "#10b981" },
 ];
@@ -135,7 +123,7 @@ const categoryColor = (riskCategory) =>
   RISK_CATEGORIES.find((c) => c.value === riskCategory)?.color || "#64748b";
 
 // Pulsing radar marker for vulnerable habitations
-const habitationIcon = (riskCategory, name, population) => {
+const habitationIcon = (riskCategory) => {
   const color = categoryColor(riskCategory);
   const isHighRisk = riskCategory === "CRITICAL" || riskCategory === "RED";
 
@@ -188,7 +176,7 @@ const citizenReportIcon = (severity, type) => {
           border-radius: 8px;
           background: ${color};
           border: 2px solid #ffffff;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+          box-shadow: 0 3px 8px rgba(0,0,0,0.35);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -218,6 +206,8 @@ const DEFAULT_EVAC_CORRIDOR = [
 
 /**
  * Modern Tactical HazardMap Component
+ * Strictly adapts between Light (white) and Dark modes via the navbar toggle.
+ * All HUD overlays use zIndex <= 500 so navbar location dropdowns never get overlaid.
  */
 const HazardMap = forwardRef(
   ({ visibleCategories, activeFilter = "ALL", onResetFilter }, ref) => {
@@ -230,8 +220,7 @@ const HazardMap = forwardRef(
     const [citizenReports, setCitizenReports] = useState([]);
     const [evacuationRoutes, setEvacuationRoutes] = useState([]);
 
-    // Basemap & Layer controls
-    const [selectedBasemap, setSelectedBasemap] = useState(() => (isDark ? "dark" : "voyager"));
+    // Layer controls (Theme is driven strictly by isDark via Navbar toggle)
     const [layersOpen, setLayersOpen] = useState(false);
     const [activeLayers, setActiveLayers] = useState({
       hazards: true,
@@ -239,6 +228,7 @@ const HazardMap = forwardRef(
       shelters: true,
       reports: true,
       corridors: true,
+      satellite: false,
     });
 
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -248,11 +238,6 @@ const HazardMap = forwardRef(
 
     const captureRef = useRef(null);
     const containerRef = useRef(null);
-
-    // Sync default basemap with theme change if user hasn't explicitly changed
-    useEffect(() => {
-      setSelectedBasemap(isDark ? "dark" : "voyager");
-    }, [isDark]);
 
     const currentCenter = [location.lat || DEFAULT_CENTER[0], location.lng || DEFAULT_CENTER[1]];
 
@@ -455,7 +440,13 @@ const HazardMap = forwardRef(
       return () => document.removeEventListener("fullscreenchange", handleFsChange);
     }, []);
 
-    const activeTile = BASEMAP_TILES[selectedBasemap] || BASEMAP_TILES.dark;
+    // Theme drives basemap strictly: in light mode it's white (voyager), in dark mode it's black (dark)
+    const activeTile = activeLayers.satellite
+      ? BASEMAP_TILES.satellite
+      : isDark
+      ? BASEMAP_TILES.dark
+      : BASEMAP_TILES.voyager;
+
     const hasAnyError = Object.keys(errors).length > 0;
 
     return (
@@ -466,7 +457,7 @@ const HazardMap = forwardRef(
           width: "100%",
           height: isFullscreen ? "100vh" : "100%",
           minHeight: isFullscreen ? "100vh" : 620,
-          bgcolor: isDark ? "#090d16" : "#f1f5f9",
+          bgcolor: isDark ? "#090d16" : "#ffffff",
           borderRadius: isFullscreen ? 0 : 3,
           overflow: "hidden",
         }}
@@ -477,17 +468,17 @@ const HazardMap = forwardRef(
             sx={{
               position: "absolute",
               inset: 0,
-              zIndex: 1200,
+              zIndex: 600,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
               gap: 1.5,
-              backgroundColor: isDark ? "rgba(9, 13, 22, 0.75)" : "rgba(255, 255, 255, 0.75)",
+              backgroundColor: isDark ? "rgba(9, 13, 22, 0.75)" : "rgba(255, 255, 255, 0.8)",
               backdropFilter: "blur(6px)",
             }}
           >
-            <CircularProgress size={36} sx={{ color: "#38bdf8" }} />
+            <CircularProgress size={36} sx={{ color: "#0284c7" }} />
             <Typography variant="caption" sx={{ fontWeight: 700, color: isDark ? "#38bdf8" : "#0284c7" }}>
               {exporting ? "Generating High-Resolution Map Export..." : "Synchronizing Geospatial Intelligence..."}
             </Typography>
@@ -496,18 +487,18 @@ const HazardMap = forwardRef(
 
         {/* Error Notification */}
         {hasAnyError && (
-          <Box sx={{ position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 1100, maxWidth: 360 }}>
+          <Box sx={{ position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 500, maxWidth: 360 }}>
             <Alert severity="warning" variant="filled" sx={{ borderRadius: 2 }}>
               {Object.values(errors).join(" ")}
             </Alert>
           </Box>
         )}
 
-        {/* TOP-LEFT: Sleek Tactical Layers & Basemap Drawer */}
-        <Box sx={{ position: "absolute", top: 14, left: 14, zIndex: 1000 }}>
+        {/* TOP-LEFT: Sleek Tactical Layers Drawer (zIndex: 500 so navbar dropdown is above it) */}
+        <Box sx={{ position: "absolute", top: 14, left: 14, zIndex: 500 }}>
           {!layersOpen ? (
             <Paper
-              elevation={4}
+              elevation={3}
               onClick={() => setLayersOpen(true)}
               sx={{
                 display: "flex",
@@ -517,26 +508,26 @@ const HazardMap = forwardRef(
                 px: 1.5,
                 cursor: "pointer",
                 borderRadius: 2.5,
-                bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.94)",
+                bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.96)",
                 backdropFilter: "blur(12px)",
-                border: "1px solid rgba(56, 189, 248, 0.35)",
+                border: isDark ? "1px solid rgba(56, 189, 248, 0.35)" : "1px solid rgba(0, 0, 0, 0.12)",
                 color: isDark ? "#f8fafc" : "#0f172a",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                boxShadow: isDark ? "0 8px 24px rgba(0,0,0,0.3)" : "0 4px 16px rgba(0,0,0,0.08)",
                 transition: "all 0.2s ease",
                 "&:hover": {
-                  transform: "scale(1.03)",
-                  border: "1px solid rgba(56, 189, 248, 0.7)",
+                  transform: "scale(1.02)",
+                  border: isDark ? "1px solid rgba(56, 189, 248, 0.7)" : "1px solid #0284c7",
                 },
               }}
             >
-              <LayersIcon sx={{ color: "#38bdf8", fontSize: 18 }} />
+              <LayersIcon sx={{ color: isDark ? "#38bdf8" : "#0284c7", fontSize: 18 }} />
               <Typography variant="caption" sx={{ fontWeight: 800, fontSize: "0.75rem", letterSpacing: 0.3 }}>
-                GIS LAYERS & BASEMAP
+                GIS LAYERS
               </Typography>
               <Box
                 sx={{
-                  bgcolor: "#38bdf8",
-                  color: "#090d16",
+                  bgcolor: isDark ? "#38bdf8" : "#0284c7",
+                  color: isDark ? "#090d16" : "#ffffff",
                   fontSize: "0.65rem",
                   fontWeight: 900,
                   px: 0.75,
@@ -551,22 +542,22 @@ const HazardMap = forwardRef(
             <Paper
               elevation={6}
               sx={{
-                width: 280,
+                width: 270,
                 p: 2,
                 borderRadius: 3,
-                bgcolor: isDark ? "rgba(15, 23, 42, 0.95)" : "rgba(255, 255, 255, 0.97)",
+                bgcolor: isDark ? "rgba(15, 23, 42, 0.95)" : "rgba(255, 255, 255, 0.98)",
                 backdropFilter: "blur(16px)",
-                border: "1px solid rgba(56, 189, 248, 0.4)",
+                border: isDark ? "1px solid rgba(56, 189, 248, 0.4)" : "1px solid rgba(0, 0, 0, 0.15)",
                 color: isDark ? "#f8fafc" : "#0f172a",
-                boxShadow: "0 16px 36px rgba(0,0,0,0.45)",
+                boxShadow: isDark ? "0 16px 36px rgba(0,0,0,0.45)" : "0 12px 30px rgba(0,0,0,0.12)",
               }}
             >
               {/* Header */}
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
                 <Box display="flex" alignItems="center" gap={0.75}>
-                  <LayersIcon sx={{ color: "#38bdf8", fontSize: 18 }} />
+                  <LayersIcon sx={{ color: isDark ? "#38bdf8" : "#0284c7", fontSize: 18 }} />
                   <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "0.8rem", letterSpacing: 0.5 }}>
-                    GEOSPATIAL INTEL CONTROLS
+                    GIS OVERLAYS
                   </Typography>
                 </Box>
                 <IconButton size="small" onClick={() => setLayersOpen(false)} sx={{ color: isDark ? "#94a3b8" : "#64748b" }}>
@@ -574,52 +565,15 @@ const HazardMap = forwardRef(
                 </IconButton>
               </Box>
 
-              {/* Basemap Switcher */}
-              <Typography variant="caption" sx={{ fontWeight: 700, color: isDark ? "#94a3b8" : "#64748b", textTransform: "uppercase", fontSize: "0.65rem" }}>
-                Tactical Basemap
-              </Typography>
-              <Box display="grid" gridTemplateColumns="1fr 1fr" gap={0.75} mt={0.5} mb={2}>
-                {Object.values(BASEMAP_TILES).map((tile) => {
-                  const isSelected = selectedBasemap === tile.id;
-                  return (
-                    <Box
-                      key={tile.id}
-                      onClick={() => setSelectedBasemap(tile.id)}
-                      sx={{
-                        p: 0.75,
-                        borderRadius: 1.5,
-                        cursor: "pointer",
-                        border: isSelected ? "1.5px solid #38bdf8" : isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.1)",
-                        bgcolor: isSelected ? "rgba(56, 189, 248, 0.15)" : isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0.75,
-                        transition: "all 0.15s ease",
-                        "&:hover": {
-                          bgcolor: "rgba(56, 189, 248, 0.1)",
-                        },
-                      }}
-                    >
-                      <span style={{ fontSize: 14 }}>{tile.icon}</span>
-                      <Typography variant="caption" sx={{ fontWeight: isSelected ? 800 : 600, fontSize: "0.7rem", color: isSelected ? "#38bdf8" : "inherit" }}>
-                        {tile.name}
-                      </Typography>
-                    </Box>
-                  );
-                })}
-              </Box>
-
               {/* Operational Layers Toggle */}
-              <Typography variant="caption" sx={{ fontWeight: 700, color: isDark ? "#94a3b8" : "#64748b", textTransform: "uppercase", fontSize: "0.65rem" }}>
-                Operational Overlays
-              </Typography>
-              <Stack spacing={0.75} mt={0.75}>
+              <Stack spacing={0.75}>
                 {[
                   { key: "hazards", icon: "🌊", label: "Hazard Risk Zones", count: filteredHazards.length, color: "#ef4444" },
                   { key: "habitations", icon: "🏘️", label: "Vulnerable Communities", count: filteredHabitations.length, color: "#eab308" },
                   { key: "shelters", icon: "⛺", label: "Relief Shelters", count: filteredShelters.length, color: "#10b981" },
-                  { key: "reports", icon: "🚨", label: "Citizen Field Reports", count: filteredCitizenReports.length, color: "#38bdf8" },
+                  { key: "reports", icon: "🚨", label: "Citizen Field Reports", count: filteredCitizenReports.length, color: "#0284c7" },
                   { key: "corridors", icon: "🚑", label: "Safe Evacuation Routes", count: filteredEvacuationRoutes.length || 1, color: "#f43f5e" },
+                  { key: "satellite", icon: "🛰️", label: "Satellite Aerial Mode", count: activeLayers.satellite ? "ON" : "OFF", color: "#8b5cf6" },
                 ].map((layer) => {
                   const isActive = activeLayers[layer.key];
                   return (
@@ -638,7 +592,7 @@ const HazardMap = forwardRef(
                         border: isActive ? `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}` : "1px solid transparent",
                         transition: "all 0.15s ease",
                         "&:hover": {
-                          bgcolor: "rgba(56, 189, 248, 0.08)",
+                          bgcolor: isDark ? "rgba(56, 189, 248, 0.08)" : "rgba(2, 132, 199, 0.06)",
                         },
                       }}
                     >
@@ -666,17 +620,24 @@ const HazardMap = forwardRef(
                   );
                 })}
               </Stack>
+
+              {/* Theme Note */}
+              <Box mt={1.5} pt={1} borderTop={`1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`}>
+                <Typography variant="caption" sx={{ fontSize: "0.65rem", color: isDark ? "#94a3b8" : "#64748b", display: "flex", alignItems: "center", gap: 0.5 }}>
+                  {isDark ? "🌙 Dark Cockpit" : "☀️ Light Mode"} &bull; Toggle via Navbar
+                </Typography>
+              </Box>
             </Paper>
           )}
         </Box>
 
-        {/* TOP-RIGHT: Tactical HUD Actions (Telemetry, GPS, Fullscreen) */}
+        {/* TOP-RIGHT: Tactical HUD Actions (zIndex: 500) */}
         <Box
           sx={{
             position: "absolute",
             top: 14,
             right: 14,
-            zIndex: 1000,
+            zIndex: 500,
             display: "flex",
             alignItems: "center",
             gap: 1,
@@ -684,18 +645,18 @@ const HazardMap = forwardRef(
         >
           {/* Live AI Sentinel Badge */}
           <Paper
-            elevation={4}
+            elevation={3}
             sx={{
               py: 0.5,
               px: 1.25,
               borderRadius: 2,
-              bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.94)",
+              bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.96)",
               backdropFilter: "blur(8px)",
-              border: "1px solid rgba(16, 185, 129, 0.4)",
+              border: isDark ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(16, 185, 129, 0.3)",
               display: "flex",
               alignItems: "center",
               gap: 0.75,
-              boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
+              boxShadow: isDark ? "0 4px 14px rgba(0,0,0,0.25)" : "0 2px 8px rgba(0,0,0,0.06)",
             }}
           >
             <Box
@@ -724,26 +685,27 @@ const HazardMap = forwardRef(
                 px: 1.25,
                 py: 0.5,
                 borderRadius: 2,
-                bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.94)",
+                bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.96)",
                 backdropFilter: "blur(8px)",
-                border: "1px solid rgba(56, 189, 248, 0.35)",
-                color: "#38bdf8",
+                border: isDark ? "1px solid rgba(56, 189, 248, 0.35)" : "1px solid rgba(2, 132, 199, 0.25)",
+                color: isDark ? "#38bdf8" : "#0284c7",
                 fontWeight: 700,
                 fontSize: "0.7rem",
                 textTransform: "none",
                 display: "flex",
                 gap: 0.5,
+                boxShadow: isDark ? "0 4px 14px rgba(0,0,0,0.25)" : "0 2px 8px rgba(0,0,0,0.06)",
                 "&:hover": {
-                  bgcolor: "rgba(56, 189, 248, 0.2)",
+                  bgcolor: isDark ? "rgba(56, 189, 248, 0.2)" : "rgba(2, 132, 199, 0.08)",
                 },
               }}
             >
               {gpsLoading ? (
-                <CircularProgress size={12} sx={{ color: "#38bdf8" }} />
+                <CircularProgress size={12} sx={{ color: isDark ? "#38bdf8" : "#0284c7" }} />
               ) : (
                 <MyLocationIcon sx={{ fontSize: 14 }} />
               )}
-              {gpsLoading ? "Locating..." : "📍 GPS"}
+              {gpsLoading ? "Locating..." : "GPS"}
             </Button>
           </Tooltip>
 
@@ -753,12 +715,13 @@ const HazardMap = forwardRef(
               size="small"
               onClick={toggleFullscreen}
               sx={{
-                bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.94)",
+                bgcolor: isDark ? "rgba(15, 23, 42, 0.9)" : "rgba(255, 255, 255, 0.96)",
                 backdropFilter: "blur(8px)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
+                border: isDark ? "1px solid rgba(255, 255, 255, 0.15)" : "1px solid rgba(0, 0, 0, 0.12)",
                 color: isDark ? "#f8fafc" : "#0f172a",
+                boxShadow: isDark ? "0 4px 14px rgba(0,0,0,0.25)" : "0 2px 8px rgba(0,0,0,0.06)",
                 "&:hover": {
-                  bgcolor: "rgba(56, 189, 248, 0.2)",
+                  bgcolor: isDark ? "rgba(56, 189, 248, 0.2)" : "rgba(2, 132, 199, 0.08)",
                 },
               }}
             >
@@ -767,30 +730,30 @@ const HazardMap = forwardRef(
           </Tooltip>
         </Box>
 
-        {/* BOTTOM-RIGHT: Tactical Threat Matrix Legend */}
+        {/* BOTTOM-RIGHT: Threat Matrix Legend (zIndex: 500) */}
         <Paper
-          elevation={4}
+          elevation={3}
           sx={{
             position: "absolute",
             bottom: 16,
             right: 16,
-            zIndex: 1000,
+            zIndex: 500,
             p: 1.25,
             px: 1.5,
             borderRadius: 2.5,
-            bgcolor: isDark ? "rgba(15, 23, 42, 0.92)" : "rgba(255, 255, 255, 0.95)",
+            bgcolor: isDark ? "rgba(15, 23, 42, 0.92)" : "rgba(255, 255, 255, 0.96)",
             backdropFilter: "blur(12px)",
-            border: "1px solid rgba(56, 189, 248, 0.3)",
+            border: isDark ? "1px solid rgba(56, 189, 248, 0.3)" : "1px solid rgba(0, 0, 0, 0.1)",
             color: isDark ? "#f8fafc" : "#0f172a",
             minWidth: 180,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+            boxShadow: isDark ? "0 8px 24px rgba(0,0,0,0.3)" : "0 4px 16px rgba(0,0,0,0.08)",
           }}
         >
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.75}>
             <Typography variant="caption" sx={{ fontWeight: 800, fontSize: "0.68rem", letterSpacing: 0.5, color: isDark ? "#94a3b8" : "#64748b" }}>
               THREAT MATRIX
             </Typography>
-            <Typography variant="caption" sx={{ fontSize: "0.65rem", color: "#38bdf8" }}>
+            <Typography variant="caption" sx={{ fontSize: "0.65rem", color: isDark ? "#38bdf8" : "#0284c7" }}>
               Live
             </Typography>
           </Box>
@@ -819,22 +782,23 @@ const HazardMap = forwardRef(
           </Stack>
         </Paper>
 
-        {/* BOTTOM-LEFT: Coordinate & Area Telemetry */}
+        {/* BOTTOM-LEFT: Coordinate & Area Telemetry (zIndex: 500) */}
         <Box
           sx={{
             position: "absolute",
             bottom: 16,
             left: 16,
-            zIndex: 1000,
+            zIndex: 500,
             py: 0.4,
             px: 1,
             borderRadius: 1.5,
-            bgcolor: isDark ? "rgba(15, 23, 42, 0.85)" : "rgba(255, 255, 255, 0.9)",
+            bgcolor: isDark ? "rgba(15, 23, 42, 0.85)" : "rgba(255, 255, 255, 0.94)",
             backdropFilter: "blur(6px)",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            color: isDark ? "#94a3b8" : "#64748b",
+            border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.1)",
+            color: isDark ? "#94a3b8" : "#475569",
             fontSize: "0.65rem",
             fontFamily: "var(--mono)",
+            boxShadow: isDark ? "none" : "0 2px 6px rgba(0,0,0,0.06)",
           }}
         >
           {location.name || location.district || "Delhi Sector"} &bull; {currentCenter[0]?.toFixed(4)}° N, {currentCenter[1]?.toFixed(4)}° E
@@ -850,9 +814,9 @@ const HazardMap = forwardRef(
           >
             <ChangeMapView center={currentCenter} zoom={DEFAULT_ZOOM} />
 
-            {/* Active Base Tile Layer */}
+            {/* Active Base Tile Layer (Strictly Voyager/white in light mode, Dark in dark mode) */}
             <TileLayer
-              key={activeTile.id}
+              key={`${activeTile.id}-${isDark ? "dark" : "light"}`}
               url={activeTile.url}
               attribution={activeTile.attribution}
               subdomains={activeTile.subdomains || "abc"}
@@ -860,7 +824,7 @@ const HazardMap = forwardRef(
             />
 
             {/* If Satellite hybrid, also render the Reference Labels on top */}
-            {activeTile.id === "satellite" && activeTile.labelsUrl && (
+            {activeLayers.satellite && activeTile.id === "satellite" && activeTile.labelsUrl && (
               <TileLayer
                 url={activeTile.labelsUrl}
                 crossOrigin="anonymous"
@@ -900,10 +864,10 @@ const HazardMap = forwardRef(
               >
                 <Popup>
                   <div style={{ padding: "6px 8px" }}>
-                    <div style={{ fontWeight: 800, color: "#38bdf8", fontSize: 13 }}>
+                    <div style={{ fontWeight: 800, color: "#0284c7", fontSize: 13 }}>
                       📍 Verified Live GPS Location
                     </div>
-                    <div style={{ fontSize: 11, color: "#cbd5e1", marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: isDark ? "#cbd5e1" : "#475569", marginTop: 2 }}>
                       {location.name || "Your Position"}
                     </div>
                   </div>
@@ -928,17 +892,21 @@ const HazardMap = forwardRef(
                   <Marker
                     key={h._id}
                     position={[lat, lng]}
-                    icon={habitationIcon(h.riskCategory, h.name, h.population)}
+                    icon={habitationIcon(h.riskCategory)}
                   >
                     <Popup>
                       <div style={{ minWidth: 220, padding: "8px 10px", fontFamily: "inherit" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                           <span style={{ fontSize: 16 }}>🏘️</span>
                           <div>
-                            <div style={{ fontWeight: 800, fontSize: 13, color: "#f8fafc" }}>
+                            <div style={{
+                              fontWeight: 800,
+                              fontSize: 13,
+                              color: isDark ? "#f8fafc" : "#0f172a"
+                            }}>
                               {h.name}
                             </div>
-                            <div style={{ fontSize: 10.5, color: "#94a3b8" }}>
+                            <div style={{ fontSize: 10.5, color: isDark ? "#94a3b8" : "#64748b" }}>
                               {h.district || "Sector Community"}
                             </div>
                           </div>
@@ -949,7 +917,7 @@ const HazardMap = forwardRef(
                           justifyContent: "space-between",
                           padding: "3px 6px",
                           borderRadius: 4,
-                          background: "rgba(255,255,255,0.06)",
+                          background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
                           border: `1px solid ${riskColor}`,
                           marginBottom: 8,
                           fontSize: 11
@@ -957,12 +925,18 @@ const HazardMap = forwardRef(
                           <span style={{ fontWeight: 700, color: riskColor }}>
                             {h.riskCategory} RISK
                           </span>
-                          <span style={{ fontWeight: 800, color: "#f8fafc" }}>
+                          <span style={{ fontWeight: 800, color: isDark ? "#f8fafc" : "#0f172a" }}>
                             Score: {h.currentRiskScore || h.vulnerabilityScore || 0}/100
                           </span>
                         </div>
 
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 10.5, color: "#cbd5e1" }}>
+                        <div style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: 4,
+                          fontSize: 10.5,
+                          color: isDark ? "#cbd5e1" : "#334155"
+                        }}>
                           <div>Total Pop: <strong>{h.population?.toLocaleString() || "N/A"}</strong></div>
                           <div>Vulnerable: <strong style={{ color: "#ef4444" }}>{h.vulnerablePopulation?.toLocaleString() || "N/A"}</strong></div>
                         </div>
@@ -1002,18 +976,25 @@ const HazardMap = forwardRef(
                             fontWeight: 700,
                             padding: "1px 5px",
                             borderRadius: 3,
-                            background: "rgba(56, 189, 248, 0.2)",
-                            color: "#38bdf8"
+                            background: "rgba(2, 132, 199, 0.15)",
+                            color: "#0284c7"
                           }}>
                             {report.status}
                           </span>
                         </div>
 
-                        <div style={{ fontSize: 12.5, fontWeight: 500, color: "#f8fafc", fontStyle: "italic", marginBottom: 8, lineHeight: 1.35 }}>
+                        <div style={{
+                          fontSize: 12.5,
+                          fontWeight: 500,
+                          color: isDark ? "#f8fafc" : "#0f172a",
+                          fontStyle: "italic",
+                          marginBottom: 8,
+                          lineHeight: 1.35
+                        }}>
                           "{report.description}"
                         </div>
 
-                        <div style={{ fontSize: 11, color: "#94a3b8", display: "flex", justifyContent: "space-between" }}>
+                        <div style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b", display: "flex", justifyContent: "space-between" }}>
                           <span>Type: <strong>{report.disasterType}</strong></span>
                           <span>Severity: <strong style={{ color: isCrit ? "#ef4444" : "#f97316" }}>{report.severity}</strong></span>
                         </div>
@@ -1054,17 +1035,17 @@ const HazardMap = forwardRef(
                   >
                     <Popup>
                       <div style={{ minWidth: 230, padding: "8px 10px" }}>
-                        <div style={{ fontWeight: 800, color: "#38bdf8", fontSize: 12, marginBottom: 4 }}>
+                        <div style={{ fontWeight: 800, color: "#0284c7", fontSize: 12, marginBottom: 4 }}>
                           🚑 SAFE EVACUATION CORRIDOR
                         </div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#f8fafc" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#f8fafc" : "#0f172a" }}>
                           {route.sourceName} &rarr; {route.destinationName}
                         </div>
-                        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                        <div style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b", marginTop: 4 }}>
                           Transit: <strong>{route.durationMins || "15"} mins</strong> &bull; Distance: <strong>{route.distanceKm || "4.5"} km</strong>
                         </div>
-                        <div style={{ fontSize: 11, color: "#cbd5e1", marginTop: 2 }}>
-                          Priority: <strong style={{ color: route.priority === "IMMEDIATE" ? "#f43f5e" : "#38bdf8" }}>{route.priority || "ACTIVE"}</strong> &bull; Evacuees: <strong>{route.population?.toLocaleString() || "1,200"}</strong>
+                        <div style={{ fontSize: 11, color: isDark ? "#cbd5e1" : "#334155", marginTop: 2 }}>
+                          Priority: <strong style={{ color: route.priority === "IMMEDIATE" ? "#f43f5e" : "#0284c7" }}>{route.priority || "ACTIVE"}</strong> &bull; Evacuees: <strong>{route.population?.toLocaleString() || "1,200"}</strong>
                         </div>
                       </div>
                     </Popup>

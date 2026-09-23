@@ -36,7 +36,7 @@
   display: flex;
   flex-direction: column;
   padding: 1.25rem 1rem;
-  z-index: 100;
+  z-index: 1300;
   transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
@@ -70,7 +70,7 @@
 .navbar-container {
   position: sticky;
   top: 0;
-  z-index: 80;
+  z-index: 1200;
 }
 
 .top-navbar {

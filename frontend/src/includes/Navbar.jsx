@@ -213,7 +213,7 @@ const Navbar = () => {
                 borderRadius: 12,
                 boxShadow: isDark ? '0 16px 36px rgba(0,0,0,0.6)' : '0 12px 30px rgba(0,0,0,0.12)',
                 padding: '0.85rem',
-                zIndex: 1000,
+                zIndex: 1500,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>

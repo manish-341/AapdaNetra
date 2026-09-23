@@ -1,18 +1,24 @@
 import React from "react";
 import { Marker, Popup } from "react-leaflet";
 import L from "leaflet";
+import { useThemeMode } from "../../context/ThemeContext";
 
 /**
  * Tactical Shelter Marker
  * Renders an emergency shelter with live vacancy indicator,
  * modern tactical pin design, and rich shelter operational details.
+ * Fully adaptive: white badge in light mode, dark badge in dark mode.
  */
-const createShelterIcon = (status, availableCapacity) => {
+const createShelterIcon = (status, availableCapacity, isDark) => {
   const isAvailable = status === "AVAILABLE" || availableCapacity > 0;
   const isFull = status === "FULL" || availableCapacity === 0;
-  
+
   const statusColor = isAvailable ? "#10b981" : isFull ? "#f97316" : "#ef4444";
   const badgeText = isAvailable ? `${availableCapacity || "Open"}` : "FULL";
+
+  const badgeBg = isDark ? "rgba(15, 23, 42, 0.92)" : "#ffffff";
+  const badgeTextColor = isDark ? statusColor : "#0f172a";
+  const badgeShadow = isDark ? "0 2px 6px rgba(0,0,0,0.4)" : "0 2px 8px rgba(0,0,0,0.15)";
 
   return L.divIcon({
     className: "shelter-tactical-marker",
@@ -26,16 +32,16 @@ const createShelterIcon = (status, availableCapacity) => {
       ">
         <!-- Top Vacancy Badge -->
         <div style="
-          background: rgba(15, 23, 42, 0.9);
-          border: 1px solid ${statusColor};
-          color: ${statusColor};
+          background: ${badgeBg};
+          border: 1.5px solid ${statusColor};
+          color: ${badgeTextColor};
           font-size: 9px;
           font-weight: 800;
-          padding: 1px 5px;
+          padding: 1px 6px;
           border-radius: 4px;
           white-space: nowrap;
           margin-bottom: 2px;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+          box-shadow: ${badgeShadow};
         ">${badgeText}</div>
 
         <!-- Shelter Pin Body -->
@@ -65,6 +71,8 @@ const createShelterIcon = (status, availableCapacity) => {
 };
 
 const ShelterMarker = ({ shelter }) => {
+  const { isDark } = useThemeMode();
+
   if (!shelter || !shelter.location || !Array.isArray(shelter.location.coordinates)) {
     return null;
   }
@@ -77,7 +85,7 @@ const ShelterMarker = ({ shelter }) => {
   return (
     <Marker
       position={[lat, lng]}
-      icon={createShelterIcon(shelter.status, available)}
+      icon={createShelterIcon(shelter.status, available, isDark)}
     >
       <Popup>
         <div style={{ minWidth: 230, padding: "8px 10px", fontFamily: "inherit" }}>
@@ -97,10 +105,15 @@ const ShelterMarker = ({ shelter }) => {
               🏠
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800, fontSize: 13, color: "#f8fafc", lineHeight: 1.2 }}>
+              <div style={{
+                fontWeight: 800,
+                fontSize: 13,
+                color: isDark ? "#f8fafc" : "#0f172a",
+                lineHeight: 1.2
+              }}>
                 {shelter.name}
               </div>
-              <div style={{ fontSize: 11, color: "#94a3b8" }}>
+              <div style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b" }}>
                 {shelter.district || "Relief Hub"} • {shelter.state || "Delhi"}
               </div>
             </div>
@@ -120,14 +133,14 @@ const ShelterMarker = ({ shelter }) => {
             <span style={{ fontSize: 11, fontWeight: 700, color: isAvailable ? "#10b981" : "#ef4444" }}>
               {isAvailable ? "● INTAKE AVAILABLE" : "● SHELTER AT CAPACITY"}
             </span>
-            <span style={{ fontSize: 11, fontWeight: 800, color: "#ffffff" }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: isDark ? "#ffffff" : "#0f172a" }}>
               {available} Beds Open
             </span>
           </div>
 
           {/* Occupancy Progress Bar */}
           <div style={{ marginBottom: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#94a3b8", marginBottom: 3 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: isDark ? "#94a3b8" : "#64748b", marginBottom: 3 }}>
               <span>Capacity Utilized</span>
               <span>{shelter.currentOccupancy || 0} / {shelter.capacity || 0} ({occupancyPct}%)</span>
             </div>
@@ -135,7 +148,7 @@ const ShelterMarker = ({ shelter }) => {
               width: "100%",
               height: 6,
               borderRadius: 3,
-              background: "rgba(255, 255, 255, 0.1)",
+              background: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.08)",
               overflow: "hidden"
             }}>
               <div style={{
@@ -158,8 +171,8 @@ const ShelterMarker = ({ shelter }) => {
                     fontSize: 9.5,
                     padding: "2px 5px",
                     borderRadius: 4,
-                    background: "rgba(255, 255, 255, 0.08)",
-                    color: "#cbd5e1"
+                    background: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)",
+                    color: isDark ? "#cbd5e1" : "#475569"
                   }}
                 >
                   ✓ {fac}
@@ -171,10 +184,10 @@ const ShelterMarker = ({ shelter }) => {
           {shelter.contactNumber && (
             <div style={{
               fontSize: 10.5,
-              color: "#38bdf8",
+              color: isDark ? "#38bdf8" : "#0284c7",
               fontWeight: 600,
               paddingTop: 4,
-              borderTop: "1px solid rgba(255,255,255,0.08)"
+              borderTop: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)"
             }}>
               📞 Emergency Desk: {shelter.contactNumber}
             </div>
