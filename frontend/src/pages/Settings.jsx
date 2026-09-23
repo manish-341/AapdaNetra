@@ -83,7 +83,7 @@ export default function Settings() {
   const { isDark, toggleTheme } = useThemeMode();
   const { location, setLocation, detectLiveGPS, gpsLoading } = useLocationContext();
 
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState('profile');
   const [currentUser, setCurrentUser] = useState(getCurrentUser() || {});
   const [role, setRole] = useState(getUserRole());
 
@@ -272,13 +272,11 @@ export default function Settings() {
     fetchSmsStatus();
   }, []);
 
-  const [adminOverride, setAdminOverride] = useState(false);
   const isAdmin =
-    adminOverride ||
     role === 'ADMIN' ||
+    role === 'ADMINISTRATOR' ||
     currentUser?.role === 'ADMIN' ||
-    currentUser?.email === 'ayuyyysh0714@gmail.com' ||
-    currentUser?.email === 'admin@aapdanetra.in';
+    currentUser?.role === 'ADMINISTRATOR';
 
   // Admin-Only Mass Broadcast to ALL Registered Users
   const handleAdminBroadcastEmergency = async (e) => {
@@ -546,33 +544,49 @@ export default function Settings() {
             mb: 3
           }}
         >
-          <Tabs
-            value={activeTab}
-            onChange={(_, val) => setActiveTab(val)}
-            variant="scrollable"
-            scrollButtons="auto"
-            sx={{
-              px: 2,
-              minHeight: 52,
-              '& .MuiTab-root': {
-                minHeight: 52,
-                textTransform: 'none',
-                fontWeight: 700,
-                fontSize: '0.88rem',
-                color: textSecondary,
-                '&.Mui-selected': { color: accentColor }
-              }
-            }}
-          >
-            <Tab icon={<User size={17} style={{ marginBottom: 0, marginRight: 8 }} />} iconPosition="start" label="Profile & Identity" />
-            <Tab icon={<Bell size={17} style={{ marginBottom: 0, marginRight: 8 }} />} iconPosition="start" label="Emergency Alerts & Notifications" />
-            <Tab icon={<Compass size={17} style={{ marginBottom: 0, marginRight: 8 }} />} iconPosition="start" label="Geospatial & Telemetry" />
-            <Tab icon={<Sliders size={17} style={{ marginBottom: 0, marginRight: 8 }} />} iconPosition="start" label="System & Security" />
-          </Tabs>
+          {(() => {
+            const availableTabs = [
+              { id: 'profile', label: 'Profile & Identity', icon: <User size={17} style={{ marginBottom: 0, marginRight: 8 }} /> },
+              ...(isAdmin ? [{ id: 'alerts', label: 'Emergency Alerts & Notifications', icon: <Bell size={17} style={{ marginBottom: 0, marginRight: 8 }} /> }] : []),
+              { id: 'telemetry', label: 'Geospatial & Telemetry', icon: <Compass size={17} style={{ marginBottom: 0, marginRight: 8 }} /> },
+              { id: 'system', label: 'System & Security', icon: <Sliders size={17} style={{ marginBottom: 0, marginRight: 8 }} /> },
+            ];
+
+            return (
+              <Tabs
+                value={availableTabs.some(t => t.id === activeTab) ? activeTab : 'profile'}
+                onChange={(_, val) => setActiveTab(val)}
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{
+                  px: 2,
+                  minHeight: 52,
+                  '& .MuiTab-root': {
+                    minHeight: 52,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.88rem',
+                    color: textSecondary,
+                    '&.Mui-selected': { color: accentColor }
+                  }
+                }}
+              >
+                {availableTabs.map((t) => (
+                  <Tab
+                    key={t.id}
+                    value={t.id}
+                    icon={t.icon}
+                    iconPosition="start"
+                    label={t.label}
+                  />
+                ))}
+              </Tabs>
+            );
+          })()}
         </Paper>
 
-        {/* TAB 0: PROFILE & IDENTITY */}
-        {activeTab === 0 && (
+        {/* TAB: PROFILE & IDENTITY */}
+        {activeTab === 'profile' && (
           <>
             <Grid container spacing={3}>
             <Grid item xs={12} md={7}>
@@ -727,8 +741,8 @@ export default function Settings() {
         </>
       )}
 
-        {/* TAB 1: EMERGENCY ALERTS & NOTIFICATIONS */}
-        {activeTab === 1 && (
+        {/* TAB: EMERGENCY ALERTS & NOTIFICATIONS (ADMIN ONLY) */}
+        {isAdmin && activeTab === 'alerts' && (
           <Grid container spacing={3}>
             {/* ALERT SEVERITY & CHANNELS */}
             <Grid item xs={12} md={7}>
@@ -938,45 +952,45 @@ export default function Settings() {
               </Paper>
             </Grid>
 
-            {/* FULL-WIDTH EMERGENCY BROADCAST CONSOLE */}
-            <Grid item xs={12}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 3.5,
-                  borderRadius: 3.5,
-                  bgcolor: isDark ? 'rgba(239, 68, 68, 0.05)' : '#fff8f8',
-                  border: '1px solid rgba(239, 68, 68, 0.25)'
-                }}
-              >
-                <Box display="flex" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={1.5}>
-                  <Box display="flex" alignItems="center" gap={1.5}>
-                    <Box sx={{ p: 1, borderRadius: 2, bgcolor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>
-                      <AlertTriangle size={22} />
+            {/* FULL-WIDTH EMERGENCY BROADCAST CONSOLE (ADMIN ONLY) */}
+            {isAdmin && (
+              <Grid item xs={12}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 3.5,
+                    borderRadius: 3.5,
+                    bgcolor: isDark ? 'rgba(239, 68, 68, 0.05)' : '#fff8f8',
+                    border: '1px solid rgba(239, 68, 68, 0.25)'
+                  }}
+                >
+                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={1.5}>
+                    <Box display="flex" alignItems="center" gap={1.5}>
+                      <Box sx={{ p: 1, borderRadius: 2, bgcolor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>
+                        <AlertTriangle size={22} />
+                      </Box>
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#ef4444' }}>
+                          Emergency Citizen Broadcast Console
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: textSecondary }}>
+                          Dispatch critical disaster advisories and all-clear notices to registered citizens.
+                        </Typography>
+                      </Box>
                     </Box>
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#ef4444' }}>
-                        {isAdmin ? 'Emergency Citizen Broadcast Console' : 'Emergency Alert Telemetry Status'}
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: textSecondary }}>
-                        {isAdmin ? 'Dispatch critical disaster advisories and all-clear notices to registered citizens.' : 'Enrolled to receive real-time evacuation bulletins and alert tones.'}
-                      </Typography>
-                    </Box>
+                    <Chip
+                      size="small"
+                      label="ADMIN AUTHORIZED"
+                      sx={{
+                        fontWeight: 800,
+                        fontSize: '0.72rem',
+                        bgcolor: 'rgba(239, 68, 68, 0.15)',
+                        color: '#dc2626',
+                        border: '1px solid rgba(239, 68, 68, 0.3)'
+                      }}
+                    />
                   </Box>
-                  <Chip
-                    size="small"
-                    label={isAdmin ? 'ADMIN AUTHORIZED' : 'CITIZEN SUBSCRIBER'}
-                    sx={{
-                      fontWeight: 800,
-                      fontSize: '0.72rem',
-                      bgcolor: isAdmin ? 'rgba(239, 68, 68, 0.15)' : 'rgba(2, 132, 199, 0.15)',
-                      color: isAdmin ? '#dc2626' : '#0284c7',
-                      border: `1px solid ${isAdmin ? 'rgba(239, 68, 68, 0.3)' : 'rgba(2, 132, 199, 0.3)'}`
-                    }}
-                  />
-                </Box>
 
-                {isAdmin ? (
                   <Stack spacing={2.5}>
                     {/* Active Emergency Callout if exists */}
                     {activeCriticalAlert && (
@@ -1114,32 +1128,14 @@ export default function Settings() {
                       </Box>
                     )}
                   </Stack>
-                ) : (
-                  <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2} pt={1}>
-                    <Typography variant="body2" sx={{ color: textSecondary }}>
-                      Mass disaster broadcast controls are restricted to authorized Disaster Management Administrators.
-                    </Typography>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      color="error"
-                      onClick={() => {
-                        setAdminOverride(true);
-                        showToast('Admin Command Mode unlocked.', 'success');
-                      }}
-                      sx={{ textTransform: 'none', fontWeight: 800, fontSize: '0.75rem', px: 2.5, py: 0.75, borderRadius: 2 }}
-                    >
-                      🔓 Unlock Admin Console
-                    </Button>
-                  </Box>
-                )}
-              </Paper>
-            </Grid>
+                </Paper>
+              </Grid>
+            )}
           </Grid>
         )}
 
-        {/* TAB 2: GEOSPATIAL & TELEMETRY */}
-        {activeTab === 2 && (
+        {/* TAB: GEOSPATIAL & TELEMETRY */}
+        {activeTab === 'telemetry' && (
           <Grid container spacing={3}>
             <Grid item xs={12} md={7}>
               <Paper
@@ -1313,8 +1309,8 @@ export default function Settings() {
           </Grid>
         )}
 
-        {/* TAB 3: SYSTEM & SECURITY */}
-        {activeTab === 3 && (
+        {/* TAB: SYSTEM & SECURITY */}
+        {activeTab === 'system' && (
           <Grid container spacing={3}>
             <Grid item xs={12} md={7}>
               <Paper

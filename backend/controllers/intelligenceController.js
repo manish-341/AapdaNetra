@@ -561,11 +561,59 @@ const getDashboardStats = async (req, res) => {
             ];
         }
 
+        // 8. Compute Localized Dynamic Risk Score (0-100) & 24h Trend
+        let calculatedScore = 22; // Peaceful/Normal baseline
+        if (criticalAlerts > 0) {
+            calculatedScore += Math.min(48, criticalAlerts * 25);
+        } else if (alertCount > 0) {
+            calculatedScore += Math.min(22, alertCount * 8);
+        }
+        if (criticalHazards > 0) {
+            calculatedScore += Math.min(25, criticalHazards * 12);
+        }
+        if (mediumHazards > 0) {
+            calculatedScore += Math.min(15, mediumHazards * 5);
+        }
+        if (telemetry.riverStatus === "Critical" || telemetry.riverStatus === "Danger") {
+            calculatedScore += 24;
+        } else if (telemetry.riverStatus === "Elevated" || telemetry.riverStatus === "Warning") {
+            calculatedScore += 12;
+        }
+        const rainNum = parseFloat(telemetry.rainfall) || 0;
+        if (rainNum >= 50) calculatedScore += 20;
+        else if (rainNum >= 15) calculatedScore += 10;
+        else if (rainNum > 0) calculatedScore += 4;
+
+        calculatedScore = Math.min(96, Math.max(14, Math.round(calculatedScore)));
+
+        let riskLevel = "Low";
+        if (calculatedScore >= 75) riskLevel = "Critical";
+        else if (calculatedScore >= 55) riskLevel = "Elevated";
+        else if (calculatedScore >= 35) riskLevel = "Moderate";
+
+        // Generate 24h trend trajectory ending at the calculated score
+        const trend = [
+            Math.max(10, Math.round(calculatedScore * 0.42)),
+            Math.max(12, Math.round(calculatedScore * 0.55)),
+            Math.max(10, Math.round(calculatedScore * 0.48)),
+            Math.max(14, Math.round(calculatedScore * 0.65)),
+            Math.max(16, Math.round(calculatedScore * 0.85)),
+            Math.max(18, Math.round(calculatedScore * 0.94)),
+            Math.max(16, Math.round(calculatedScore * 0.82)),
+            Math.max(15, Math.round(calculatedScore * 0.90)),
+            calculatedScore
+        ];
+
         res.status(200).json({
             success: true,
             data: {
                 district: districtName,
                 state: stateName,
+                riskScore: {
+                    score: calculatedScore,
+                    level: riskLevel,
+                    trend: trend
+                },
                 activeAlerts: alertCount,
                 criticalAlerts: criticalAlerts,
                 sheltersOperational: availableShelters,

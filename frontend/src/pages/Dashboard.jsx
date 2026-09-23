@@ -115,19 +115,28 @@ function RiskDonutChart({ isDark, total = 322, low = 184, med = 84, high = 54 })
   );
 }
 
-// Pixel-perfect SVG Area Chart that NEVER collapses
-function RiskTrendAreaChart({ isDark }) {
-  const points = [
-    { x: 30, y: 110 },
-    { x: 65, y: 98 },
-    { x: 105, y: 102 },
-    { x: 145, y: 88 },
-    { x: 180, y: 55 },
-    { x: 215, y: 38 },
-    { x: 250, y: 62 },
-    { x: 285, y: 60 },
-    { x: 325, y: 72 },
+// Pixel-perfect SVG Area Chart that NEVER collapses and dynamically reflects localized conditions
+function RiskTrendAreaChart({ isDark, score = 24, trendData = null, color = '#10b981' }) {
+  const xCoords = [30, 67, 104, 141, 178, 215, 252, 289, 325];
+  const defaultTrend = [
+    Math.max(10, Math.round(score * 0.42)),
+    Math.max(12, Math.round(score * 0.55)),
+    Math.max(10, Math.round(score * 0.48)),
+    Math.max(14, Math.round(score * 0.65)),
+    Math.max(16, Math.round(score * 0.85)),
+    Math.max(18, Math.round(score * 0.94)),
+    Math.max(16, Math.round(score * 0.82)),
+    Math.max(15, Math.round(score * 0.90)),
+    score
   ];
+  const actualValues = (Array.isArray(trendData) && trendData.length === 9) ? trendData : defaultTrend;
+
+  const points = actualValues.map((val, idx) => {
+    const clampedVal = Math.min(100, Math.max(0, val));
+    // y goes from 130 (value 0) to 30 (value 100)
+    const y = 130 - (clampedVal / 100) * 100;
+    return { x: xCoords[idx], y: Math.round(y) };
+  });
 
   const linePath = `M ${points.map((p) => `${p.x},${p.y}`).join(' L ')}`;
   const areaPath = `M ${points[0].x},130 L ${points.map((p) => `${p.x},${p.y}`).join(' L ')} L ${points[points.length - 1].x},130 Z`;
@@ -140,13 +149,15 @@ function RiskTrendAreaChart({ isDark }) {
     { label: '0', y: 130 },
   ];
 
+  const gradId = `riskAreaGrad-${color.replace('#', '')}`;
+
   return (
     <Box sx={{ width: '100%', height: 160, overflow: 'hidden' }}>
       <svg width="100%" height="160" viewBox="0 0 350 160" preserveAspectRatio="none">
         <defs>
-          <linearGradient id="redAreaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.32" />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity="0.0" />
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.32" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.0" />
           </linearGradient>
         </defs>
 
@@ -168,13 +179,13 @@ function RiskTrendAreaChart({ isDark }) {
         ))}
 
         {/* Gradient fill area */}
-        <path d={areaPath} fill="url(#redAreaGrad)" />
+        <path d={areaPath} fill={`url(#${gradId})`} />
 
-        {/* Red Curve line */}
+        {/* Red/Amber/Green Curve line */}
         <path
           d={linePath}
           fill="none"
-          stroke="#ef4444"
+          stroke={color}
           strokeWidth="2.4"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -182,21 +193,24 @@ function RiskTrendAreaChart({ isDark }) {
 
         {/* Point dots */}
         {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r="3" fill="#ef4444" stroke="#ffffff" strokeWidth="1.2" />
+          <circle key={i} cx={p.x} cy={p.y} r="3" fill={color} stroke="#ffffff" strokeWidth="1.2" />
         ))}
 
         {/* X Axis time labels */}
         <text x="30" y="148" fill="#94a3b8" fontSize="9.5" textAnchor="middle" fontFamily="inherit">
           00:00
         </text>
-        <text x="125" y="148" fill="#94a3b8" fontSize="9.5" textAnchor="middle" fontFamily="inherit">
+        <text x="104" y="148" fill="#94a3b8" fontSize="9.5" textAnchor="middle" fontFamily="inherit">
           06:00
         </text>
-        <text x="225" y="148" fill="#94a3b8" fontSize="9.5" textAnchor="middle" fontFamily="inherit">
+        <text x="178" y="148" fill="#94a3b8" fontSize="9.5" textAnchor="middle" fontFamily="inherit">
           12:00
         </text>
-        <text x="315" y="148" fill="#94a3b8" fontSize="9.5" textAnchor="middle" fontFamily="inherit">
+        <text x="252" y="148" fill="#94a3b8" fontSize="9.5" textAnchor="middle" fontFamily="inherit">
           18:00
+        </text>
+        <text x="325" y="148" fill={color} fontWeight="700" fontSize="9.5" textAnchor="middle" fontFamily="inherit">
+          Now
         </text>
       </svg>
     </Box>
@@ -301,6 +315,13 @@ export default function Dashboard() {
   const medPercent = totalHazardZones > 0 ? Math.min(100, Math.round((medRiskZones / totalHazardZones) * 100)) : 0;
   const highPercent = totalHazardZones > 0 ? Math.min(100, Math.round((highRiskZones / totalHazardZones) * 100)) : 0;
 
+  const currentRiskScore = stats?.riskScore?.score ?? (criticalAlertsCount > 0 ? 76 : (activeAlertsCount > 0 ? 52 : 24));
+  const currentRiskLevel = stats?.riskScore?.level ?? (currentRiskScore >= 75 ? 'Critical' : currentRiskScore >= 55 ? 'Elevated' : currentRiskScore >= 35 ? 'Moderate' : 'Low');
+  const riskColor = currentRiskScore >= 75 ? '#ef4444' : currentRiskScore >= 55 ? '#ea580c' : currentRiskScore >= 35 ? '#eab308' : '#10b981';
+  const riskBgLight = currentRiskScore >= 75 ? '#fff1f2' : currentRiskScore >= 55 ? '#fff7ed' : currentRiskScore >= 35 ? '#fefce8' : '#ecfdf5';
+  const riskBgDark = currentRiskScore >= 75 ? 'rgba(239,68,68,0.18)' : currentRiskScore >= 55 ? 'rgba(234,88,12,0.18)' : currentRiskScore >= 35 ? 'rgba(234,179,8,0.18)' : 'rgba(16,185,129,0.18)';
+  const riskTrend = stats?.riskScore?.trend || null;
+
   const cardBg = isDark ? '#111827' : '#ffffff';
   const cardBorder = isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #f1f5f9';
   const cardShadow = isDark ? 'none' : '0 2px 10px rgba(0,0,0,0.03)';
@@ -381,7 +402,7 @@ export default function Dashboard() {
       stats: [
         { label: 'Active Alerts', value: activeAlertsCount, color: '#ef4444' },
         { label: 'Critical Level', value: criticalAlertsCount, color: '#ea580c' },
-        { label: 'Risk Score', value: '70 (Elevated)', color: '#f59e0b' }
+        { label: 'Risk Score', value: `${currentRiskScore} (${currentRiskLevel})`, color: riskColor }
       ],
       details: [
         { label: `${riverName} Gauge Status`, value: `${riverLevel} ${riverTrend}`, badge: 'Surge Warning', badgeColor: '#ef4444', badgeBg: 'rgba(239, 68, 68, 0.15)' },
@@ -1056,7 +1077,7 @@ export default function Dashboard() {
 
               <Box sx={{ textAlign: 'center', pt: 1, borderTop: cardBorder }}>
                 <Button
-                  onClick={() => navigate('/risk-analysis')}
+                  onClick={() => navigate(isAdmin ? '/risk-analysis' : '/disaster-map')}
                   endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
                   sx={{
                     textTransform: 'none',
@@ -1067,7 +1088,7 @@ export default function Dashboard() {
                     '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
                   }}
                 >
-                  View full risk analysis
+                  {isAdmin ? 'View full risk analysis' : 'View live disaster map'}
                 </Button>
               </Box>
             </Paper>
@@ -1097,21 +1118,26 @@ export default function Dashboard() {
                       px: 1.2,
                       py: 0.35,
                       borderRadius: '8px',
-                      bgcolor: isDark ? 'rgba(239,68,68,0.18)' : '#fff1f2',
-                      border: '1px solid rgba(239,68,68,0.2)',
+                      bgcolor: isDark ? riskBgDark : riskBgLight,
+                      border: `1px solid ${riskColor}33`,
                       textAlign: 'right',
                     }}
                   >
-                    <Typography sx={{ color: '#ef4444', fontWeight: 800, fontSize: '0.74rem', lineHeight: 1.1 }}>
-                      Current: 70
+                    <Typography sx={{ color: riskColor, fontWeight: 800, fontSize: '0.74rem', lineHeight: 1.1 }}>
+                      Current: {currentRiskScore}
                     </Typography>
-                    <Typography sx={{ color: '#ef4444', fontWeight: 600, fontSize: '0.65rem' }}>
-                      Elevated
+                    <Typography sx={{ color: riskColor, fontWeight: 600, fontSize: '0.65rem' }}>
+                      {currentRiskLevel}
                     </Typography>
                   </Box>
                 </Box>
 
-                <RiskTrendAreaChart isDark={isDark} />
+                <RiskTrendAreaChart
+                  isDark={isDark}
+                  score={currentRiskScore}
+                  trendData={riskTrend}
+                  color={riskColor}
+                />
               </Box>
 
               <Box sx={{ textAlign: 'center', pt: 1, borderTop: cardBorder }}>

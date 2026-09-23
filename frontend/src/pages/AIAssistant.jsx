@@ -1,9 +1,8 @@
 import React from 'react';
-import { Box, Typography, Grid } from '@mui/material';
+import { Box } from '@mui/material';
 import Boilerplate from '../layouts/Boilerplate';
 import AIChat from '../components/AIChat';
 import { postAIChat } from '../services/api';
-import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext } from '../context/LocationContext';
 
 const SUGGESTED_PROMPTS = [
@@ -25,10 +24,7 @@ const INITIAL_MESSAGES = [
 ];
 
 export default function AIAssistant() {
-  const { isDark } = useThemeMode();
   const { location } = useLocationContext();
-  const textMain = isDark ? '#f8fafc' : '#0f172a';
-  const textSecondary = isDark ? '#94a3b8' : '#64748b';
 
   const handleSend = async (message, extra = {}) => {
     let coords = {
@@ -42,28 +38,26 @@ export default function AIAssistant() {
 
   return (
     <Boilerplate>
-      <Box mb={3}>
-        <Typography variant="caption" sx={{ color: textSecondary }}>Home &gt; AI Emergency Assistant</Typography>
-        <Typography variant="h5" fontWeight="bold" sx={{ color: textMain, mt: 0.5 }}>
-          AI Emergency Assistant
-        </Typography>
-        <Typography variant="body2" sx={{ color: textSecondary }}>
-          Real-time disaster guidance, safety recommendations, and shelter direction powered by actual AapdaNetra live data.
-        </Typography>
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          minHeight: 0,
+          width: '100%'
+        }}
+      >
+        <AIChat
+          title="AapdaNetra Emergency Safety Assistant"
+          subtitle="Real-time disaster guidance, live trauma hospitals & verified shelter navigation"
+          onSendMessage={handleSend}
+          initialMessages={INITIAL_MESSAGES}
+          suggestedPrompts={SUGGESTED_PROMPTS}
+          isCopilot={false}
+          activeLocationName={location?.district || location?.name}
+        />
       </Box>
-
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12 }}>
-          <AIChat
-            title="AapdaNetra Emergency Safety Assistant"
-            subtitle="Queries are answered using real database data and verified safety protocols"
-            onSendMessage={handleSend}
-            initialMessages={INITIAL_MESSAGES}
-            suggestedPrompts={SUGGESTED_PROMPTS}
-            isCopilot={false}
-          />
-        </Grid>
-      </Grid>
     </Boilerplate>
   );
 }

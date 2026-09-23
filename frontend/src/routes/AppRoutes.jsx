@@ -56,7 +56,7 @@ export default function AppRoutes() {
       <Route path="/ai-copilot" element={<Navigate to="/ai-assistant" replace />} />
       <Route path="/citizen-reports" element={<RequireAuth><CitizenReports /></RequireAuth>} />
       <Route path="/forecasts" element={<RequireAuth><Forecasts /></RequireAuth>} />
-      <Route path="/risk-analysis" element={<RequireAuth><RiskAnalysis /></RequireAuth>} />
+      <Route path="/risk-analysis" element={<RequireAdmin><RiskAnalysis /></RequireAdmin>} />
       <Route path="/simulation" element={<RequireResponder><Simulation /></RequireResponder>} />
 
       {/* OPERATIONS & RELOCATION (ADMIN ONLY) */}
