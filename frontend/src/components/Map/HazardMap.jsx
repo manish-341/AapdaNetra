@@ -62,23 +62,25 @@ L.Icon.Default.mergeOptions({
 });
 
 // ---- Tactical Basemap Configurations ---------------------------------
+const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY || "cb1_3uw2_1_b5a5aa8095425d7d5594ddce";
+
 const BASEMAP_TILES = {
   dark: {
     id: "dark",
     name: "Dark Cockpit",
     icon: "🌙",
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    url: `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
     attribution:
-      '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      '&copy; <a href="https://carto.com/" target="_blank" rel="noopener noreferrer">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
     subdomains: "abcd",
   },
   voyager: {
     id: "voyager",
     name: "Tactical Street",
     icon: "🗺️",
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    url: `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
     attribution:
-      '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      '&copy; <a href="https://carto.com/" target="_blank" rel="noopener noreferrer">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
     subdomains: "abcd",
   },
   satellite: {
