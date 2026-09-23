@@ -3,9 +3,15 @@ import { Paper, Box, Typography, Chip, LinearProgress } from '@mui/material';
 import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 import PhoneIcon from '@mui/icons-material/Phone';
+import { useThemeMode } from '../context/ThemeContext';
 
 export default function ShelterCard({ shelter, distance, estimatedTravelTime, isRecommended = false }) {
+  const { isDark } = useThemeMode();
   if (!shelter) return null;
+
+  const textMain = isDark ? '#f8fafc' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#475569';
+  const subBg = isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9';
 
   const occupancyRatio = (shelter.currentOccupancy / (shelter.capacity || 1)) * 100;
   const isAvailable = shelter.status === 'AVAILABLE';
@@ -16,9 +22,13 @@ export default function ShelterCard({ shelter, distance, estimatedTravelTime, is
       sx={{
         p: 2.5,
         borderRadius: 3,
-        border: isRecommended ? '1.5px solid #38bdf8 !important' : '1px solid rgba(255, 255, 255, 0.08) !important',
+        border: isRecommended
+          ? '1.5px solid #38bdf8 !important'
+          : isDark
+          ? '1px solid rgba(255, 255, 255, 0.08) !important'
+          : '1px solid #e2e8f0 !important',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
       }}
     >
       {isRecommended && (
@@ -34,7 +44,7 @@ export default function ShelterCard({ shelter, distance, estimatedTravelTime, is
             borderBottomLeftRadius: 8,
             fontSize: '0.68rem',
             fontWeight: 800,
-            letterSpacing: 0.5
+            letterSpacing: 0.5,
           }}
         >
           TOP RECOMMENDATION
@@ -42,14 +52,14 @@ export default function ShelterCard({ shelter, distance, estimatedTravelTime, is
       )}
 
       <Box display="flex" alignItems="flex-start" gap={1.5} mb={1.5}>
-        <Box sx={{ p: 1, borderRadius: 2, backgroundColor: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}>
+        <Box sx={{ p: 1, borderRadius: 2, backgroundColor: 'rgba(56, 189, 248, 0.12)', color: '#0284c7' }}>
           <HomeWorkIcon fontSize="medium" />
         </Box>
         <Box flex={1}>
-          <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#f8fafc', lineHeight: 1.2 }}>
+          <Typography variant="subtitle1" fontWeight="bold" sx={{ color: textMain, lineHeight: 1.25 }}>
             {shelter.name}
           </Typography>
-          <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+          <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.25 }}>
             {shelter.district}, {shelter.state} {shelter.address ? `• ${shelter.address}` : ''}
           </Typography>
         </Box>
@@ -68,7 +78,12 @@ export default function ShelterCard({ shelter, distance, estimatedTravelTime, is
             label={`${distance} • ${estimatedTravelTime || 'mins'}`}
             size="small"
             variant="outlined"
-            sx={{ color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)', fontSize: '0.68rem', fontWeight: 600 }}
+            sx={{
+              color: isDark ? '#38bdf8' : '#0284c7',
+              borderColor: isDark ? 'rgba(56, 189, 248, 0.3)' : 'rgba(2, 132, 199, 0.3)',
+              fontSize: '0.68rem',
+              fontWeight: 600,
+            }}
           />
         )}
         {shelter.contactNumber && (
@@ -77,7 +92,7 @@ export default function ShelterCard({ shelter, distance, estimatedTravelTime, is
             label={shelter.contactNumber}
             size="small"
             variant="outlined"
-            sx={{ color: '#94a3b8', fontSize: '0.68rem' }}
+            sx={{ color: textSecondary, fontSize: '0.68rem' }}
           />
         )}
       </Box>
@@ -85,10 +100,14 @@ export default function ShelterCard({ shelter, distance, estimatedTravelTime, is
       {/* Occupancy bar */}
       <Box mb={1.5}>
         <Box display="flex" justifyContent="space-between" mb={0.5}>
-          <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+          <Typography variant="caption" sx={{ color: textSecondary }}>
             Capacity Utilization ({shelter.currentOccupancy} / {shelter.capacity})
           </Typography>
-          <Typography variant="caption" fontWeight="bold" sx={{ color: occupancyRatio > 90 ? '#ef4444' : '#38bdf8' }}>
+          <Typography
+            variant="caption"
+            fontWeight="bold"
+            sx={{ color: occupancyRatio > 90 ? '#ef4444' : isDark ? '#38bdf8' : '#0284c7' }}
+          >
             {shelter.availableCapacity} spots left
           </Typography>
         </Box>
@@ -98,10 +117,10 @@ export default function ShelterCard({ shelter, distance, estimatedTravelTime, is
           sx={{
             height: 6,
             borderRadius: 3,
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
             '& .MuiLinearProgress-bar': {
-              backgroundColor: occupancyRatio > 90 ? '#ef4444' : occupancyRatio > 70 ? '#f97316' : '#22c55e'
-            }
+              backgroundColor: occupancyRatio > 90 ? '#ef4444' : occupancyRatio > 70 ? '#f97316' : '#22c55e',
+            },
           }}
         />
       </Box>
@@ -117,9 +136,10 @@ export default function ShelterCard({ shelter, distance, estimatedTravelTime, is
                 px: 1,
                 py: 0.2,
                 borderRadius: 1,
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                color: '#cbd5e1',
-                fontSize: '0.65rem'
+                backgroundColor: subBg,
+                color: textSecondary,
+                fontSize: '0.65rem',
+                fontWeight: 600,
               }}
             >
               ✓ {fac}
