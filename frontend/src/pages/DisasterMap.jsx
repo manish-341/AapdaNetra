@@ -1,13 +1,34 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Typography, Paper, Grid, Stack, Button, Chip, Divider, CircularProgress } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Paper,
+  Grid,
+  Stack,
+  Button,
+  Chip,
+  Divider,
+  CircularProgress,
+} from '@mui/material';
 import LayersIcon from '@mui/icons-material/Layers';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import DownloadIcon from '@mui/icons-material/Download';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
+import HomeWorkIcon from '@mui/icons-material/HomeWork';
+import CampaignIcon from '@mui/icons-material/Campaign';
+
 import Boilerplate from '../layouts/Boilerplate';
 import HazardMap from '../components/Map/HazardMap';
 import ShelterCard from '../components/ShelterCard';
-import { getAlerts, getCitizenReports, getShelterRecommendation, getShelters } from '../services/api';
+import {
+  getAlerts,
+  getCitizenReports,
+  getShelterRecommendation,
+  getShelters,
+  getRelocations,
+} from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext } from '../context/LocationContext';
 import { isItemInActiveLocation } from '../utils/locationHelper';
@@ -19,7 +40,7 @@ const FILTER_OPTIONS = [
   { id: 'WILDFIRE', label: 'Wildfire Risk', icon: '🔥' },
   { id: 'SHELTERS', label: 'Shelters', icon: '⛺' },
   { id: 'REPORTS', label: 'Citizen Reports', icon: '🚨' },
-  { id: 'HIGH_RISK', label: 'High Threat Only', icon: '🔴' }
+  { id: 'HIGH_RISK', label: 'High Threat Only', icon: '🔴' },
 ];
 
 export default function DisasterMap() {
@@ -32,26 +53,34 @@ export default function DisasterMap() {
   const mapRef = useRef(null);
   const { location } = useLocationContext();
   const [activeFilter, setActiveFilter] = useState('ALL');
+
   const [alerts, setAlerts] = useState([]);
   const [reports, setReports] = useState([]);
   const [shelters, setShelters] = useState([]);
+  const [relocations, setRelocations] = useState([]);
   const [recommendation, setRecommendation] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    const targetDistrict = location.district || (location.name ? location.name.split('(')[0].trim() : '');
+    const targetDistrict =
+      location.district || (location.name ? location.name.split('(')[0].trim() : '');
+
     Promise.all([
       getAlerts(),
       getCitizenReports(),
       getShelterRecommendation(location.lat, location.lng, targetDistrict),
-      getShelters()
-    ]).then(([alertRes, reportRes, shelterRes, sheltersListRes]) => {
-      setAlerts(alertRes.data?.data || []);
-      setReports(reportRes.data?.data || []);
-      setRecommendation(shelterRes.data?.data?.recommended || null);
-      setShelters(sheltersListRes.data?.data || []);
-    }).catch(console.error)
+      getShelters(),
+      getRelocations().catch(() => ({ data: { data: [] } })),
+    ])
+      .then(([alertRes, reportRes, shelterRes, sheltersListRes, relocRes]) => {
+        setAlerts(alertRes.data?.data || []);
+        setReports(reportRes.data?.data || []);
+        setRecommendation(shelterRes.data?.data?.recommended || null);
+        setShelters(sheltersListRes.data?.data || []);
+        setRelocations(relocRes.data?.data || []);
+      })
+      .catch(console.error)
       .finally(() => setLoading(false));
   }, [location.lat, location.lng, location.district, location.name]);
 
@@ -68,6 +97,9 @@ export default function DisasterMap() {
 
   const displayedShelters = shelters.filter((s) => isItemInActiveLocation(s, location));
   const displayedReports = reports.filter((r) => isItemInActiveLocation(r, location));
+  const displayedRelocations = relocations.filter((reloc) =>
+    isItemInActiveLocation(reloc, location) || isItemInActiveLocation(reloc.habitation, location)
+  );
 
   return (
     <Boilerplate>
@@ -100,8 +132,8 @@ export default function DisasterMap() {
               fontSize: '0.75rem',
               borderRadius: 2,
               '&:hover': {
-                bgcolor: isDark ? 'rgba(56, 189, 248, 0.1)' : 'rgba(2, 132, 199, 0.08)'
-              }
+                bgcolor: isDark ? 'rgba(56, 189, 248, 0.1)' : 'rgba(2, 132, 199, 0.08)',
+              },
             }}
           >
             Export PNG
@@ -119,8 +151,8 @@ export default function DisasterMap() {
               fontSize: '0.75rem',
               borderRadius: 2,
               '&:hover': {
-                bgcolor: isDark ? 'rgba(244, 63, 94, 0.1)' : 'rgba(225, 29, 72, 0.08)'
-              }
+                bgcolor: isDark ? 'rgba(244, 63, 94, 0.1)' : 'rgba(225, 29, 72, 0.08)',
+              },
             }}
           >
             Export PDF
@@ -165,7 +197,7 @@ export default function DisasterMap() {
                   transition: 'all 0.15s ease',
                   '&:hover': {
                     bgcolor: isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.1)',
-                  }
+                  },
                 }}
               />
             );
@@ -173,159 +205,131 @@ export default function DisasterMap() {
         </Stack>
       </Paper>
 
+      {/* 1. TOP: FULL-WIDTH EXPANSIVE MAP VIEWPORT (LEFT TO RIGHT) */}
+      <Paper
+        className="glass-card"
+        sx={{
+          width: '100%',
+          borderRadius: 3,
+          overflow: 'hidden',
+          height: { xs: 520, md: 620, lg: 680 },
+          mb: 3,
+          boxShadow: isDark
+            ? '0 16px 40px rgba(0,0,0,0.5)'
+            : '0 8px 30px rgba(0,0,0,0.08)',
+        }}
+      >
+        <HazardMap
+          ref={mapRef}
+          activeFilter={activeFilter}
+          onResetFilter={() => setActiveFilter('ALL')}
+        />
+      </Paper>
+
+      {/* 2. BOTTOM: ALERTS & RELOCATIONS / SHELTERS DASHBOARD */}
       <Grid container spacing={3}>
-        {/* Main Tactical Map Viewport */}
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <Paper
-            className="glass-card"
-            sx={{
-              borderRadius: 3,
-              overflow: 'hidden',
-              height: 660,
-              boxShadow: isDark ? '0 12px 32px rgba(0,0,0,0.5)' : '0 8px 24px rgba(0,0,0,0.08)'
-            }}
-          >
-            <HazardMap
-              ref={mapRef}
-              activeFilter={activeFilter}
-              onResetFilter={() => setActiveFilter('ALL')}
-            />
+        {/* Left Column: Active Warnings & Alerts Feed */}
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper className="glass-card" sx={{ p: 2.5, borderRadius: 3, height: '100%' }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Box display="flex" alignItems="center" gap={1}>
+                <WarningAmberIcon sx={{ color: '#ef4444', fontSize: 22 }} />
+                <Typography variant="subtitle1" fontWeight="bold" sx={{ color: textMain }}>
+                  Active Warnings & Threat Alerts ({displayedAlerts.length})
+                </Typography>
+              </Box>
+              <Chip
+                label="LIVE SENTINEL"
+                size="small"
+                sx={{
+                  fontSize: '0.62rem',
+                  height: 20,
+                  fontWeight: 800,
+                  bgcolor: 'rgba(239,68,68,0.15)',
+                  color: '#ef4444',
+                }}
+              />
+            </Box>
+
+            <Stack spacing={1.5} maxHeight={420} sx={{ overflowY: 'auto', pr: 0.5 }}>
+              {displayedAlerts.length > 0 ? (
+                displayedAlerts.map((a, i) => {
+                  const isCritical = a.severity === 'CRITICAL';
+                  const isHigh = a.severity === 'HIGH' || a.severity === 'RED';
+                  const sevColor = isCritical ? '#ef4444' : isHigh ? '#f97316' : '#eab308';
+
+                  return (
+                    <Box
+                      key={a._id || i}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        backgroundColor: subCardBg,
+                        border: `1px solid ${subCardBorder}`,
+                        borderLeft: `4px solid ${sevColor}`,
+                        transition: 'transform 0.15s ease',
+                        '&:hover': { transform: 'translateX(3px)' },
+                      }}
+                    >
+                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                        <Typography variant="caption" fontWeight="bold" sx={{ color: sevColor }}>
+                          {a.severity} &bull; {a.hazardType || 'DISASTER'}
+                        </Typography>
+                        <Chip
+                          label={a.source || 'OFFICIAL BROADCAST'}
+                          size="small"
+                          sx={{
+                            fontSize: '0.6rem',
+                            height: 18,
+                            backgroundColor: isDark ? 'rgba(56,189,248,0.12)' : 'rgba(2,132,199,0.1)',
+                            color: isDark ? '#38bdf8' : '#0284c7',
+                            fontWeight: 700,
+                          }}
+                        />
+                      </Box>
+                      <Typography variant="body2" fontWeight="700" sx={{ color: textMain, mb: 0.5 }}>
+                        {a.title}
+                      </Typography>
+                      {a.description && (
+                        <Typography variant="caption" sx={{ color: textSecondary, display: 'block', lineHeight: 1.4 }}>
+                          {a.description}
+                        </Typography>
+                      )}
+                      {a.instructions && (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            display: 'block',
+                            mt: 0.75,
+                            p: 0.75,
+                            borderRadius: 1,
+                            bgcolor: isDark ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.05)',
+                            color: isDark ? '#fca5a5' : '#b91c1c',
+                            fontWeight: 600,
+                            fontSize: '0.7rem',
+                          }}
+                        >
+                          ⚠️ Directive: {a.instructions}
+                        </Typography>
+                      )}
+                    </Box>
+                  );
+                })
+              ) : (
+                <Box sx={{ p: 4, textAlign: 'center' }}>
+                  <Typography variant="body2" sx={{ color: textSecondary }}>
+                    No active warnings matching current location ({location.name || location.district || 'Bhopal'}).
+                  </Typography>
+                </Box>
+              )}
+            </Stack>
           </Paper>
         </Grid>
 
-        {/* Side Operational Intelligence Panel */}
-        <Grid size={{ xs: 12, lg: 4 }}>
+        {/* Right Column: Relocations, Shelter Recommendation & Capacities */}
+        <Grid size={{ xs: 12, md: 6 }}>
           <Stack spacing={2.5}>
-            {/* Dynamic Context Panel depending on activeFilter */}
-            {activeFilter === 'SHELTERS' ? (
-              <Paper className="glass-card" sx={{ p: 2.5, borderRadius: 3 }}>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-                  <Typography variant="subtitle2" fontWeight="bold" sx={{ color: textMain }}>
-                    Designated Shelters ({displayedShelters.length})
-                  </Typography>
-                  <Chip
-                    label="LIVE GRID"
-                    size="small"
-                    sx={{ fontSize: '0.62rem', height: 18, fontWeight: 700, bgcolor: 'rgba(16,185,129,0.15)', color: '#10b981' }}
-                  />
-                </Box>
-                <Stack spacing={1.5} maxHeight={290} sx={{ overflowY: 'auto' }}>
-                  {displayedShelters.length > 0 ? (
-                    displayedShelters.map((s) => {
-                      const vacant = Math.max(0, s.capacity - s.currentOccupancy);
-                      const occPct = Math.round((s.currentOccupancy / s.capacity) * 100) || 0;
-                      return (
-                        <Box key={s._id} sx={{ p: 1.25, borderRadius: 2, backgroundColor: subCardBg, border: `1px solid ${subCardBorder}` }}>
-                          <Box display="flex" justifyContent="space-between" alignItems="center">
-                            <Typography variant="caption" fontWeight="bold" sx={{ color: '#0284c7' }}>
-                              {s.district || location.district || 'Local'} • {s.status}
-                            </Typography>
-                            <Chip
-                              label={`${vacant} Beds Open`}
-                              size="small"
-                              sx={{
-                                fontSize: '0.62rem',
-                                height: 18,
-                                fontWeight: 700,
-                                bgcolor: occPct > 80 ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
-                                color: occPct > 80 ? '#ef4444' : '#10b981'
-                              }}
-                            />
-                          </Box>
-                          <Typography variant="body2" fontWeight="600" sx={{ color: textMain, mt: 0.5 }}>
-                            {s.name}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.25 }}>
-                            Occupancy: {s.currentOccupancy} / {s.capacity} ({occPct}%) • {s.facilities?.slice(0, 3).join(', ') || 'Shelter'}
-                          </Typography>
-                        </Box>
-                      );
-                    })
-                  ) : (
-                    <Box sx={{ p: 2, textAlign: 'center' }}>
-                      <Typography variant="caption" sx={{ color: textSecondary }}>
-                        No designated shelters listed in {location.name || location.district} yet.
-                      </Typography>
-                    </Box>
-                  )}
-                </Stack>
-              </Paper>
-            ) : activeFilter === 'REPORTS' ? (
-              <Paper className="glass-card" sx={{ p: 2.5, borderRadius: 3 }}>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-                  <Typography variant="subtitle2" fontWeight="bold" sx={{ color: textMain }}>
-                    Citizen Incident Feed ({displayedReports.length})
-                  </Typography>
-                  <Chip
-                    label="FIELD DATA"
-                    size="small"
-                    sx={{ fontSize: '0.62rem', height: 18, fontWeight: 700, bgcolor: 'rgba(56,189,248,0.15)', color: isDark ? '#38bdf8' : '#0284c7' }}
-                  />
-                </Box>
-                <Stack spacing={1.5} maxHeight={290} sx={{ overflowY: 'auto' }}>
-                  {displayedReports.length > 0 ? (
-                    displayedReports.map((r, i) => (
-                      <Box key={r._id || i} sx={{ p: 1.25, borderRadius: 2, backgroundColor: subCardBg, border: `1px solid ${subCardBorder}` }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="center">
-                          <Typography variant="caption" fontWeight="bold" sx={{ color: r.severity === 'CRITICAL' ? '#ef4444' : '#f97316' }}>
-                            {r.severity} • {r.disasterType}
-                          </Typography>
-                          <Chip label={r.status} size="small" sx={{ fontSize: '0.6rem', height: 16, backgroundColor: 'rgba(56,189,248,0.1)', color: isDark ? '#38bdf8' : '#0284c7' }} />
-                        </Box>
-                        <Typography variant="body2" fontWeight="600" sx={{ color: textMain, mt: 0.5 }}>
-                          "{r.description.slice(0, 80)}{r.description.length > 80 ? '...' : ''}"
-                        </Typography>
-                      </Box>
-                    ))
-                  ) : (
-                    <Box sx={{ p: 2, textAlign: 'center' }}>
-                      <Typography variant="caption" sx={{ color: textSecondary }}>
-                        No active field incident reports in {location.name || location.district}.
-                      </Typography>
-                    </Box>
-                  )}
-                </Stack>
-              </Paper>
-            ) : (
-              /* Active Warnings List */
-              <Paper className="glass-card" sx={{ p: 2.5, borderRadius: 3 }}>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-                  <Typography variant="subtitle2" fontWeight="bold" sx={{ color: textMain }}>
-                    Active Warnings & Alerts ({displayedAlerts.length})
-                  </Typography>
-                  <Chip
-                    label="LIVE"
-                    size="small"
-                    sx={{ fontSize: '0.62rem', height: 18, fontWeight: 700, bgcolor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
-                  />
-                </Box>
-                <Stack spacing={1.5} maxHeight={260} sx={{ overflowY: 'auto' }}>
-                  {displayedAlerts.length > 0 ? (
-                    displayedAlerts.map((a, i) => (
-                      <Box key={a._id || i} sx={{ p: 1.25, borderRadius: 2, backgroundColor: subCardBg, border: `1px solid ${subCardBorder}` }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="center">
-                          <Typography variant="caption" fontWeight="bold" sx={{ color: a.severity === 'CRITICAL' ? '#ef4444' : '#f97316' }}>
-                            {a.severity} • {a.hazardType}
-                          </Typography>
-                          <Chip label={a.source || 'OFFICIAL'} size="small" sx={{ fontSize: '0.6rem', height: 16, backgroundColor: 'rgba(56,189,248,0.1)', color: isDark ? '#38bdf8' : '#0284c7' }} />
-                        </Box>
-                        <Typography variant="body2" fontWeight="600" sx={{ color: textMain, mt: 0.5 }}>
-                          {a.title}
-                        </Typography>
-                      </Box>
-                    ))
-                  ) : (
-                    <Box sx={{ p: 2, textAlign: 'center' }}>
-                      <Typography variant="caption" sx={{ color: textSecondary }}>
-                        No active warnings in {location.name || location.district}
-                      </Typography>
-                    </Box>
-                  )}
-                </Stack>
-              </Paper>
-            )}
-
-            {/* Smart Shelter Recommendation */}
+            {/* Top Recommended Shelter Card */}
             {recommendation && (
               <ShelterCard
                 shelter={recommendation.shelter}
@@ -333,6 +337,148 @@ export default function DisasterMap() {
                 estimatedTravelTime={recommendation.estimatedTravelTime}
                 isRecommended={true}
               />
+            )}
+
+            {/* Active Relocations & Shelters Overview */}
+            <Paper className="glass-card" sx={{ p: 2.5, borderRadius: 3 }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <DirectionsWalkIcon sx={{ color: '#0284c7', fontSize: 22 }} />
+                  <Typography variant="subtitle1" fontWeight="bold" sx={{ color: textMain }}>
+                    Evacuation Shelters & Relocations ({displayedShelters.length})
+                  </Typography>
+                </Box>
+                <Chip
+                  label="INTAKE READY"
+                  size="small"
+                  sx={{
+                    fontSize: '0.62rem',
+                    height: 20,
+                    fontWeight: 800,
+                    bgcolor: 'rgba(16,185,129,0.15)',
+                    color: '#10b981',
+                  }}
+                />
+              </Box>
+
+              <Stack spacing={1.5} maxHeight={recommendation ? 230 : 360} sx={{ overflowY: 'auto', pr: 0.5 }}>
+                {displayedShelters.length > 0 ? (
+                  displayedShelters.map((s) => {
+                    const vacant = Math.max(0, s.capacity - s.currentOccupancy);
+                    const occPct = Math.round((s.currentOccupancy / s.capacity) * 100) || 0;
+                    return (
+                      <Box
+                        key={s._id}
+                        sx={{
+                          p: 1.25,
+                          borderRadius: 2,
+                          backgroundColor: subCardBg,
+                          border: `1px solid ${subCardBorder}`,
+                        }}
+                      >
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                          <Typography variant="caption" fontWeight="bold" sx={{ color: '#0284c7' }}>
+                            {s.district || location.district || 'Local'} &bull; {s.status}
+                          </Typography>
+                          <Chip
+                            label={`${vacant} Beds Open`}
+                            size="small"
+                            sx={{
+                              fontSize: '0.62rem',
+                              height: 18,
+                              fontWeight: 700,
+                              bgcolor: occPct > 80 ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
+                              color: occPct > 80 ? '#ef4444' : '#10b981',
+                            }}
+                          />
+                        </Box>
+                        <Typography variant="body2" fontWeight="700" sx={{ color: textMain, mt: 0.5 }}>
+                          {s.name}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: textSecondary, display: 'block', mt: 0.25 }}>
+                          Occupancy: {s.currentOccupancy} / {s.capacity} ({occPct}%) &bull;{' '}
+                          {s.facilities?.slice(0, 3).join(', ') || 'Relief Intake'}
+                        </Typography>
+                      </Box>
+                    );
+                  })
+                ) : (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="caption" sx={{ color: textSecondary }}>
+                      No designated relief shelters recorded for {location.name || location.district}.
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
+            </Paper>
+
+            {/* Optional Field Reports feed if filter is REPORTS */}
+            {activeFilter === 'REPORTS' && (
+              <Paper className="glass-card" sx={{ p: 2.5, borderRadius: 3 }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <CampaignIcon sx={{ color: '#38bdf8', fontSize: 20 }} />
+                    <Typography variant="subtitle2" fontWeight="bold" sx={{ color: textMain }}>
+                      Citizen Field Reports ({displayedReports.length})
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label="FIELD FEED"
+                    size="small"
+                    sx={{
+                      fontSize: '0.62rem',
+                      height: 18,
+                      fontWeight: 700,
+                      bgcolor: 'rgba(56,189,248,0.15)',
+                      color: isDark ? '#38bdf8' : '#0284c7',
+                    }}
+                  />
+                </Box>
+                <Stack spacing={1.25} maxHeight={220} sx={{ overflowY: 'auto' }}>
+                  {displayedReports.length > 0 ? (
+                    displayedReports.map((r, i) => (
+                      <Box
+                        key={r._id || i}
+                        sx={{
+                          p: 1.25,
+                          borderRadius: 2,
+                          backgroundColor: subCardBg,
+                          border: `1px solid ${subCardBorder}`,
+                        }}
+                      >
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                          <Typography
+                            variant="caption"
+                            fontWeight="bold"
+                            sx={{ color: r.severity === 'CRITICAL' ? '#ef4444' : '#f97316' }}
+                          >
+                            {r.severity} &bull; {r.disasterType}
+                          </Typography>
+                          <Chip
+                            label={r.status}
+                            size="small"
+                            sx={{
+                              fontSize: '0.6rem',
+                              height: 16,
+                              backgroundColor: 'rgba(56,189,248,0.1)',
+                              color: isDark ? '#38bdf8' : '#0284c7',
+                            }}
+                          />
+                        </Box>
+                        <Typography variant="body2" fontWeight="600" sx={{ color: textMain, mt: 0.5 }}>
+                          "{r.description.slice(0, 90)}{r.description.length > 90 ? '...' : ''}"
+                        </Typography>
+                      </Box>
+                    ))
+                  ) : (
+                    <Box sx={{ p: 2, textAlign: 'center' }}>
+                      <Typography variant="caption" sx={{ color: textSecondary }}>
+                        No field incident reports in {location.name || location.district}.
+                      </Typography>
+                    </Box>
+                  )}
+                </Stack>
+              </Paper>
             )}
           </Stack>
         </Grid>
