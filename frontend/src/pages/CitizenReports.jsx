@@ -27,10 +27,6 @@ import VerifiedIcon from '@mui/icons-material/Verified';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
 import Boilerplate from '../layouts/Boilerplate';
 import { getCitizenReports, submitCitizenReport, verifyCitizenReport } from '../services/api';
 import { getUserRole } from '../lib/auth';
@@ -56,39 +52,6 @@ const QUICK_TAGS = [
   '🏥 Elderly / Children Trapped',
   '💧 Drinking Water Contaminated',
 ];
-
-// Custom pin for the mini-map picker
-const pinIcon = L.divIcon({
-  className: 'citizen-picker-pin',
-  html: `
-    <div style="
-      width: 28px;
-      height: 28px;
-      background: #0284c7;
-      border: 3px solid #ffffff;
-      border-radius: 50% 50% 50% 0;
-      transform: rotate(-45deg);
-      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    ">
-      <span style="transform: rotate(45deg); font-size: 13px;">📍</span>
-    </div>
-  `,
-  iconSize: [28, 28],
-  iconAnchor: [14, 28],
-});
-
-// Mini map click listener to drop/move pin
-function MapClickHandler({ onLocationSelect }) {
-  useMapEvents({
-    click(e) {
-      onLocationSelect(e.latlng.lat, e.latlng.lng);
-    },
-  });
-  return null;
-}
 
 export default function CitizenReports() {
   const role = getUserRole();
@@ -367,46 +330,11 @@ export default function CitizenReports() {
               boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.35)' : '0 4px 20px rgba(0,0,0,0.06)',
             }}
           >
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2.5} flexWrap="wrap" gap={1}>
-              <Box display="flex" alignItems="center" gap={1.25}>
-                <ReportProblemIcon sx={{ color: '#0284c7', fontSize: 26 }} />
-                <Typography variant="h6" fontWeight="bold" sx={{ color: textMain }}>
-                  Report Ground Incident
-                </Typography>
-              </Box>
-
-              {/* Instant Quick Auto GPS Button in Card Header - 100% visible above fold */}
-              <Button
-                size="small"
-                variant="contained"
-                onClick={handleDetectGPS}
-                disabled={gpsLoading}
-                startIcon={
-                  gpsLoading ? (
-                    <CircularProgress size={14} sx={{ color: '#ffffff' }} />
-                  ) : (
-                    <MyLocationIcon sx={{ fontSize: 16 }} />
-                  )
-                }
-                sx={{
-                  py: 0.6,
-                  px: 1.5,
-                  borderRadius: 2,
-                  fontWeight: 800,
-                  fontSize: '0.74rem',
-                  textTransform: 'none',
-                  letterSpacing: 0.2,
-                  background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                  color: '#ffffff',
-                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #047857 0%, #059669 100%)',
-                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.45)',
-                  },
-                }}
-              >
-                {gpsLoading ? 'Locating...' : '📍 Auto GPS'}
-              </Button>
+            <Box display="flex" alignItems="center" gap={1.25} mb={2.5}>
+              <ReportProblemIcon sx={{ color: '#0284c7', fontSize: 26 }} />
+              <Typography variant="h6" fontWeight="bold" sx={{ color: textMain }}>
+                Report Ground Incident
+              </Typography>
             </Box>
 
             {message && (
@@ -476,22 +404,17 @@ export default function CitizenReports() {
                   </Grid>
                 </Box>
 
-                {/* 2. Interactive Mini-Map Pin Drop Location & GPS (Placed high for instant access) */}
+                {/* 2. Incident Location & Live GPS */}
                 <Box>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography
-                      variant="caption"
-                      fontWeight="700"
-                      sx={{ color: textSecondary, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}
-                    >
-                      Incident Location & GPS Coordinates *
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.68rem' }}>
-                      Click map to pin
-                    </Typography>
-                  </Box>
+                  <Typography
+                    variant="caption"
+                    fontWeight="700"
+                    sx={{ color: textSecondary, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5, display: 'block', mb: 1.25 }}
+                  >
+                    Incident Location & Live GPS Fix *
+                  </Typography>
 
-                  {/* HIGH VISIBILITY DEDICATED AUTO GPS BUTTON */}
+                  {/* ONLY THE BIGGER PROMINENT AUTO GPS BUTTON */}
                   <Button
                     fullWidth
                     variant="contained"
@@ -505,11 +428,11 @@ export default function CitizenReports() {
                       )
                     }
                     sx={{
-                      py: 1.2,
+                      py: 1.35,
                       mb: 1.5,
                       borderRadius: 2.5,
                       fontWeight: 800,
-                      fontSize: '0.84rem',
+                      fontSize: '0.86rem',
                       textTransform: 'none',
                       letterSpacing: 0.3,
                       background: isDark
@@ -528,69 +451,50 @@ export default function CitizenReports() {
                       transition: 'all 0.2s ease',
                     }}
                   >
-                    {gpsLoading ? 'Acquiring Live Satellite / Device GPS Fix...' : '📍 Auto-Detect My Live GPS Location'}
+                    {gpsLoading ? 'Acquiring Live Satellite / Device GPS Fix...' : '🎯 Auto-Detect My Live GPS Location'}
                   </Button>
 
-                  {/* Mini Interactive Leaflet Map Picker */}
+                  {/* Location Address Display Card (Strictly bounded, wraps cleanly without overflow) */}
                   <Box
                     sx={{
-                      width: '100%',
-                      height: 190,
+                      p: 1.75,
                       borderRadius: 2.5,
-                      overflow: 'hidden',
-                      border: `1.5px solid ${itemBorder}`,
-                      mb: 1.25,
-                      boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.06)',
-                    }}
-                  >
-                    <MapContainer
-                      center={[latitude, longitude]}
-                      zoom={13}
-                      scrollWheelZoom={false}
-                      style={{ width: '100%', height: '100%' }}
-                    >
-                      <TileLayer
-                        url={
-                          isDark
-                            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                            : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-                        }
-                        crossOrigin="anonymous"
-                      />
-                      <Marker position={[latitude, longitude]} icon={pinIcon} />
-                      <MapClickHandler onLocationSelect={handleMapLocationSelect} />
-                    </MapContainer>
-                  </Box>
-
-                  {/* Location Address Display */}
-                  <Box
-                    sx={{
-                      p: 1.25,
-                      borderRadius: 2,
                       bgcolor: isDark ? 'rgba(56, 189, 248, 0.08)' : 'rgba(2, 132, 199, 0.06)',
-                      border: `1px solid ${isDark ? 'rgba(56, 189, 248, 0.25)' : 'rgba(2, 132, 199, 0.2)'}`,
+                      border: `1.5px solid ${isDark ? 'rgba(56, 189, 248, 0.28)' : 'rgba(2, 132, 199, 0.25)'}`,
                       display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.25,
+                      alignItems: 'flex-start',
+                      gap: 1.5,
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      overflow: 'hidden',
                     }}
                   >
-                    <LocationOnIcon sx={{ color: '#0284c7', fontSize: 20, flexShrink: 0 }} />
-                    <Box flex={1} minWidth={0}>
+                    <LocationOnIcon sx={{ color: '#0284c7', fontSize: 24, flexShrink: 0, mt: 0.2 }} />
+                    <Box sx={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                      <Typography
+                        variant="body2"
+                        fontWeight={700}
+                        sx={{
+                          color: textMain,
+                          fontSize: '0.82rem',
+                          lineHeight: 1.45,
+                          wordBreak: 'break-word',
+                          overflowWrap: 'anywhere',
+                          display: 'block',
+                        }}
+                      >
+                        {detectedAddress || 'Click button above to auto-detect live GPS coordinates'}
+                      </Typography>
                       <Typography
                         variant="caption"
                         sx={{
-                          color: textMain,
-                          fontWeight: 700,
-                          fontSize: '0.74rem',
-                          display: 'block',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          color: textSecondary,
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          display: 'inline-block',
+                          mt: 0.5,
                         }}
                       >
-                        {detectedAddress || 'Click map to pin exact site'}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.67rem', fontWeight: 500 }}>
                         Lat: {latitude} &bull; Lng: {longitude}
                       </Typography>
                     </Box>
