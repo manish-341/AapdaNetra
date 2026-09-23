@@ -2,6 +2,7 @@ const axios = require("axios");
 const h3 = require("h3-js");
 const { getCurrentWeather } = require("./weatherService");
 const { computeAntecedentRainfall } = require("./weatherCollector");
+const { generateAlertsFromRisk } = require("./alertService");
 const HazardZone = require("../models/HazardZone");
 const CitizenReport = require("../models/CitizenReport");
 const Habitation = require("../models/Habitation");
@@ -13,10 +14,10 @@ const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
  * Combines: ML prediction + weather + historical data + citizen reports + vulnerability
  * Calculates composite risk score (0-100)
  */
-const calculateUnifiedRisk = async (lat, lon, hazardType = null) => {
+const calculateUnifiedRisk = async (lat, lon, hazardType = null, options = {}) => {
     try {
-        // 1. Get weather data
-        const weather = await getCurrentWeather(lat, lon);
+        // 1. Get weather data (reuse persisted weather if supplied by autonomous monitor, otherwise query weatherService)
+        const weather = options?.weather || await getCurrentWeather(lat, lon);
 
         // 2. Compute antecedent rainfall from MongoDB accumulator for flood model
         let antecedentRainfall = {};
@@ -131,6 +132,27 @@ const calculateUnifiedRisk = async (lat, lon, hazardType = null) => {
         // Determine overall highest risk
         const highestRisk = Object.values(assessments).sort((a, b) => b.riskScore - a.riskScore)[0];
 
+        // 7. Automatic Alert Bridge: If any hazard reaches CRITICAL canonical severity, generate/update Alert
+        let generatedAlerts = [];
+        try {
+            const hasCritical = Object.values(assessments).some(
+                (a) => a.riskCategory === "CRITICAL" || a.riskScore >= 76
+            );
+            if (hasCritical) {
+                generatedAlerts = await generateAlertsFromRisk(
+                    {
+                        assessments,
+                        location: { lat, lon },
+                        district: options?.district || weather?.district || (nearbyHabitations[0]?.district) || undefined,
+                        state: options?.state || weather?.state || (nearbyHabitations[0]?.state) || undefined
+                    },
+                    { mode: options?.mode || "LIVE" }
+                );
+            }
+        } catch (alertBridgeErr) {
+            console.warn("[RiskEngine] Alert bridge warning:", alertBridgeErr.message);
+        }
+
         return {
             location: { lat, lon },
             weather: {
@@ -141,6 +163,7 @@ const calculateUnifiedRisk = async (lat, lon, hazardType = null) => {
             },
             assessments,
             overallRisk: highestRisk,
+            generatedAlerts,
             timestamp: new Date().toISOString(),
             dataQuality: {
                 weatherSource: weather.source,

@@ -9,14 +9,19 @@ const {
 // Create Alert
 const createAlert = async (req, res) => {
     try {
-        const alert = await Alert.create(req.body);
+        const payload = {
+            ...req.body,
+            mode: req.body.mode || "LIVE",
+            canonicalSeverity: req.body.canonicalSeverity || (["CRITICAL", "RED"].includes(String(req.body.severity).toUpperCase()) ? "CRITICAL" : "GREEN")
+        };
+        const alert = await Alert.create(payload);
 
-        // Autonomous Emergency Cell Broadcast SMS triggered automatically on critical/red alert occurrence
+        // Autonomous Emergency Cell Broadcast SMS triggered automatically on live critical/red alert occurrence
         let automatedSmsResult = null;
-        const sev = String(alert?.severity || req.body?.severity || "").toUpperCase();
-        const isCriticalOrRed = sev === "CRITICAL" || sev === "RED" || alert?.riskCategory === "CRITICAL" || alert?.riskCategory === "RED";
+        const sev = String(alert?.severity || payload?.severity || "").toUpperCase();
+        const isCriticalOrRed = sev === "CRITICAL" || sev === "RED" || alert?.canonicalSeverity === "CRITICAL";
 
-        if (alert && alert.isActive !== false && isCriticalOrRed) {
+        if (alert && alert.isActive !== false && isCriticalOrRed && alert.mode === "LIVE") {
             try {
                 const targetDistrict = alert.district || alert.locationName || req.body.district || "";
                 const targetState = alert.state || req.body.state || "";
@@ -299,6 +304,8 @@ const broadcastEmergencyAlert = async (req, res) => {
                 state: targetState,
                 source: "OFFICIAL",
                 verificationStatus: "VERIFIED",
+                mode: "LIVE",
+                canonicalSeverity: "CRITICAL",
                 createdBy: req.user?._id,
                 isActive: true // keep alert active so sirens and dashboard reflect the critical emergency
             });

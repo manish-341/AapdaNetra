@@ -30,12 +30,16 @@ const chatCopilot = async (req, res) => {
 // Explainable AI - risk explanation
 const explainRisk = async (req, res) => {
     try {
-        const { latitude, longitude, hazardType } = req.body;
+        const { latitude, longitude, hazardType, mode: alertMode, district, state } = req.body;
         if (!latitude || !longitude) {
             return res.status(400).json({ success: false, message: "Latitude and longitude required" });
         }
 
-        const risk = await calculateUnifiedRisk(latitude, longitude, hazardType);
+        const risk = await calculateUnifiedRisk(latitude, longitude, hazardType, {
+            mode: alertMode || "LIVE",
+            district,
+            state
+        });
         const mode = req.user?.role === "CITIZEN" ? "citizen" : "responder";
 
         const explanations = {};
@@ -50,6 +54,7 @@ const explainRisk = async (req, res) => {
                 weather: risk.weather,
                 overallRisk: risk.overallRisk,
                 assessments: risk.assessments,
+                generatedAlerts: risk.generatedAlerts,
                 explanations,
                 dataQuality: risk.dataQuality,
                 timestamp: risk.timestamp
@@ -74,11 +79,15 @@ const summarizeIncidents = async (req, res) => {
 // Unified risk assessment
 const getRiskAssessment = async (req, res) => {
     try {
-        const { latitude, longitude } = req.query;
+        const { latitude, longitude, mode: alertMode, district, state } = req.query;
         if (!latitude || !longitude) {
             return res.status(400).json({ success: false, message: "Latitude and longitude required" });
         }
-        const risk = await calculateUnifiedRisk(parseFloat(latitude), parseFloat(longitude));
+        const risk = await calculateUnifiedRisk(parseFloat(latitude), parseFloat(longitude), null, {
+            mode: alertMode || "LIVE",
+            district,
+            state
+        });
         res.status(200).json({ success: true, data: risk });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

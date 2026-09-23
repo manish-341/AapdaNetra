@@ -78,6 +78,31 @@ const alertSchema = new mongoose.Schema(
             default: true
         },
 
+        mode: {
+            type: String,
+            enum: ["LIVE", "TEST", "SIMULATION"],
+            default: "LIVE"
+        },
+
+        canonicalSeverity: {
+            type: String,
+            enum: ["GREEN", "AMBER", "RED", "CRITICAL"],
+            default: "GREEN"
+        },
+
+        h3Cell: {
+            type: String,
+            index: true
+        },
+
+        eventKey: {
+            type: String
+        },
+
+        lastNotificationDispatchedAt: {
+            type: Date
+        },
+
         expiresAt: {
             type: Date
         }
@@ -89,6 +114,18 @@ const alertSchema = new mongoose.Schema(
 
 alertSchema.index({ location: "2dsphere" });
 alertSchema.index({ isActive: 1, severity: 1, createdAt: -1 });
+alertSchema.index(
+    { eventKey: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            isActive: true,
+            eventKey: { $type: "string" }
+        },
+        name: "eventKey_unique_active"
+    }
+);
+alertSchema.index({ h3Cell: 1, isActive: 1 });
 alertSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model("Alert", alertSchema);

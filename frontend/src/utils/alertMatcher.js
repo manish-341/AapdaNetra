@@ -64,10 +64,15 @@ export function alertMatchesLocation(alert, userLoc) {
   if (userLoc.lat && userLoc.lng && alert.location?.coordinates && alert.location.coordinates.length === 2) {
     const [alertLng, alertLat] = alert.location.coordinates;
     const dist = getDistanceKm(userLoc.lat, userLoc.lng, alertLat, alertLng);
-    const radius = alert.affectedRadius || 30;
+    const radius = alert.affectedRadius || 25;
     if (dist <= radius) {
       return true;
     }
+  }
+
+  // 4. Direct H3 cell identity check if available
+  if (alert.h3Cell && userLoc.h3Cell && alert.h3Cell === userLoc.h3Cell) {
+    return true;
   }
 
   return false;
@@ -78,16 +83,32 @@ export function alertMatchesLocation(alert, userLoc) {
  * that warrants an acoustic civil defense siren.
  * 
  * Rules:
- * - Must have severity === 'CRITICAL'
- * - Must NOT be a watch, early warning, advisory, forecast, monitoring, precaution, or minor waterlogging
  * - Must be an active, verified emergency situation
+ * - Must NOT be TEST or SIMULATION mode (strictly suppresses emergency siren)
+ * - Must be explicitly LIVE mode, or an OFFICIAL verified emergency
+ * - Must have canonicalSeverity === 'CRITICAL' or severity === 'CRITICAL' / 'RED'
+ * - Must NOT be a watch, early warning, advisory, forecast, monitoring, precaution, or minor waterlogging
  */
 export function isTrueCriticalAlert(alert) {
   if (!alert || alert.isActive === false) return false;
+
+  const mode = String(alert.mode || '').toUpperCase();
+  // Life-Safety Rule: TEST and SIMULATION alerts must NEVER trigger acoustic sirens
+  if (mode === 'TEST' || mode === 'SIMULATION') return false;
+
+  // Backward-compatibility: alerts lacking mode must NOT automatically become live ML alerts
+  // (only explicitly LIVE alerts or verified OFFICIAL broadcasts qualify)
+  if (mode !== 'LIVE' && alert.source !== 'OFFICIAL') return false;
+
+  const canSev = String(alert.canonicalSeverity || '').toUpperCase();
   const sev = String(alert.severity || '').toUpperCase();
   const risk = String(alert.riskCategory || '').toUpperCase();
-  if (sev === 'NORMAL' || sev === 'SAFE' || sev === 'INFO' || sev === 'LOW') return false;
-  return sev === 'CRITICAL' || sev === 'RED' || risk === 'CRITICAL' || risk === 'RED';
+
+  if (sev === 'NORMAL' || sev === 'SAFE' || sev === 'INFO' || sev === 'LOW' || canSev === 'GREEN' || canSev === 'AMBER') {
+    return false;
+  }
+
+  return canSev === 'CRITICAL' || sev === 'CRITICAL' || sev === 'RED' || risk === 'CRITICAL' || risk === 'RED';
 }
 
 /**

@@ -225,8 +225,9 @@ export default function EmergencyAlertSentinel() {
           sessionStorage.setItem('an_last_sounded_hazard_sig', currentAlertSig);
           lastSoundedAlertIdRef.current = critAlertId;
 
-          if (notifConfig.audioSiren !== false) {
-            console.log(`[Emergency Sentinel] 🚨 USER LOCATION UNDER HAZARD ZONE: ${localCriticalAlert.district || currentLocKey}. Siren triggered.`);
+          const isLiveAlert = (localCriticalAlert.mode === 'LIVE' || (!localCriticalAlert.mode && localCriticalAlert.source === 'OFFICIAL'));
+          if (notifConfig.audioSiren !== false && isLiveAlert) {
+            console.log(`[Emergency Sentinel] 🚨 USER LOCATION UNDER LIVE HAZARD ZONE: ${localCriticalAlert.district || currentLocKey}. Siren triggered.`);
             playEmergencySiren(8000);
             setSirenPlaying(true);
           }
@@ -937,6 +938,22 @@ export default function EmergencyAlertSentinel() {
                         <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', fontWeight: 700 }}>
                           {item.hazardType || 'Hazard'}
                         </Typography>
+                        {item.mode && item.mode !== 'LIVE' && (
+                          <Box
+                            sx={{
+                              fontSize: '0.62rem',
+                              fontWeight: 800,
+                              color: item.mode === 'TEST' ? '#3b82f6' : '#8b5cf6',
+                              bgcolor: item.mode === 'TEST' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(139, 92, 246, 0.12)',
+                              px: 0.7,
+                              py: 0.15,
+                              borderRadius: 1,
+                              letterSpacing: '0.04em'
+                            }}
+                          >
+                            [{item.mode}]
+                          </Box>
+                        )}
                         {!isRead && (
                           <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0 }} title="Unread" />
                         )}

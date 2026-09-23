@@ -121,6 +121,8 @@ app.use(errorMiddleware);
 
 // Weather Collector Service (OpenWeather background rainfall accumulator)
 const { startCollector } = require("./services/weatherCollector");
+// Autonomous Flood Risk Monitor (Stage 2 background multi-hazard evaluation)
+const { startAutonomousFloodMonitor } = require("./services/autonomousFloodMonitor");
 
 // Server
 const PORT = process.env.PORT || 5000;
@@ -134,4 +136,7 @@ app.listen(PORT, "0.0.0.0", () => {
 
     // Start background OpenWeather observation collector
     startCollector();
+
+    // Start background autonomous Flood risk evaluation worker (Stage 2)
+    startAutonomousFloodMonitor();
 });

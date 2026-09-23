@@ -1,3 +1,4 @@
+const h3 = require("h3-js");
 const Alert = require("../models/Alert");
 const CitizenReport = require("../models/CitizenReport");
 const { broadcastEmergencySmsToCitizens } = require("./smsService");
@@ -5,59 +6,127 @@ const { broadcastEmergencySmsToCitizens } = require("./smsService");
 /**
  * Intelligent Alert Engine
  * Calculates priority based on risk + location + severity + confidence + verification
- * Prevents duplicate alerts
+ * Prevents duplicate alerts via eventKey idempotency and H3 cell resolution
  */
-const createIntelligentAlert = async ({ title, message, severity, hazardType, source, location, affectedRadius, createdBy, expiresInHours = 24 }) => {
-    // Check for duplicate (same type, same area, last 2 hours)
-    if (location?.coordinates) {
-        const duplicate = await Alert.findOne({
-            hazardType,
-            isActive: true,
-            createdAt: { $gte: new Date(Date.now() - 2 * 60 * 60 * 1000) },
-            location: {
-                $near: {
-                    $geometry: { type: "Point", coordinates: location.coordinates },
-                    $maxDistance: 5000
-                }
+const createIntelligentAlert = async ({
+    title,
+    message,
+    severity = "CRITICAL",
+    canonicalSeverity = "CRITICAL",
+    hazardType = "FLOOD",
+    source = "AI_PREDICTION",
+    mode = "LIVE",
+    location,
+    affectedRadius = 5,
+    createdBy,
+    district,
+    state,
+    h3Cell,
+    eventKey,
+    expiresInHours = 12
+}) => {
+    // 1. Resolve H3 Cell Index (Resolution 7 ~ 1.2km radius) if not provided
+    let resolvedH3Cell = h3Cell;
+    if (!resolvedH3Cell && location?.coordinates && location.coordinates.length === 2) {
+        const [lon, lat] = location.coordinates;
+        if (typeof lat === "number" && typeof lon === "number") {
+            try {
+                resolvedH3Cell = h3.latLngToCell(lat, lon, 7);
+            } catch (h3Err) {
+                console.warn("[Intelligent Alert] H3 calculation warning:", h3Err.message);
             }
-        }).catch(() => null);
-
-        if (duplicate) {
-            // Update existing alert if new severity is higher
-            const severityOrder = { INFO: 0, WARNING: 1, HIGH: 2, CRITICAL: 3 };
-            if (severityOrder[severity] > severityOrder[duplicate.severity]) {
-                duplicate.severity = severity;
-                duplicate.message = message;
-                duplicate.updatedAt = new Date();
-                await duplicate.save();
-                return { alert: duplicate, action: "updated_existing" };
-            }
-            return { alert: duplicate, action: "duplicate_suppressed" };
         }
     }
 
-    const alert = await Alert.create({
-        title,
-        message,
-        severity,
-        hazardType,
-        source: source || "OFFICIAL",
-        verificationStatus: source === "OFFICIAL" ? "VERIFIED" : "UNVERIFIED",
-        location: location ? { type: "Point", coordinates: location.coordinates } : undefined,
-        affectedRadius: affectedRadius || 5,
-        createdBy,
-        isActive: true,
-        expiresAt: new Date(Date.now() + expiresInHours * 60 * 60 * 1000)
-    });
+    // 2. Derive stable daily eventKey: ${hazardType}_${h3Cell}_${activeDateWindow}
+    const dateWindow = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const resolvedEventKey = eventKey || `${hazardType.toUpperCase()}_${resolvedH3Cell || "GLOBAL"}_${dateWindow}`;
 
-    // Autonomously broadcast high-priority SMS alerts to registered citizens in hazard state/district
-    if (["CRITICAL", "RED"].includes(severity?.toUpperCase())) {
+    // 3. Idempotent check: find existing active alert with this eventKey
+    let existingAlert = await Alert.findOne({
+        eventKey: resolvedEventKey,
+        isActive: true
+    }).catch(() => null);
+
+    // Secondary fallback check by H3 cell & hazard if eventKey missed
+    if (!existingAlert && resolvedH3Cell) {
+        existingAlert = await Alert.findOne({
+            h3Cell: resolvedH3Cell,
+            hazardType: hazardType.toUpperCase(),
+            isActive: true,
+            createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+        }).catch(() => null);
+    }
+
+    // 4. If existing alert found, UPDATE it (Idempotent: DO NOT INSERT duplicate, DO NOT re-dispatch notifications)
+    if (existingAlert) {
+        existingAlert.severity = severity || existingAlert.severity;
+        existingAlert.canonicalSeverity = canonicalSeverity || existingAlert.canonicalSeverity;
+        existingAlert.message = message || existingAlert.message;
+        existingAlert.title = title || existingAlert.title;
+        existingAlert.mode = mode || existingAlert.mode || "LIVE";
+        if (district && !existingAlert.district) existingAlert.district = district;
+        if (state && !existingAlert.state) existingAlert.state = state;
+        existingAlert.updatedAt = new Date();
+        await existingAlert.save();
+        return { alert: existingAlert, action: "updated_existing" };
+    }
+
+    // 5. Create new Alert record (concurrency-safe with partial unique index)
+    let alert;
+    try {
+        alert = await Alert.create({
+            title,
+            message,
+            severity: severity || "CRITICAL",
+            canonicalSeverity: canonicalSeverity || "CRITICAL",
+            hazardType: hazardType.toUpperCase(),
+            source: source || "AI_PREDICTION",
+            verificationStatus: source === "OFFICIAL" ? "VERIFIED" : "VERIFIED",
+            location: location ? { type: "Point", coordinates: location.coordinates } : undefined,
+            affectedRadius: affectedRadius || 5,
+            district,
+            state,
+            h3Cell: resolvedH3Cell,
+            eventKey: resolvedEventKey,
+            mode: mode || "LIVE",
+            createdBy,
+            isActive: true,
+            lastNotificationDispatchedAt: new Date(),
+            expiresAt: new Date(Date.now() + expiresInHours * 60 * 60 * 1000)
+        });
+    } catch (createErr) {
+        // Concurrency-safe deduplication: if another concurrent worker created this active alert at the same millisecond
+        if (createErr.code === 11000 || (createErr.message && createErr.message.includes("E11000"))) {
+            const concurrentAlert = await Alert.findOne({
+                eventKey: resolvedEventKey,
+                isActive: true
+            }).catch(() => null);
+
+            if (concurrentAlert) {
+                concurrentAlert.severity = severity || concurrentAlert.severity;
+                concurrentAlert.canonicalSeverity = canonicalSeverity || concurrentAlert.canonicalSeverity;
+                concurrentAlert.message = message || concurrentAlert.message;
+                concurrentAlert.title = title || concurrentAlert.title;
+                concurrentAlert.mode = mode || concurrentAlert.mode || "LIVE";
+                if (district && !concurrentAlert.district) concurrentAlert.district = district;
+                if (state && !concurrentAlert.state) concurrentAlert.state = state;
+                concurrentAlert.updatedAt = new Date();
+                await concurrentAlert.save();
+                return { alert: concurrentAlert, action: "updated_existing" };
+            }
+        }
+        throw createErr;
+    }
+
+    // 6. Only dispatch emergency SMS for genuine, newly created LIVE CRITICAL alerts (never on updates or tests)
+    if (mode === "LIVE" && (canonicalSeverity === "CRITICAL" || severity === "CRITICAL")) {
         broadcastEmergencySmsToCitizens({
-            district: alert.district || title,
-            state: alert.state,
+            district: alert.district || district || title,
+            state: alert.state || state,
             title,
             instructions: message,
-            severity,
+            severity: canonicalSeverity || severity,
             hazardType
         }).catch((err) => console.warn("[Intelligent Alert Engine] Automated SMS warning:", err.message));
     }
@@ -66,22 +135,45 @@ const createIntelligentAlert = async ({ title, message, severity, hazardType, so
 };
 
 /**
- * Generate alerts from risk assessment results
+ * Generate alerts from verified risk assessment results
  */
-const generateAlertsFromRisk = async (riskAssessment) => {
+const generateAlertsFromRisk = async (riskAssessment, options = {}) => {
     const generated = [];
-    const { assessments, location } = riskAssessment;
+    const { assessments, location, district, state } = riskAssessment;
+    if (!assessments || !location) return generated;
+
+    const lat = location.lat;
+    const lon = location.lon;
+    let cell7 = null;
+    if (typeof lat === "number" && typeof lon === "number") {
+        try {
+            cell7 = h3.latLngToCell(lat, lon, 7);
+        } catch {}
+    }
+
+    const alertMode = options.mode || "LIVE";
 
     for (const [type, assessment] of Object.entries(assessments)) {
-        if (assessment.riskScore >= 70) {
-            const severity = assessment.riskScore >= 85 ? "CRITICAL" : "HIGH";
+        // Strict Life-Safety Rule: Only generate alerts when canonical severity reaches CRITICAL (score >= 76)
+        const isCritical = assessment.riskCategory === "CRITICAL" || assessment.riskScore >= 76;
+
+        // For FLOOD, also confirm operational threshold is met
+        const isFloodOperational = type.toUpperCase() !== "FLOOD" || (assessment.riskScore >= 20);
+
+        if (isCritical && isFloodOperational) {
             const result = await createIntelligentAlert({
-                title: `${type} Risk Alert — ${severity}`,
-                message: `${type} risk score: ${assessment.riskScore}/100. ${assessment.recommendedAction}`,
-                severity,
+                title: `🚨 CRITICAL ${type} WARNING — ${district || 'Active Monitored Zone'}`,
+                message: `${type} risk score is ${assessment.riskScore}/100 (CRITICAL). ${assessment.recommendedAction || 'Evacuate low-lying areas immediately and move to verified shelters.'}`,
+                severity: "CRITICAL",
+                canonicalSeverity: "CRITICAL",
                 hazardType: type,
                 source: "AI_PREDICTION",
-                location: { coordinates: [location.lon, location.lat] },
+                mode: alertMode,
+                district,
+                state,
+                h3Cell: cell7,
+                location: { coordinates: [lon, lat] },
+                affectedRadius: 10,
                 expiresInHours: 12
             });
             generated.push(result);
