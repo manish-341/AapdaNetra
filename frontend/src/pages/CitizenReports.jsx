@@ -292,99 +292,145 @@ export default function CitizenReports() {
   return (
     <Boilerplate>
       {/* Page Header */}
-      <Box mb={2.5}>
-        <Typography variant="caption" sx={{ color: textSecondary }}>
+      <Box sx={{ mb: 4.5 }}>
+        <Typography variant="caption" sx={{ color: textSecondary, fontWeight: 600 }}>
           Home &gt; Citizen Intelligence &gt; Smart Disaster Reporting
         </Typography>
-        <Typography variant="h5" fontWeight="bold" sx={{ color: textMain, mt: 0.5 }}>
+        <Typography variant="h5" fontWeight="bold" sx={{ color: textMain, mt: 0.75, mb: 1 }}>
           Smart Citizen Reporting & AI Verification Cockpit
         </Typography>
-        <Typography variant="body2" sx={{ color: textSecondary }}>
+        <Typography variant="body2" sx={{ color: textSecondary, maxWidth: 920, lineHeight: 1.6 }}>
           Report ground-level disaster hazards with interactive map pin-dropping. Real-time AI automatically extracts severity, category, and dispatch priority for responders.
         </Typography>
       </Box>
 
       {/* KPI Telemetry Header Grid */}
-      <Grid container spacing={2} mb={3}>
-        {[
-          { label: 'Total Incidents Logged', val: totalCount, icon: '📋', color: '#0284c7' },
-          { label: 'High & Critical Threats', val: criticalCount, icon: '🚨', color: '#ef4444' },
-          { label: 'Pending AI/Field Review', val: underReviewCount, icon: '⏳', color: '#f59e0b' },
-          { label: 'Verified & Dispatched', val: verifiedCount, icon: '✅', color: '#10b981' },
-        ].map((kpi, idx) => (
-          <Grid key={idx} size={{ xs: 6, sm: 6, md: 3 }}>
-            <Paper
-              className="glass-card"
-              sx={{
-                p: 2,
-                borderRadius: 2.5,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                borderLeft: `4px solid ${kpi.color}`,
-              }}
-            >
-              <Box
+      <Box sx={{ mb: 4.5 }}>
+        <Grid container spacing={3}>
+          {[
+            { label: 'Total Incidents Logged', val: totalCount, icon: '📋', color: '#0284c7' },
+            { label: 'High & Critical Threats', val: criticalCount, icon: '🚨', color: '#ef4444' },
+            { label: 'Pending AI/Field Review', val: underReviewCount, icon: '⏳', color: '#f59e0b' },
+            { label: 'Verified & Dispatched', val: verifiedCount, icon: '✅', color: '#10b981' },
+          ].map((kpi, idx) => (
+            <Grid key={idx} size={{ xs: 6, sm: 6, md: 3 }}>
+              <Paper
+                className="glass-card"
                 sx={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 2,
-                  bgcolor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                  p: 2.5,
+                  borderRadius: 3,
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 20,
+                  gap: 2,
+                  borderLeft: `5px solid ${kpi.color}`,
+                  boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.3)' : '0 2px 10px rgba(0,0,0,0.05)',
                 }}
               >
-                {kpi.icon}
-              </Box>
-              <Box>
-                <Typography variant="h6" fontWeight="bold" sx={{ color: textMain, lineHeight: 1.1 }}>
-                  {kpi.val}
-                </Typography>
-                <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.7rem' }}>
-                  {kpi.label}
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
-        ))}
-      </Grid>
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 2.5,
+                    bgcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 22,
+                    flexShrink: 0,
+                  }}
+                >
+                  {kpi.icon}
+                </Box>
+                <Box>
+                  <Typography variant="h5" fontWeight="bold" sx={{ color: textMain, lineHeight: 1.1 }}>
+                    {kpi.val}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.72rem', fontWeight: 600 }}>
+                    {kpi.label}
+                  </Typography>
+                </Box>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
 
       {/* Main Form and Feed Grid */}
-      <Grid container spacing={3}>
+      <Grid container spacing={3.5}>
         {/* Left Form: Submit New Report (5 columns) */}
         <Grid size={{ xs: 12, lg: 5 }}>
-          <Paper className="glass-card" sx={{ p: 3, borderRadius: 3 }}>
-            <Box display="flex" alignItems="center" gap={1} mb={2}>
-              <ReportProblemIcon sx={{ color: '#0284c7', fontSize: 24 }} />
-              <Typography variant="h6" fontWeight="bold" sx={{ color: textMain }}>
-                Report Ground Incident
-              </Typography>
+          <Paper
+            className="glass-card"
+            sx={{
+              p: 3.5,
+              borderRadius: 3.5,
+              boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.35)' : '0 4px 20px rgba(0,0,0,0.06)',
+            }}
+          >
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2.5} flexWrap="wrap" gap={1}>
+              <Box display="flex" alignItems="center" gap={1.25}>
+                <ReportProblemIcon sx={{ color: '#0284c7', fontSize: 26 }} />
+                <Typography variant="h6" fontWeight="bold" sx={{ color: textMain }}>
+                  Report Ground Incident
+                </Typography>
+              </Box>
+
+              {/* Instant Quick Auto GPS Button in Card Header - 100% visible above fold */}
+              <Button
+                size="small"
+                variant="contained"
+                onClick={handleDetectGPS}
+                disabled={gpsLoading}
+                startIcon={
+                  gpsLoading ? (
+                    <CircularProgress size={14} sx={{ color: '#ffffff' }} />
+                  ) : (
+                    <MyLocationIcon sx={{ fontSize: 16 }} />
+                  )
+                }
+                sx={{
+                  py: 0.6,
+                  px: 1.5,
+                  borderRadius: 2,
+                  fontWeight: 800,
+                  fontSize: '0.74rem',
+                  textTransform: 'none',
+                  letterSpacing: 0.2,
+                  background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                  color: '#ffffff',
+                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #047857 0%, #059669 100%)',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.45)',
+                  },
+                }}
+              >
+                {gpsLoading ? 'Locating...' : '📍 Auto GPS'}
+              </Button>
             </Box>
 
             {message && (
               <MuiAlert
                 severity={message.type}
                 onClose={() => setMessage(null)}
-                sx={{ mb: 2, borderRadius: 2 }}
+                sx={{ mb: 2.5, borderRadius: 2.5 }}
               >
                 {message.text}
               </MuiAlert>
             )}
 
             <form onSubmit={handleSubmit}>
-              <Stack spacing={2}>
+              <Stack spacing={2.75}>
                 {/* 1. Hazard Type Visual Select Chips */}
                 <Box>
                   <Typography
                     variant="caption"
                     fontWeight="700"
-                    sx={{ color: textSecondary, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.68rem' }}
+                    sx={{ color: textSecondary, display: 'block', mb: 1.25, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}
                   >
                     Select Disaster Classification
                   </Typography>
-                  <Grid container spacing={1}>
+                  <Grid container spacing={1.25}>
                     {DISASTER_TYPES.map((type) => {
                       const isSelected = disasterType === type.id;
                       return (
@@ -392,8 +438,8 @@ export default function CitizenReports() {
                           <Box
                             onClick={() => setDisasterType(type.id)}
                             sx={{
-                              p: 1,
-                              borderRadius: 2,
+                              p: 1.25,
+                              borderRadius: 2.5,
                               textAlign: 'center',
                               cursor: 'pointer',
                               border: isSelected
@@ -411,13 +457,13 @@ export default function CitizenReports() {
                               },
                             }}
                           >
-                            <Box sx={{ fontSize: 20, mb: 0.25 }}>{type.icon}</Box>
+                            <Box sx={{ fontSize: 22, mb: 0.5 }}>{type.icon}</Box>
                             <Typography
                               variant="caption"
                               fontWeight={isSelected ? 800 : 600}
                               sx={{
                                 color: isSelected ? (isDark ? '#38bdf8' : '#0284c7') : textMain,
-                                fontSize: '0.72rem',
+                                fontSize: '0.74rem',
                                 display: 'block',
                               }}
                             >
@@ -430,96 +476,71 @@ export default function CitizenReports() {
                   </Grid>
                 </Box>
 
-                {/* 2. Observation Description */}
+                {/* 2. Interactive Mini-Map Pin Drop Location & GPS (Placed high for instant access) */}
                 <Box>
-                  <Typography
-                    variant="caption"
-                    fontWeight="700"
-                    sx={{ color: textSecondary, display: 'block', mb: 0.75, textTransform: 'uppercase', fontSize: '0.68rem' }}
-                  >
-                    Eyewitness Description *
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={3}
-                    placeholder="Describe water depth, structural damages, trapped persons, road conditions, or fire spread..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    size="small"
-                    required
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        color: textMain,
-                        bgcolor: itemBg,
-                        borderRadius: 2,
-                      },
-                    }}
-                  />
-
-                  {/* Quick observation tags */}
-                  <Box mt={1}>
-                    <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.68rem', display: 'block', mb: 0.5 }}>
-                      Quick Tags (Click to append):
-                    </Typography>
-                    <Box display="flex" flexWrap="wrap" gap={0.5}>
-                      {QUICK_TAGS.map((tag, idx) => (
-                        <Chip
-                          key={idx}
-                          label={tag}
-                          size="small"
-                          onClick={() => handleAppendTag(tag)}
-                          sx={{
-                            fontSize: '0.65rem',
-                            height: 22,
-                            cursor: 'pointer',
-                            bgcolor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-                            color: textMain,
-                            '&:hover': { bgcolor: isDark ? 'rgba(56,189,248,0.15)' : 'rgba(2,132,199,0.1)' },
-                          }}
-                        />
-                      ))}
-                    </Box>
-                  </Box>
-                </Box>
-
-                {/* 3. Interactive Mini-Map Pin Drop Location */}
-                <Box>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.75}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                     <Typography
                       variant="caption"
                       fontWeight="700"
-                      sx={{ color: textSecondary, textTransform: 'uppercase', fontSize: '0.68rem' }}
+                      sx={{ color: textSecondary, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}
                     >
-                      Incident Location (Click Map to Drop Pin)
+                      Incident Location & GPS Coordinates *
                     </Typography>
-                    <Button
-                      size="small"
-                      onClick={handleDetectGPS}
-                      disabled={gpsLoading}
-                      startIcon={gpsLoading ? <CircularProgress size={12} /> : <MyLocationIcon sx={{ fontSize: 13 }} />}
-                      sx={{
-                        fontSize: '0.68rem',
-                        py: 0.2,
-                        px: 1,
-                        textTransform: 'none',
-                        color: '#0284c7',
-                        fontWeight: 700,
-                      }}
-                    >
-                      {gpsLoading ? 'Acquiring GPS...' : '📍 Auto GPS'}
-                    </Button>
+                    <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.68rem' }}>
+                      Click map to pin
+                    </Typography>
                   </Box>
+
+                  {/* HIGH VISIBILITY DEDICATED AUTO GPS BUTTON */}
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    onClick={handleDetectGPS}
+                    disabled={gpsLoading}
+                    startIcon={
+                      gpsLoading ? (
+                        <CircularProgress size={18} sx={{ color: '#ffffff' }} />
+                      ) : (
+                        <MyLocationIcon sx={{ fontSize: 20 }} />
+                      )
+                    }
+                    sx={{
+                      py: 1.2,
+                      mb: 1.5,
+                      borderRadius: 2.5,
+                      fontWeight: 800,
+                      fontSize: '0.84rem',
+                      textTransform: 'none',
+                      letterSpacing: 0.3,
+                      background: isDark
+                        ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
+                        : 'linear-gradient(135deg, #047857 0%, #059669 100%)',
+                      color: '#ffffff',
+                      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      '&:hover': {
+                        background: isDark
+                          ? 'linear-gradient(135deg, #047857 0%, #059669 100%)'
+                          : 'linear-gradient(135deg, #065f46 0%, #047857 100%)',
+                        boxShadow: '0 6px 18px rgba(16, 185, 129, 0.45)',
+                        transform: 'translateY(-1px)',
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {gpsLoading ? 'Acquiring Live Satellite / Device GPS Fix...' : '📍 Auto-Detect My Live GPS Location'}
+                  </Button>
 
                   {/* Mini Interactive Leaflet Map Picker */}
                   <Box
                     sx={{
                       width: '100%',
-                      height: 180,
-                      borderRadius: 2,
+                      height: 190,
+                      borderRadius: 2.5,
                       overflow: 'hidden',
-                      border: `1px solid ${itemBorder}`,
-                      mb: 1,
+                      border: `1.5px solid ${itemBorder}`,
+                      mb: 1.25,
+                      boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.06)',
                     }}
                   >
                     <MapContainer
@@ -544,23 +565,23 @@ export default function CitizenReports() {
                   {/* Location Address Display */}
                   <Box
                     sx={{
-                      p: 1,
-                      borderRadius: 1.5,
+                      p: 1.25,
+                      borderRadius: 2,
                       bgcolor: isDark ? 'rgba(56, 189, 248, 0.08)' : 'rgba(2, 132, 199, 0.06)',
                       border: `1px solid ${isDark ? 'rgba(56, 189, 248, 0.25)' : 'rgba(2, 132, 199, 0.2)'}`,
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 1,
+                      gap: 1.25,
                     }}
                   >
-                    <LocationOnIcon sx={{ color: '#0284c7', fontSize: 18 }} />
+                    <LocationOnIcon sx={{ color: '#0284c7', fontSize: 20, flexShrink: 0 }} />
                     <Box flex={1} minWidth={0}>
                       <Typography
                         variant="caption"
                         sx={{
                           color: textMain,
                           fontWeight: 700,
-                          fontSize: '0.72rem',
+                          fontSize: '0.74rem',
                           display: 'block',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -569,9 +590,63 @@ export default function CitizenReports() {
                       >
                         {detectedAddress || 'Click map to pin exact site'}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.65rem' }}>
+                      <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.67rem', fontWeight: 500 }}>
                         Lat: {latitude} &bull; Lng: {longitude}
                       </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                {/* 3. Eyewitness Observation Description */}
+                <Box>
+                  <Typography
+                    variant="caption"
+                    fontWeight="700"
+                    sx={{ color: textSecondary, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}
+                  >
+                    Eyewitness Description *
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={3}
+                    placeholder="Describe water depth, structural damages, trapped persons, road conditions, or fire spread..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    size="small"
+                    required
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        color: textMain,
+                        bgcolor: itemBg,
+                        borderRadius: 2.5,
+                      },
+                    }}
+                  />
+
+                  {/* Quick observation tags */}
+                  <Box mt={1.5}>
+                    <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.7rem', fontWeight: 600, display: 'block', mb: 0.75 }}>
+                      Quick Tags (Click to append):
+                    </Typography>
+                    <Box display="flex" flexWrap="wrap" gap={0.75}>
+                      {QUICK_TAGS.map((tag, idx) => (
+                        <Chip
+                          key={idx}
+                          label={tag}
+                          size="small"
+                          onClick={() => handleAppendTag(tag)}
+                          sx={{
+                            fontSize: '0.68rem',
+                            height: 24,
+                            cursor: 'pointer',
+                            borderRadius: 1.5,
+                            bgcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                            color: textMain,
+                            '&:hover': { bgcolor: isDark ? 'rgba(56,189,248,0.18)' : 'rgba(2,132,199,0.12)' },
+                          }}
+                        />
+                      ))}
                     </Box>
                   </Box>
                 </Box>
@@ -581,7 +656,7 @@ export default function CitizenReports() {
                   <Typography
                     variant="caption"
                     fontWeight="700"
-                    sx={{ color: textSecondary, display: 'block', mb: 0.75, textTransform: 'uppercase', fontSize: '0.68rem' }}
+                    sx={{ color: textSecondary, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}
                   >
                     Attach Photo / Evidence (Optional)
                   </Typography>
@@ -593,16 +668,18 @@ export default function CitizenReports() {
                       variant="outlined"
                       startIcon={<AddPhotoAlternateIcon />}
                       sx={{
-                        py: 1.5,
-                        borderRadius: 2,
+                        py: 1.75,
+                        borderRadius: 2.5,
                         borderStyle: 'dashed',
+                        borderWidth: '1.5px',
                         borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
                         color: textSecondary,
                         textTransform: 'none',
-                        fontSize: '0.75rem',
+                        fontSize: '0.78rem',
                         '&:hover': {
                           borderColor: '#0284c7',
                           color: '#0284c7',
+                          bgcolor: isDark ? 'rgba(56, 189, 248, 0.05)' : 'rgba(2, 132, 199, 0.04)',
                         },
                       }}
                     >
@@ -614,8 +691,8 @@ export default function CitizenReports() {
                       sx={{
                         position: 'relative',
                         width: '100%',
-                        height: 100,
-                        borderRadius: 2,
+                        height: 110,
+                        borderRadius: 2.5,
                         overflow: 'hidden',
                         border: `1px solid ${itemBorder}`,
                       }}
@@ -659,13 +736,13 @@ export default function CitizenReports() {
                     )
                   }
                   sx={{
-                    py: 1.25,
-                    borderRadius: 2,
+                    py: 1.35,
+                    borderRadius: 2.5,
                     background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
                     boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
                     color: '#ffffff',
                     fontWeight: 800,
-                    fontSize: '0.82rem',
+                    fontSize: '0.85rem',
                     textTransform: 'none',
                     letterSpacing: 0.3,
                     '&:hover': {
@@ -684,17 +761,24 @@ export default function CitizenReports() {
 
         {/* Right Section: Live Reports Feed (7 columns) */}
         <Grid size={{ xs: 12, lg: 7 }}>
-          <Paper className="glass-card" sx={{ p: 3, borderRadius: 3 }}>
+          <Paper
+            className="glass-card"
+            sx={{
+              p: 3.5,
+              borderRadius: 3.5,
+              boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.35)' : '0 4px 20px rgba(0,0,0,0.06)',
+            }}
+          >
             {/* Feed Header */}
-            <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} mb={2}>
-              <Box display="flex" alignItems="center" gap={1}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1.5} mb={2.5}>
+              <Box display="flex" alignItems="center" gap={1.25}>
                 <Box
                   sx={{
-                    width: 10,
-                    height: 10,
+                    width: 11,
+                    height: 11,
                     borderRadius: '50%',
                     bgcolor: '#10b981',
-                    boxShadow: '0 0 8px #10b981',
+                    boxShadow: '0 0 10px #10b981',
                     animation: 'pulse-red 2s infinite',
                   }}
                 />
@@ -717,55 +801,58 @@ export default function CitizenReports() {
                   ),
                 }}
                 sx={{
-                  width: { xs: '100%', sm: 220 },
+                  width: { xs: '100%', sm: 240 },
                   '& .MuiOutlinedInput-root': {
                     color: textMain,
                     bgcolor: itemBg,
-                    borderRadius: 2,
-                    fontSize: '0.78rem',
+                    borderRadius: 2.5,
+                    fontSize: '0.8rem',
                   },
                 }}
               />
             </Box>
 
             {/* Filter Tabs */}
-            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap mb={2.5}>
-              {[
-                { id: 'ALL', label: `All (${reports.length})` },
-                { id: 'CRITICAL', label: `🔴 High & Critical (${criticalCount})` },
-                { id: 'UNDER_REVIEW', label: `⏳ Pending Review (${underReviewCount})` },
-                { id: 'VERIFIED', label: `✅ Verified (${verifiedCount})` },
-              ].map((tab) => {
-                const isSelected = filterTab === tab.id;
-                return (
-                  <Chip
-                    key={tab.id}
-                    label={tab.label}
-                    size="small"
-                    onClick={() => setFilterTab(tab.id)}
-                    color={isSelected ? 'primary' : 'default'}
-                    variant={isSelected ? 'filled' : 'outlined'}
-                    sx={{
-                      fontSize: '0.7rem',
-                      fontWeight: isSelected ? 800 : 600,
-                      cursor: 'pointer',
-                      borderRadius: 1.5,
-                      borderColor: isSelected
-                        ? '#0284c7'
-                        : isDark
-                        ? 'rgba(255,255,255,0.1)'
-                        : 'rgba(0,0,0,0.12)',
-                      bgcolor: isSelected
-                        ? isDark
-                          ? 'rgba(56, 189, 248, 0.25)'
-                          : '#0284c7'
-                        : 'transparent',
-                      color: isSelected ? '#ffffff' : textMain,
-                    }}
-                  />
-                );
-              })}
-            </Stack>
+            <Box sx={{ mb: 3.5, mt: 0.5 }}>
+              <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
+                {[
+                  { id: 'ALL', label: `All (${reports.length})` },
+                  { id: 'CRITICAL', label: `🔴 High & Critical (${criticalCount})` },
+                  { id: 'UNDER_REVIEW', label: `⏳ Pending Review (${underReviewCount})` },
+                  { id: 'VERIFIED', label: `✅ Verified (${verifiedCount})` },
+                ].map((tab) => {
+                  const isSelected = filterTab === tab.id;
+                  return (
+                    <Chip
+                      key={tab.id}
+                      label={tab.label}
+                      size="small"
+                      onClick={() => setFilterTab(tab.id)}
+                      color={isSelected ? 'primary' : 'default'}
+                      variant={isSelected ? 'filled' : 'outlined'}
+                      sx={{
+                        fontSize: '0.72rem',
+                        fontWeight: isSelected ? 800 : 600,
+                        cursor: 'pointer',
+                        borderRadius: 2,
+                        py: 0.5,
+                        borderColor: isSelected
+                          ? '#0284c7'
+                          : isDark
+                          ? 'rgba(255,255,255,0.12)'
+                          : 'rgba(0,0,0,0.12)',
+                        bgcolor: isSelected
+                          ? isDark
+                            ? 'rgba(56, 189, 248, 0.25)'
+                            : '#0284c7'
+                          : 'transparent',
+                        color: isSelected ? '#ffffff' : textMain,
+                      }}
+                    />
+                  );
+                })}
+              </Stack>
+            </Box>
 
             {/* List of Reports */}
             {loading ? (
@@ -779,7 +866,18 @@ export default function CitizenReports() {
                 </Typography>
               </Box>
             ) : (
-              <Stack spacing={2} maxHeight={660} sx={{ overflowY: 'auto', pr: 0.5 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 3,
+                  maxHeight: 720,
+                  overflowY: 'auto',
+                  pr: 1,
+                  pb: 2,
+                  pt: 0.5,
+                }}
+              >
                 {filteredReports.map((r) => {
                   const isCrit = r.severity === 'CRITICAL';
                   const isHigh = r.severity === 'HIGH';
@@ -793,31 +891,35 @@ export default function CitizenReports() {
                     <Paper
                       key={r._id}
                       sx={{
-                        p: 2,
-                        borderRadius: 2.5,
+                        p: 2.5,
+                        borderRadius: 3,
                         backgroundColor: itemBg,
                         border: `1px solid ${itemBorder}`,
-                        borderLeft: `4px solid ${sevColor}`,
+                        borderLeft: `5px solid ${sevColor}`,
+                        boxShadow: isDark
+                          ? '0 4px 20px rgba(0,0,0,0.25)'
+                          : '0 2px 10px rgba(0,0,0,0.04)',
                         transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                         '&:hover': {
                           transform: 'translateX(3px)',
                           boxShadow: isDark
-                            ? '0 6px 20px rgba(0,0,0,0.4)'
-                            : '0 4px 14px rgba(0,0,0,0.06)',
+                            ? '0 8px 24px rgba(0,0,0,0.45)'
+                            : '0 6px 18px rgba(0,0,0,0.08)',
                         },
                       }}
                     >
                       {/* Top Badges Row */}
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                        <Box display="flex" alignItems="center" gap={0.75} flexWrap="wrap">
+                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+                        <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
                           {/* Status Chip */}
                           <Chip
                             label={r.status || 'SUBMITTED'}
                             size="small"
                             sx={{
-                              fontSize: '0.62rem',
-                              height: 20,
+                              fontSize: '0.65rem',
+                              height: 22,
                               fontWeight: 800,
+                              borderRadius: 1.5,
                               bgcolor:
                                 r.status === 'VERIFIED'
                                   ? 'rgba(16, 185, 129, 0.15)'
@@ -839,9 +941,10 @@ export default function CitizenReports() {
                             size="small"
                             variant="outlined"
                             sx={{
-                              fontSize: '0.65rem',
-                              height: 20,
+                              fontSize: '0.68rem',
+                              height: 22,
                               fontWeight: 700,
+                              borderRadius: 1.5,
                               color: typeObj.color,
                               borderColor: `${typeObj.color}40`,
                             }}
@@ -852,9 +955,10 @@ export default function CitizenReports() {
                             label={`Severity: ${r.severity || 'HIGH'}`}
                             size="small"
                             sx={{
-                              fontSize: '0.62rem',
-                              height: 20,
+                              fontSize: '0.65rem',
+                              height: 22,
                               fontWeight: 800,
+                              borderRadius: 1.5,
                               bgcolor: `${sevColor}20`,
                               color: sevColor,
                             }}
@@ -863,8 +967,8 @@ export default function CitizenReports() {
 
                         {/* Timestamp */}
                         <Box display="flex" alignItems="center" gap={0.5}>
-                          <AccessTimeIcon sx={{ fontSize: 13, color: textSecondary }} />
-                          <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.68rem' }}>
+                          <AccessTimeIcon sx={{ fontSize: 14, color: textSecondary }} />
+                          <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.7rem', fontWeight: 500 }}>
                             {new Date(r.createdAt).toLocaleString(undefined, {
                               month: 'short',
                               day: 'numeric',
@@ -878,7 +982,7 @@ export default function CitizenReports() {
                       {/* Description */}
                       <Typography
                         variant="body2"
-                        sx={{ color: textMain, my: 1, lineHeight: 1.5, fontWeight: 500 }}
+                        sx={{ color: textMain, my: 1.25, lineHeight: 1.6, fontSize: '0.86rem', fontWeight: 500 }}
                       >
                         {r.description}
                       </Typography>
@@ -888,10 +992,10 @@ export default function CitizenReports() {
                         <Box
                           sx={{
                             width: '100%',
-                            maxHeight: 180,
-                            borderRadius: 1.5,
+                            maxHeight: 200,
+                            borderRadius: 2,
                             overflow: 'hidden',
-                            my: 1,
+                            my: 1.5,
                           }}
                         >
                           <img
@@ -906,28 +1010,28 @@ export default function CitizenReports() {
                       {r.aiClassification && (
                         <Box
                           sx={{
-                            p: 1.25,
-                            borderRadius: 1.5,
+                            p: 1.5,
+                            borderRadius: 2,
                             bgcolor: isDark
                               ? 'rgba(56, 189, 248, 0.08)'
                               : 'rgba(2, 132, 199, 0.06)',
                             border: `1px solid ${isDark ? 'rgba(56, 189, 248, 0.25)' : 'rgba(2, 132, 199, 0.18)'}`,
-                            mt: 1,
+                            mt: 1.5,
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 1,
+                            gap: 1.25,
                           }}
                         >
-                          <AutoAwesomeIcon sx={{ color: '#0284c7', fontSize: 16 }} />
+                          <AutoAwesomeIcon sx={{ color: '#0284c7', fontSize: 18 }} />
                           <Box flex={1}>
                             <Typography
                               variant="caption"
                               fontWeight="700"
-                              sx={{ color: isDark ? '#38bdf8' : '#0284c7', display: 'block', fontSize: '0.72rem' }}
+                              sx={{ color: isDark ? '#38bdf8' : '#0284c7', display: 'block', fontSize: '0.74rem' }}
                             >
                               AI Classification & NLP Triage
                             </Typography>
-                            <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.68rem' }}>
+                            <Typography variant="caption" sx={{ color: textSecondary, fontSize: '0.7rem' }}>
                               Category: <strong>{r.aiClassification.category}</strong> &bull; Priority: <strong>{r.aiClassification.priority}</strong> &bull; Confidence: <strong>{Math.round((r.aiClassification.confidence || 0.88) * 100)}%</strong>
                             </Typography>
                           </Box>
@@ -936,7 +1040,7 @@ export default function CitizenReports() {
 
                       {/* Responder Verification Action Buttons */}
                       {isResponder && r.status === 'SUBMITTED' && (
-                        <Stack direction="row" spacing={1} mt={1.5} pt={1} borderTop={`1px solid ${itemBorder}`}>
+                        <Stack direction="row" spacing={1.25} mt={2} pt={1.5} borderTop={`1px solid ${itemBorder}`}>
                           <Button
                             size="small"
                             variant="contained"
@@ -976,7 +1080,7 @@ export default function CitizenReports() {
                     </Paper>
                   );
                 })}
-              </Stack>
+              </Box>
             )}
           </Paper>
         </Grid>
