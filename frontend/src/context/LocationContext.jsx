@@ -94,6 +94,10 @@ export const INDIAN_DISTRICT_GAZETTEER = {
   'gaya': { lat: 24.7914, lng: 85.0002, state: 'Bihar', name: 'Gaya' },
   'muzaffarpur': { lat: 26.1209, lng: 85.3647, state: 'Bihar', name: 'Muzaffarpur' },
   'bhagalpur': { lat: 25.2425, lng: 86.9842, state: 'Bihar', name: 'Bhagalpur' },
+  'supaul': { lat: 26.1260, lng: 86.6056, state: 'Bihar', name: 'Supaul' },
+  'khagaria': { lat: 25.5015, lng: 86.4815, state: 'Bihar', name: 'Khagaria' },
+  'madhubani': { lat: 26.3544, lng: 86.0719, state: 'Bihar', name: 'Madhubani' },
+  'siwan': { lat: 26.2196, lng: 84.3567, state: 'Bihar', name: 'Siwan' },
 
   // West Bengal
   'kolkata': { lat: 22.5726, lng: 88.3639, state: 'West Bengal', name: 'Kolkata' },

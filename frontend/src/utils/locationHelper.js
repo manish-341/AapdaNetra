@@ -19,12 +19,18 @@ const NOIDA_CLUSTER = ['gautam buddha nagar', 'noida', 'greater noida', 'gb naga
 const DELHI_CLUSTER = ['delhi', 'central delhi', 'new delhi', 'south delhi', 'north delhi', 'east delhi', 'west delhi', 'yamuna floodplain', 'burari'];
 const BHOPAL_CLUSTER = ['bhopal', 'upper lake', 'halali', 'shahpura', 'tt nagar'];
 const CHITRAKOOT_CLUSTER = ['chitrakoot', 'chitrakut', 'karwi', 'mandakini', 'ramghat', 'sitapur'];
+const BIHAR_CLUSTER = [
+  'bihar', 'patna', 'supaul', 'khagaria', 'bhagalpur', 'muzaffarpur',
+  'madhubani', 'siwan', 'ganga', 'kosi', 'bagmati', 'gandak', 'kamla',
+  'jhanjharpur', 'benibad', 'sultanganj', 'baltara', 'birpur'
+];
 
 const KNOWN_DISTRICTS = [
   'guwahati', 'delhi', 'vindhya', 'rewa', 'satna', 'sidhi',
   'bengaluru', 'bangalore', 'mumbai', 'bhopal', 'indore',
   'chennai', 'kolkata', 'jaipur', 'lucknow', 'dehradun',
-  'gautam buddha nagar', 'noida', 'greater noida', 'chitrakoot'
+  'gautam buddha nagar', 'noida', 'greater noida', 'chitrakoot',
+  'patna', 'bihar'
 ];
 
 function checkClusterMatch(d1, d2, cluster) {
@@ -40,21 +46,24 @@ function checkClusterMatch(d1, d2, cluster) {
 export function isItemInActiveLocation(item, activeLoc) {
   if (!activeLoc) return true;
 
-  const activeDistrict = (activeLoc.district || '').toLowerCase().trim();
+  const rawDistrict = (activeLoc.district || activeLoc.name || '').toLowerCase().trim();
+  const rawName = (activeLoc.name || '').toLowerCase().trim();
+  const activeDistrict = rawDistrict.replace(/\(.*?\)/g, '').trim();
+  const activeName = rawName.replace(/\(.*?\)/g, '').trim();
   const activeState = (activeLoc.state || '').toLowerCase().trim();
-  const activeName = (activeLoc.name || '').toLowerCase().trim();
-  const fullActive = `${activeDistrict} ${activeName}`;
+  const fullActive = `${activeDistrict} ${activeName} ${activeState}`;
 
   // 1. Direct cluster match
-  const itemDist = (item.district || '').toLowerCase().trim();
+  const itemDist = (item.district || '').toLowerCase().replace(/\(.*?\)/g, '').trim();
   const itemName = (item.name || '').toLowerCase().trim();
-  const fullItem = `${itemDist} ${itemName}`;
+  const itemTitle = (item.title || '').toLowerCase().trim();
+  const fullItem = `${itemDist} ${itemName} ${itemTitle}`;
 
   if (itemDist) {
     if (
       itemDist === activeDistrict ||
-      itemDist.includes(activeDistrict) ||
-      activeDistrict.includes(itemDist)
+      (activeDistrict && (itemDist.includes(activeDistrict) || activeDistrict.includes(itemDist))) ||
+      (activeName && (itemDist.includes(activeName) || activeName.includes(itemDist)))
     ) {
       return true;
     }
@@ -63,6 +72,7 @@ export function isItemInActiveLocation(item, activeLoc) {
     if (checkClusterMatch(fullItem, fullActive, DELHI_CLUSTER)) return true;
     if (checkClusterMatch(fullItem, fullActive, BHOPAL_CLUSTER)) return true;
     if (checkClusterMatch(fullItem, fullActive, CHITRAKOOT_CLUSTER)) return true;
+    if (checkClusterMatch(fullItem, fullActive, BIHAR_CLUSTER)) return true;
 
     // If the item specifically has another district and doesn't share a cluster, reject it
     return false;
@@ -71,10 +81,19 @@ export function isItemInActiveLocation(item, activeLoc) {
   // 2. Alert / Text title & description matching
   const text = `${item.title || ''} ${item.message || ''} ${item.name || ''} ${item.description || ''}`.toLowerCase();
 
-  // Check if text specifically mentions a foreign district
+  // Check if text specifically mentions a foreign district outside active cluster
   for (const kd of KNOWN_DISTRICTS) {
     if (text.includes(kd) && !activeDistrict.includes(kd) && !activeName.includes(kd)) {
-      return false; // Explicitly belongs to another district (e.g. Bengaluru, Vindhya)
+      if (
+        checkClusterMatch(kd, fullActive, BIHAR_CLUSTER) ||
+        checkClusterMatch(kd, fullActive, NOIDA_CLUSTER) ||
+        checkClusterMatch(kd, fullActive, DELHI_CLUSTER) ||
+        checkClusterMatch(kd, fullActive, BHOPAL_CLUSTER) ||
+        checkClusterMatch(kd, fullActive, CHITRAKOOT_CLUSTER)
+      ) {
+        continue; // Belongs to same regional cluster
+      }
+      return false; // Explicitly belongs to another foreign region
     }
   }
 

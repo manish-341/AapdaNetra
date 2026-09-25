@@ -59,6 +59,12 @@ export function alertMatchesLocation(alert, userLoc) {
       (alertTitle.includes('dehradun') || alertMsg.includes('dehradun'))) {
     return true;
   }
+  const BIHAR_BASINS = ['bihar', 'patna', 'supaul', 'khagaria', 'bhagalpur', 'muzaffarpur', 'madhubani', 'siwan', 'kosi', 'ganga', 'bagmati', 'gandak', 'kamla', 'jhanjharpur', 'benibad', 'sultanganj', 'baltara', 'birpur'];
+  if (BIHAR_BASINS.some((b) => cleanDistrict.includes(b) || cleanName.includes(b))) {
+    if (BIHAR_BASINS.some((b) => alertDistrict.includes(b) || alertTitle.includes(b) || alertMsg.includes(b))) {
+      return true;
+    }
+  }
 
   // 3. Coordinate distance check
   if (userLoc.lat && userLoc.lng && alert.location?.coordinates && alert.location.coordinates.length === 2) {
@@ -96,19 +102,27 @@ export function isTrueCriticalAlert(alert) {
   // Life-Safety Rule: TEST and SIMULATION alerts must NEVER trigger acoustic sirens
   if (mode === 'TEST' || mode === 'SIMULATION') return false;
 
-  // Backward-compatibility: alerts lacking mode must NOT automatically become live ML alerts
-  // (only explicitly LIVE alerts or verified OFFICIAL broadcasts qualify)
+  // Only explicitly LIVE alerts or verified OFFICIAL broadcasts qualify
   if (mode !== 'LIVE' && alert.source !== 'OFFICIAL') return false;
 
   const canSev = String(alert.canonicalSeverity || '').toUpperCase();
   const sev = String(alert.severity || '').toUpperCase();
-  const risk = String(alert.riskCategory || '').toUpperCase();
 
-  if (sev === 'NORMAL' || sev === 'SAFE' || sev === 'INFO' || sev === 'LOW' || canSev === 'GREEN' || canSev === 'AMBER') {
+  // Strict User Requirement: Sirens must sound on CRITICAL alerts only
+  if (
+    sev === 'NORMAL' ||
+    sev === 'SAFE' ||
+    sev === 'INFO' ||
+    sev === 'LOW' ||
+    sev === 'WARNING' ||
+    sev === 'HIGH' ||
+    canSev === 'GREEN' ||
+    canSev === 'AMBER'
+  ) {
     return false;
   }
 
-  return canSev === 'CRITICAL' || sev === 'CRITICAL' || sev === 'RED' || risk === 'CRITICAL' || risk === 'RED';
+  return canSev === 'CRITICAL' || sev === 'CRITICAL';
 }
 
 /**

@@ -83,7 +83,7 @@ const Navbar = () => {
     setUnreadCount(unread.length);
   };
 
-  useEffect(() => {
+  const fetchAlertsData = React.useCallback(() => {
     getAlerts()
       .then((res) => {
         const data = res.data?.data || [];
@@ -91,10 +91,35 @@ const Navbar = () => {
         updateUnread(data, location);
       })
       .catch(() => {
-        setAlerts([]);
-        setUnreadCount(0);
+        // keep existing alerts on network glitch
       });
-  }, []);
+  }, [location]);
+
+  useEffect(() => {
+    fetchAlertsData();
+
+    // Timely sync: poll every 15 seconds for live critical emergency alerts
+    const interval = setInterval(() => {
+      fetchAlertsData();
+    }, 15000);
+
+    // Immediate sync when EmergencyAlertSentinel or socket updates alerts
+    const handleAlertsUpdated = (e) => {
+      const data = e.detail || [];
+      if (Array.isArray(data) && data.length > 0) {
+        setAlerts(data);
+        updateUnread(data, location);
+      } else {
+        fetchAlertsData();
+      }
+    };
+    window.addEventListener('alerts-updated', handleAlertsUpdated);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('alerts-updated', handleAlertsUpdated);
+    };
+  }, [fetchAlertsData, location]);
 
   // Recalculate unread notifications whenever location changes or alerts list updates
   useEffect(() => {

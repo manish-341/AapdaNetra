@@ -150,10 +150,12 @@ export default function EmergencyAlertSentinel() {
         if (!isMounted) return;
 
         setAlerts(alertsList);
+        // Timely sync across Navbar and active map cards
+        window.dispatchEvent(new CustomEvent('alerts-updated', { detail: alertsList }));
 
         const currentLocKey = (location?.district || location?.name || '').toLowerCase().trim();
 
-        // 1. MUST strictly match current user's location AND must be CRITICAL or RED situation AND active
+        // 1. MUST strictly match current user's location AND must be CRITICAL situation AND active
         const localCriticalAlert = alertsList.find((a) =>
           a.isActive !== false &&
           isTrueCriticalAlert(a) &&
@@ -226,8 +228,11 @@ export default function EmergencyAlertSentinel() {
           lastSoundedAlertIdRef.current = critAlertId;
 
           const isLiveAlert = (localCriticalAlert.mode === 'LIVE' || (!localCriticalAlert.mode && localCriticalAlert.source === 'OFFICIAL'));
-          if (notifConfig.audioSiren !== false && isLiveAlert) {
-            console.log(`[Emergency Sentinel] 🚨 USER LOCATION UNDER LIVE HAZARD ZONE: ${localCriticalAlert.district || currentLocKey}. Siren triggered.`);
+          const isCriticalEmergency = localCriticalAlert.severity === 'CRITICAL' || localCriticalAlert.canonicalSeverity === 'CRITICAL';
+
+          // Strictly sound siren on CRITICAL alerts only
+          if (notifConfig.audioSiren !== false && isLiveAlert && isCriticalEmergency) {
+            console.log(`[Emergency Sentinel] 🚨 USER LOCATION UNDER LIVE CRITICAL HAZARD ZONE: ${localCriticalAlert.district || currentLocKey}. Siren triggered.`);
             playEmergencySiren(8000);
             setSirenPlaying(true);
           }

@@ -231,8 +231,17 @@ export default function Forecasts() {
   return (
     <Boilerplate>
       {/* 1. TOP HEADER SECTION */}
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2} mb={3}>
-        <Box display="flex" alignItems="center" gap={1.75}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 2,
+          mb: 3
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75 }}>
           <Box
             sx={{
               width: 48,
@@ -272,172 +281,183 @@ export default function Forecasts() {
       </Box>
 
       {/* 2. EXECUTIVE SUMMARY CARDS (4-METRICS ROW) */}
-      <Grid container spacing={2} mb={3}>
-        {/* Metric 1: Current Observed Reading */}
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 2,
-              borderRadius: 2.5,
-              bgcolor: cardBg,
-              border: `1px solid ${cardBorder}`,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}
-          >
-            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-              <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, textTransform: 'uppercase', fontSize: '0.68rem' }}>
-                Ground Telemetry (0h)
+      <Box sx={{ mb: 3 }}>
+        <Grid container spacing={2}>
+          {/* Metric 1: Current Observed Reading */}
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.25,
+                borderRadius: 2.5,
+                bgcolor: cardBg,
+                border: `1px solid ${cardBorder}`,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, textTransform: 'uppercase', fontSize: '0.68rem' }}>
+                  Ground Telemetry (0h)
+                </Typography>
+                <Chip
+                  icon={<Radio size={11} color="#16a34a" />}
+                  label="LIVE"
+                  size="small"
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: '0.6rem',
+                    height: 18,
+                    bgcolor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#dcfce7',
+                    color: '#16a34a'
+                  }}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
+                <Typography variant="h4" fontWeight={900} sx={{ color: textMain, lineHeight: 1 }}>
+                  {currentDisplayValue}
+                </Typography>
+                <Typography variant="body2" fontWeight={700} sx={{ color: textMuted }}>
+                  {currentIndicator.unit}
+                </Typography>
+              </Box>
+              <Typography variant="caption" sx={{ color: textMuted, mt: 1, display: 'block', fontSize: '0.72rem' }}>
+                Observed stage at <strong>{selectedLocation?.name.split(' ')[0]}</strong>
               </Typography>
-              <Chip
-                icon={<Radio size={11} color="#16a34a" />}
-                label="LIVE"
-                size="small"
-                sx={{
-                  fontWeight: 800,
-                  fontSize: '0.6rem',
-                  height: 18,
-                  bgcolor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#dcfce7',
-                  color: '#16a34a'
-                }}
-              />
-            </Box>
-            <Box display="flex" alignItems="baseline" gap={0.75}>
-              <Typography variant="h4" fontWeight={900} sx={{ color: textMain, lineHeight: 1 }}>
-                {currentDisplayValue}
-              </Typography>
-              <Typography variant="body2" fontWeight={700} sx={{ color: textMuted }}>
-                {currentIndicator.unit}
-              </Typography>
-            </Box>
-            <Typography variant="caption" sx={{ color: textMuted, mt: 1, display: 'block', fontSize: '0.72rem' }}>
-              Observed stage at <strong>{selectedLocation?.name.split(' ')[0]}</strong>
-            </Typography>
-          </Paper>
-        </Grid>
+            </Paper>
+          </Grid>
 
-        {/* Metric 2: Peak Forecast Window */}
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 2,
-              borderRadius: 2.5,
-              bgcolor: cardBg,
-              border: `1px solid ${cardBorder}`,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}
-          >
-            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-              <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, textTransform: 'uppercase', fontSize: '0.68rem' }}>
-                Anticipated Peak Crest
+          {/* Metric 2: Peak Forecast Window */}
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.25,
+                borderRadius: 2.5,
+                bgcolor: cardBg,
+                border: `1px solid ${cardBorder}`,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, textTransform: 'uppercase', fontSize: '0.68rem' }}>
+                  Anticipated Peak Crest
+                </Typography>
+                <Chip
+                  label={peakHorizonObj?.horizon}
+                  size="small"
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: '0.6rem',
+                    height: 18,
+                    bgcolor: isDark ? 'rgba(234, 88, 12, 0.15)' : '#ffedd5',
+                    color: '#ea580c'
+                  }}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
+                <Typography variant="h4" fontWeight={900} sx={{ color: '#ea580c', lineHeight: 1 }}>
+                  {peakVal}
+                </Typography>
+                <Typography variant="body2" fontWeight={700} sx={{ color: textMuted }}>
+                  {currentIndicator.unit}
+                </Typography>
+              </Box>
+              <Typography variant="caption" sx={{ color: '#ea580c', mt: 1, display: 'block', fontSize: '0.72rem', fontWeight: 700 }}>
+                &Delta; {Math.round(((peakVal - currentDisplayValue) / (currentDisplayValue || 1)) * 100)}% volume surge expected
               </Typography>
-              <Chip
-                label={peakHorizonObj?.horizon}
-                size="small"
-                sx={{
-                  fontWeight: 800,
-                  fontSize: '0.6rem',
-                  height: 18,
-                  bgcolor: isDark ? 'rgba(234, 88, 12, 0.15)' : '#ffedd5',
-                  color: '#ea580c'
-                }}
-              />
-            </Box>
-            <Box display="flex" alignItems="baseline" gap={0.75}>
-              <Typography variant="h4" fontWeight={900} sx={{ color: '#ea580c', lineHeight: 1 }}>
-                {peakVal}
-              </Typography>
-              <Typography variant="body2" fontWeight={700} sx={{ color: textMuted }}>
-                {currentIndicator.unit}
-              </Typography>
-            </Box>
-            <Typography variant="caption" sx={{ color: '#ea580c', mt: 1, display: 'block', fontSize: '0.72rem', fontWeight: 700 }}>
-              &Delta; {Math.round(((peakVal - currentDisplayValue) / (currentDisplayValue || 1)) * 100)}% volume surge expected
-            </Typography>
-          </Paper>
-        </Grid>
+            </Paper>
+          </Grid>
 
-        {/* Metric 3: Active Hotspot & Terrain */}
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 2,
-              borderRadius: 2.5,
-              bgcolor: cardBg,
-              border: `1px solid ${cardBorder}`,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}
-          >
-            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-              <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, textTransform: 'uppercase', fontSize: '0.68rem' }}>
-                Monitored Catchment
+          {/* Metric 3: Active Hotspot & Terrain */}
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.25,
+                borderRadius: 2.5,
+                bgcolor: cardBg,
+                border: `1px solid ${cardBorder}`,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, textTransform: 'uppercase', fontSize: '0.68rem' }}>
+                  Monitored Catchment
+                </Typography>
+                <Compass size={14} color="#0284c7" />
+              </Box>
+              <Typography variant="subtitle2" fontWeight={800} sx={{ color: textMain, lineHeight: 1.2, fontSize: '0.9rem' }}>
+                {selectedLocation?.name}
               </Typography>
-              <Compass size={14} color="#0284c7" />
-            </Box>
-            <Typography variant="subtitle2" fontWeight={800} sx={{ color: textMain, lineHeight: 1.2, fontSize: '0.9rem' }}>
-              {selectedLocation?.name}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#0284c7', mt: 1, display: 'block', fontSize: '0.72rem', fontWeight: 600 }}>
-              {selectedLocation?.terrain} ({selectedLocation?.lat.toFixed(3)}, {selectedLocation?.lon.toFixed(3)})
-            </Typography>
-          </Paper>
-        </Grid>
+              <Typography variant="caption" sx={{ color: '#0284c7', mt: 1, display: 'block', fontSize: '0.72rem', fontWeight: 600 }}>
+                {selectedLocation?.terrain} ({selectedLocation?.lat.toFixed(3)}, {selectedLocation?.lon.toFixed(3)})
+              </Typography>
+            </Paper>
+          </Grid>
 
-        {/* Metric 4: AI Model Calibration */}
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 2,
-              borderRadius: 2.5,
-              bgcolor: cardBg,
-              border: `1px solid ${cardBorder}`,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}
-          >
-            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-              <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, textTransform: 'uppercase', fontSize: '0.68rem' }}>
-                Model Architecture
+          {/* Metric 4: AI Model Calibration */}
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.25,
+                borderRadius: 2.5,
+                bgcolor: cardBg,
+                border: `1px solid ${cardBorder}`,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, textTransform: 'uppercase', fontSize: '0.68rem' }}>
+                  Model Architecture
+                </Typography>
+                <Cpu size={14} color="#0284c7" />
+              </Box>
+              <Typography variant="subtitle2" fontWeight={800} sx={{ color: textMain, lineHeight: 1.2 }}>
+                Physics-Guided GRU v2.2
               </Typography>
-              <Cpu size={14} color="#0284c7" />
-            </Box>
-            <Typography variant="subtitle2" fontWeight={800} sx={{ color: textMain, lineHeight: 1.2 }}>
-              Physics-Guided GRU v2.2
-            </Typography>
-            <Typography variant="caption" sx={{ color: textMuted, mt: 1, display: 'block', fontSize: '0.72rem' }}>
-              Hydraulic Conservation Loss Constrained (88% Mean Confidence)
-            </Typography>
-          </Paper>
+              <Typography variant="caption" sx={{ color: textMuted, mt: 1, display: 'block', fontSize: '0.72rem' }}>
+                Hydraulic Conservation Loss Constrained (88% Mean Confidence)
+              </Typography>
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
+      </Box>
 
       {/* 3. TARGET BASIN / HOTSPOT SELECTOR (Interactive Cards Grid) */}
       <Paper
         elevation={0}
         sx={{
-          p: 2,
-          mb: 2.5,
+          p: { xs: 2, sm: 2.5 },
+          mb: 3,
           borderRadius: 2.5,
           bgcolor: cardBg,
           border: `1px solid ${cardBorder}`
         }}
       >
-        <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={1.5}>
-          <Box display="flex" alignItems="center" gap={1}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 1,
+            mb: 2
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <MapPin size={17} color="#0284c7" />
             <Typography variant="subtitle2" fontWeight={800} sx={{ color: textMain }}>
               Target Basin / Catchment Hotspots:
@@ -448,7 +468,7 @@ export default function Forecasts() {
           </Typography>
         </Box>
 
-        <Grid container spacing={1}>
+        <Grid container spacing={2}>
           {availableLocations.map((loc) => {
             const isSelected = selectedLocation?.id === loc.id;
             return (
@@ -456,7 +476,7 @@ export default function Forecasts() {
                 <Box
                   onClick={() => setSelectedLocation(loc)}
                   sx={{
-                    p: 1.25,
+                    p: 1.5,
                     borderRadius: 2,
                     border: '1px solid',
                     borderColor: isSelected ? '#0284c7' : cardBorder,
@@ -471,13 +491,13 @@ export default function Forecasts() {
                     }
                   }}
                 >
-                  <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Typography variant="caption" fontWeight={800} sx={{ color: isSelected ? '#0284c7' : textMain, fontSize: '0.78rem' }}>
                       {loc.name}
                     </Typography>
                     {isSelected && <CheckCircle2 size={14} color="#0284c7" />}
                   </Box>
-                  <Typography variant="caption" sx={{ color: textMuted, display: 'block', fontSize: '0.68rem', mt: 0.25 }}>
+                  <Typography variant="caption" sx={{ color: textMuted, display: 'block', fontSize: '0.68rem', mt: 0.5 }}>
                     {loc.terrain} &bull; {loc.lat.toFixed(3)}, {loc.lon.toFixed(3)}
                   </Typography>
                 </Box>
@@ -488,8 +508,8 @@ export default function Forecasts() {
       </Paper>
 
       {/* 4. HAZARD INDICATOR SELECTOR (Vibrant Pill Tabs) */}
-      <Box mb={2.5}>
-        <Grid container spacing={1.5}>
+      <Box sx={{ mb: 3 }}>
+        <Grid container spacing={2}>
           {INDICATORS.map((ind, idx) => {
             const isSelected = activeTab === idx;
             const IconComp = ind.icon;
@@ -498,7 +518,7 @@ export default function Forecasts() {
                 <Box
                   onClick={() => setActiveTab(idx)}
                   sx={{
-                    p: 1.5,
+                    p: 1.75,
                     borderRadius: 2.5,
                     bgcolor: isSelected
                       ? (isDark ? 'rgba(2, 132, 199, 0.15)' : '#f0f9ff')
@@ -508,7 +528,7 @@ export default function Forecasts() {
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 1.25,
+                    gap: 1.5,
                     transition: 'all 0.18s ease-in-out',
                     boxShadow: isSelected ? '0 4px 14px rgba(2, 132, 199, 0.15)' : 'none',
                     '&:hover': {
@@ -519,8 +539,8 @@ export default function Forecasts() {
                 >
                   <Box
                     sx={{
-                      width: 36,
-                      height: 36,
+                      width: 38,
+                      height: 38,
                       borderRadius: 2,
                       bgcolor: isSelected ? '#0284c7' : (isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'),
                       color: isSelected ? '#ffffff' : ind.color,
@@ -539,7 +559,7 @@ export default function Forecasts() {
                       sx={{
                         color: isSelected ? textMain : textMuted,
                         display: 'block',
-                        fontSize: '0.78rem',
+                        fontSize: '0.8rem',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis'
@@ -547,7 +567,7 @@ export default function Forecasts() {
                     >
                       {ind.label}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: isSelected ? '#0284c7' : textMuted, fontSize: '0.68rem', fontWeight: 600 }}>
+                    <Typography variant="caption" sx={{ color: isSelected ? '#0284c7' : textMuted, fontSize: '0.7rem', fontWeight: 600 }}>
                       Unit: {ind.unit}
                     </Typography>
                   </Box>
@@ -586,7 +606,7 @@ export default function Forecasts() {
               border: `1px solid ${cardBorder}`
             }}
           >
-            <Box display="flex" alignItems="center" gap={1.25} mb={1.5}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1.5 }}>
               <Layers size={20} color="#0284c7" />
               <Typography variant="subtitle1" fontWeight={800} sx={{ color: textMain }}>
                 Scientific Model Methodology & Lag Dynamics: {selectedLocation?.name}
@@ -600,7 +620,7 @@ export default function Forecasts() {
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 4 }}>
                 <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc', border: `1px solid ${cardBorder}`, height: '100%' }}>
-                  <Box display="flex" alignItems="center" gap={1} mb={0.75}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
                     <Waves size={16} color="#0284c7" />
                     <Typography variant="caption" fontWeight={800} sx={{ color: '#0284c7', textTransform: 'uppercase' }}>
                       Lagged Basin Inflow (+2h to +6h)
@@ -614,7 +634,7 @@ export default function Forecasts() {
 
               <Grid size={{ xs: 12, md: 4 }}>
                 <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc', border: `1px solid ${cardBorder}`, height: '100%' }}>
-                  <Box display="flex" alignItems="center" gap={1} mb={0.75}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
                     <CloudRain size={16} color="#ea580c" />
                     <Typography variant="caption" fontWeight={800} sx={{ color: '#ea580c', textTransform: 'uppercase' }}>
                       Soil Saturation Exhaustion (+12h)
@@ -628,7 +648,7 @@ export default function Forecasts() {
 
               <Grid size={{ xs: 12, md: 4 }}>
                 <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc', border: `1px solid ${cardBorder}`, height: '100%' }}>
-                  <Box display="flex" alignItems="center" gap={1} mb={0.75}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
                     <CheckCircle2 size={16} color="#16a34a" />
                     <Typography variant="caption" fontWeight={800} sx={{ color: '#16a34a', textTransform: 'uppercase' }}>
                       Recession & Clearance (+24h)

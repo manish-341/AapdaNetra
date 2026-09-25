@@ -197,12 +197,12 @@ export default function ForecastTimeline({
   const thresholdVal = indicatorName.includes('/100') ? 70 : indicatorName.includes('mm') ? 35 : 40;
 
   return (
-    <Stack spacing={2.5}>
+    <Stack spacing={3}>
       {/* 1. VISUAL TIME-SERIES TRAJECTORY GRAPH CARD */}
       <Paper
         elevation={0}
         sx={{
-          p: { xs: 2, sm: 3 },
+          p: { xs: 2.5, sm: 3 },
           borderRadius: 3,
           backgroundColor: cardBg,
           border: `1px solid ${cardBorder}`,
@@ -210,9 +210,18 @@ export default function ForecastTimeline({
         }}
       >
         {/* Header with Title & Legend Chips */}
-        <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} gap={2} mb={2.5}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'flex-start', md: 'center' },
+            gap: 2,
+            mb: 2.5
+          }}
+        >
           <Box>
-            <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
               <BarChart3 size={20} color="#0284c7" />
               <Typography variant="caption" sx={{ color: '#0284c7', fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase' }}>
                 Hydrodynamic Sequence Curve (+0h to +24h)
@@ -337,8 +346,8 @@ export default function ForecastTimeline({
       </Paper>
 
       {/* 2. FIVE-HORIZON INTERACTIVE PROGRESSION CARDS */}
-      <Box>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+      <Box sx={{ mt: 0.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="subtitle2" fontWeight={800} sx={{ color: textMain }}>
             5-Horizon Temporal Step Progression (Click a card to inspect directives):
           </Typography>
@@ -347,7 +356,7 @@ export default function ForecastTimeline({
           </Typography>
         </Box>
 
-        <Grid container spacing={1.5}>
+        <Grid container spacing={2}>
           {forecasts.map((f, i) => {
             const color = getLevelColor(f.riskLevel);
             const bg = getLevelBg(f.riskLevel, isDark);
@@ -507,8 +516,8 @@ export default function ForecastTimeline({
           border: `1px solid ${cardBorder}`
         }}
       >
-        <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={2}>
-          <Box display="flex" alignItems="center" gap={1}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Shield size={18} color="#0284c7" />
             <Typography variant="subtitle1" fontWeight={800} sx={{ color: textMain }}>
               Tactical Operational Directive: {activeSelectedHorizon?.horizon} ({activeSelectedHorizon?.timeFormatted})
