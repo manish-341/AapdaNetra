@@ -30,6 +30,7 @@ import { useLocationContext, PRESET_DISTRICTS } from '../context/LocationContext
 import AdminOnlyModal from '../components/AdminOnlyModal';
 import EmergencyContactsModal from '../components/EmergencyContactsModal';
 import QuickActionModal from '../components/QuickActionModal';
+import { useLanguage } from '../context/LanguageContext';
 
 // Pixel-perfect SVG Donut Chart that NEVER collapses
 function RiskDonutChart({ isDark, total = 322, low = 184, med = 84, high = 54 }) {
@@ -221,6 +222,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { isDark } = useThemeMode();
   const { location, switchLocation, presets } = useLocationContext();
+  const { t } = useLanguage();
   const user = getCurrentUser() || { name: 'Admin User', role: 'ADMIN' };
   const role = getUserRole();
   const isAdmin = ["ADMIN", "ADMINISTRATOR"].includes(role);
@@ -333,7 +335,7 @@ export default function Dashboard() {
     {
       id: 'citizen-reports',
       title: 'Citizen Reports Overview',
-      cardTitle: 'Citizen Reports',
+      cardTitle: t('citizenReportsCard', 'Citizen Reports'),
       subtitle: 'Crowdsourced field observations & incident telemetry',
       icon: <DescriptionOutlinedIcon sx={{ color: '#3b82f6', fontSize: 22 }} />,
       color: '#3b82f6',
@@ -356,7 +358,7 @@ export default function Dashboard() {
     },
     {
       id: 'emergency-contacts',
-      cardTitle: 'Emergency Contacts',
+      cardTitle: t('emergencyContacts', 'Emergency Contacts'),
       icon: <PhoneInTalkOutlinedIcon sx={{ color: '#16a34a', fontSize: 22 }} />,
       color: '#10b981',
       bgLight: '#dcfce7',
@@ -366,7 +368,7 @@ export default function Dashboard() {
     {
       id: 'shelter-capacity',
       title: 'Shelter Capacity & Relief Operations',
-      cardTitle: 'Shelter Capacity',
+      cardTitle: t('shelterCapacityCard', 'Shelter Capacity'),
       subtitle: 'Relief center readiness, bed occupancy & supply intake',
       icon: <HomeWorkOutlinedIcon sx={{ color: '#0d9488', fontSize: 22 }} />,
       color: '#0d9488',
@@ -390,7 +392,7 @@ export default function Dashboard() {
     {
       id: 'early-warnings',
       title: 'Early Warnings & Active Alerts',
-      cardTitle: 'Early Warnings',
+      cardTitle: t('earlyWarnings', 'Early Warnings'),
       subtitle: 'Hydrological telemetry, severe weather & risk level advisories',
       icon: <NotificationsActiveOutlinedIcon sx={{ color: '#f59e0b', fontSize: 22 }} />,
       color: '#f59e0b',
@@ -414,7 +416,7 @@ export default function Dashboard() {
     {
       id: 'simulation',
       title: '"What-If?" Disaster Risk Simulation',
-      cardTitle: 'What If? Simulation',
+      cardTitle: t('simulationCard', 'What If? Simulation'),
       subtitle: 'Hydrodynamic inundation models & predictive evacuation scenarios',
       icon: <ScienceOutlinedIcon sx={{ color: '#9333ea', fontSize: 22 }} />,
       color: '#9333ea',
@@ -528,7 +530,7 @@ export default function Dashboard() {
                   lineHeight: 1.2,
                 }}
               >
-                Crisis Decision Cockpit
+                {t('crisisDecisionCockpit', 'Crisis Decision Cockpit')}
               </Typography>
               <Typography
                 variant="body2"
@@ -544,7 +546,7 @@ export default function Dashboard() {
                   gap: 0.8
                 }}
               >
-                <span>Welcome back, <strong style={{ color: textPrimary }}>{user?.name || 'Admin User'}</strong> • Monitoring</span>
+                <span>{t('welcomeBackUser', 'Welcome back')}, <strong style={{ color: textPrimary }}>{user?.name || 'Admin User'}</strong> • {t('monitoring', 'Monitoring')}</span>
                 <Select
                   size="small"
                   value={activePresetId}
@@ -621,7 +623,7 @@ export default function Dashboard() {
                       boxShadow: '0 0 6px #10b981',
                     }}
                   />
-                  Live
+                  {t('live', 'Live')}
                 </span>
               </Box>
 
@@ -643,7 +645,7 @@ export default function Dashboard() {
                   '&:hover': { bgcolor: '#0369a1' },
                 }}
               >
-                Live Map
+                {t('liveMap', 'Live Map')}
               </Button>
             </Box>
           </Box>
@@ -651,7 +653,7 @@ export default function Dashboard() {
           {/* ── 2. Quick Actions (Enforced Generous 40px Spacing Below) ── */}
           <Box sx={{ mb: 5 }}>
             <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: textPrimary, mb: 1.8 }}>
-              Quick Actions
+              {t('quickActions', 'Quick Actions')}
             </Typography>
 
             <Box
@@ -716,7 +718,7 @@ export default function Dashboard() {
           {/* ── 3. Current Situation / Master KPI Row ── */}
           <Box sx={{ mb: 5 }}>
             <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: textPrimary, mb: 1.8 }}>
-              Current Situation
+              {t('currentSituation', 'Current Situation')}
             </Typography>
 
             <Box
@@ -765,7 +767,7 @@ export default function Dashboard() {
                       letterSpacing: '0.04em',
                     }}
                   >
-                    ACTIVE ALERTS
+                    {t('activeAlerts', 'ACTIVE ALERTS')}
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.3 }}>
                     <Typography sx={{ fontSize: '1.85rem', fontWeight: 800, color: textPrimary, lineHeight: 1 }}>
@@ -787,7 +789,7 @@ export default function Dashboard() {
                       }}
                     >
                       <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#ef4444' }} />
-                      {criticalAlertsCount} Critical
+                      {criticalAlertsCount} {t('critical', 'Critical')}
                     </Box>
                   </Box>
                 </Box>
@@ -851,14 +853,14 @@ export default function Dashboard() {
                       letterSpacing: '0.04em',
                     }}
                   >
-                    SHELTERS READY
+                    {t('sheltersReady', 'SHELTERS READY')}
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mt: 0.3 }}>
                     <Typography sx={{ fontSize: '1.85rem', fontWeight: 800, color: textPrimary, lineHeight: 1 }}>
                       {sheltersReady}
                     </Typography>
                     <Typography sx={{ fontSize: '1.1rem', fontWeight: 600, color: textMuted }}>
-                      / {totalShelters} Operational
+                      / {totalShelters} {t('operational', 'Operational')}
                     </Typography>
                   </Box>
                 </Box>
@@ -889,9 +891,9 @@ export default function Dashboard() {
               >
                 <Typography sx={{ fontSize: '0.76rem', color: textSecondary, display: 'flex', alignItems: 'center', gap: 0.6 }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981' }} />
-                  <strong>{shelterOccupied.toLocaleString()}</strong> Bed Occupancy
+                  <strong>{shelterOccupied.toLocaleString()}</strong> {t('bedOccupancy', 'Bed Occupancy')}
                 </Typography>
-                <Typography sx={{ fontSize: '0.76rem', color: textMuted }}>Operational Desk</Typography>
+                <Typography sx={{ fontSize: '0.76rem', color: textMuted }}>{t('operationalDesk', 'Operational Desk')}</Typography>
               </Box>
             </Paper>
 
@@ -934,7 +936,7 @@ export default function Dashboard() {
                       letterSpacing: '0.04em',
                     }}
                   >
-                    POPULATION AT RISK
+                    {t('populationAtRisk', 'POPULATION AT RISK')}
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.3 }}>
                     <Typography sx={{ fontSize: '1.85rem', fontWeight: 800, color: textPrimary, lineHeight: 1 }}>
@@ -955,7 +957,7 @@ export default function Dashboard() {
                       }}
                     >
                       <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#ea580c' }} />
-                      Threat &gt;= 60
+                      {t('threatLevel', 'Threat')} &gt;= 60
                     </Box>
                   </Box>
                 </Box>
@@ -972,10 +974,10 @@ export default function Dashboard() {
                 }}
               >
                 <Typography sx={{ fontSize: '0.76rem', color: textSecondary }}>
-                  <strong>{activeSectors}</strong> Active Sectors
+                  <strong>{activeSectors}</strong> {t('activeSectors', 'Active Sectors')}
                 </Typography>
                 <Typography sx={{ fontSize: '0.76rem', color: textSecondary }}>
-                  • <strong style={{ color: '#ef4444' }}>{criticalSectors} Critical</strong>
+                  • <strong style={{ color: '#ef4444' }}>{criticalSectors} {t('critical', 'Critical')}</strong>
                 </Typography>
               </Box>
             </Paper>
@@ -1008,7 +1010,7 @@ export default function Dashboard() {
             >
               <Box>
                 <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: textPrimary, mb: 2 }}>
-                  Risk Distribution
+                  {t('riskDistribution', 'Risk Distribution')}
                 </Typography>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1 }}>
@@ -1025,7 +1027,7 @@ export default function Dashboard() {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981' }} />
                         <Typography sx={{ fontSize: '0.82rem', color: textSecondary, fontWeight: 500 }}>
-                          Low Risk
+                          {t('lowRisk', 'Low Risk')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
@@ -1042,7 +1044,7 @@ export default function Dashboard() {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#f59e0b' }} />
                         <Typography sx={{ fontSize: '0.82rem', color: textSecondary, fontWeight: 500 }}>
-                          Medium Risk
+                          {t('mediumRisk', 'Medium Risk')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
@@ -1059,7 +1061,7 @@ export default function Dashboard() {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#ef4444' }} />
                         <Typography sx={{ fontSize: '0.82rem', color: textSecondary, fontWeight: 500 }}>
-                          High Risk
+                          {t('highRisk', 'High Risk')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
@@ -1088,7 +1090,7 @@ export default function Dashboard() {
                     '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
                   }}
                 >
-                  {isAdmin ? 'View full risk analysis' : 'View live disaster map'}
+                  {isAdmin ? t('viewFullRiskAnalysis', 'View full risk analysis') : t('liveDisasterMap', 'View live disaster map')}
                 </Button>
               </Box>
             </Paper>
@@ -1111,7 +1113,7 @@ export default function Dashboard() {
               <Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                   <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: textPrimary }}>
-                    24-Hour Risk Score Trend
+                    {t('riskScoreTrend', '24-Hour Risk Score Trend')}
                   </Typography>
                   <Box
                     sx={{
@@ -1153,7 +1155,7 @@ export default function Dashboard() {
                     '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
                   }}
                 >
-                  Detailed trend analysis
+                  {t('detailedTrendAnalysis', 'Detailed trend analysis')}
                 </Button>
               </Box>
             </Paper>
@@ -1176,7 +1178,7 @@ export default function Dashboard() {
               <Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.6 }}>
                   <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: textPrimary }}>
-                    Recent Alerts
+                    {t('recentAlerts', 'Recent Alerts')}
                   </Typography>
                   <Button
                     onClick={() => navigate('/disaster-map')}
@@ -1190,7 +1192,7 @@ export default function Dashboard() {
                       minWidth: 0,
                     }}
                   >
-                    View All
+                    {t('viewAll', 'View All')}
                   </Button>
                 </Box>
 

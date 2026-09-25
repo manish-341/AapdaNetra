@@ -121,3 +121,37 @@ body {
 .pulse-critical {
   animation: pulse-red 2s infinite;
 }
+
+/* ── Seamless Google Translate Integration (Zero UI clutter / bannerless) ── */
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+#google_translate_element {
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.goog-te-banner-frame,
+iframe.goog-te-banner-frame,
+.skiptranslate:not(#google_translate_element),
+#goog-gt-tt,
+.goog-te-balloon-frame,
+.goog-tooltip,
+.goog-tooltip:hover {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+.goog-text-highlight {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}

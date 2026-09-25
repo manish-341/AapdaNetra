@@ -214,7 +214,7 @@ export default function Login() {
                 mt: 0.4,
               }}
             >
-              DISASTER INTELLIGENCE
+              {t('disasterIntelligence', 'DISASTER INTELLIGENCE')}
             </Typography>
           </Box>
 
@@ -239,7 +239,7 @@ export default function Login() {
                 lineHeight: 1.25,
               }}
             >
-              Public Safety & Emergency
+              {t('publicSafety', 'Public Safety & Emergency')}
             </Typography>
             <Typography
               sx={{
@@ -249,7 +249,7 @@ export default function Login() {
                 lineHeight: 1.25,
               }}
             >
-              Decision Support Platform
+              {t('decisionPlatform', 'Decision Support Platform')}
             </Typography>
           </Box>
         </Box>
@@ -420,7 +420,7 @@ export default function Login() {
                     mb: 1.5,
                   }}
                 >
-                  SAFER PEOPLE &nbsp;|&nbsp; STRONGER COMMUNITIES
+                  {t('saferPeople', 'SAFER PEOPLE | STRONGER COMMUNITIES')}
                 </Typography>
 
                 {/* Primary Brand Headline */}
@@ -449,7 +449,7 @@ export default function Login() {
                     mb: 1.5,
                   }}
                 >
-                  Public Safety & Emergency Decision Support Platform
+                  {t('platformSubtitle', 'Public Safety & Emergency Decision Support Platform')}
                 </Typography>
 
                 {/* Mission Statement */}
@@ -463,7 +463,7 @@ export default function Login() {
                     fontWeight: 500,
                   }}
                 >
-                  Intelligent disaster risk management for a safer, more resilient India.
+                  {t('missionStatement', 'Intelligent disaster risk management for a safer, more resilient India.')}
                 </Typography>
 
                 {/* Blue Accent Bar */}
@@ -490,10 +490,10 @@ export default function Login() {
                   {/* Pillar 1 */}
                   <Box>
                     <Typography sx={{ fontWeight: 750, fontSize: '0.86rem', color: brandDarkNavy }}>
-                      Anticipate Risks
+                      {t('anticipateRisks', 'Anticipate Risks')}
                     </Typography>
                     <Typography sx={{ fontSize: '0.78rem', color: pillarMutedText, fontWeight: 500 }}>
-                      Data-driven insights
+                      {t('anticipateHelper', 'Data-driven insights')}
                     </Typography>
                   </Box>
 
@@ -502,10 +502,10 @@ export default function Login() {
                   {/* Pillar 2 */}
                   <Box>
                     <Typography sx={{ fontWeight: 750, fontSize: '0.86rem', color: brandDarkNavy }}>
-                      Enable Faster Response
+                      {t('enableResponse', 'Enable Faster Response')}
                     </Typography>
                     <Typography sx={{ fontSize: '0.78rem', color: pillarMutedText, fontWeight: 500 }}>
-                      Coordinated action
+                      {t('responseHelper', 'Coordinated action')}
                     </Typography>
                   </Box>
 
@@ -514,10 +514,10 @@ export default function Login() {
                   {/* Pillar 3 */}
                   <Box>
                     <Typography sx={{ fontWeight: 750, fontSize: '0.86rem', color: brandDarkNavy }}>
-                      Build Safer Communities
+                      {t('buildCommunities', 'Build Safer Communities')}
                     </Typography>
                     <Typography sx={{ fontSize: '0.78rem', color: pillarMutedText, fontWeight: 500 }}>
-                      A more resilient tomorrow
+                      {t('communitiesHelper', 'A more resilient tomorrow')}
                     </Typography>
                   </Box>
                 </Box>
@@ -552,10 +552,10 @@ export default function Login() {
                     }}
                   >
                     <Box component="span" sx={{ display: 'block' }}>
-                      Together
+                      {t('together', 'Together')}
                     </Box>
                     <Box component="span" sx={{ display: 'block', pl: 1 }}>
-                      for a Safer
+                      {t('forASafer', 'for a Safer')}
                     </Box>
                     <Box
                       component="span"
@@ -565,7 +565,7 @@ export default function Login() {
                         color: primaryBrandBlue,
                       }}
                     >
-                      Tomorrow
+                      {t('tomorrow', 'Tomorrow')}
                     </Box>
                   </Box>
 
@@ -617,12 +617,12 @@ export default function Login() {
                       mb: 0.5,
                     }}
                   >
-                    Welcome Back
+                    {t('welcomeBack', 'Welcome Back')}
                   </Typography>
                   <Typography sx={{ color: brandMutedText, fontSize: '0.88rem' }}>
                     {activeRole === 'citizen'
-                      ? 'Sign in to continue to AapdaNetra'
-                      : 'Secure Administrator Access'}
+                      ? t('signInPrompt', 'Sign in to continue to AapdaNetra')
+                      : t('adminAccess', 'Secure Administrator Access')}
                   </Typography>
                 </Box>
 
@@ -655,7 +655,7 @@ export default function Login() {
                       },
                     }}
                   >
-                    Citizen
+                    {t('citizen', 'Citizen')}
                   </Button>
 
                   <Button
@@ -676,7 +676,7 @@ export default function Login() {
                       },
                     }}
                   >
-                    Admin
+                    {t('admin', 'Admin')}
                   </Button>
                 </Box>
 
@@ -727,7 +727,7 @@ export default function Login() {
                           transition: 'all 0.15s ease',
                         }}
                       >
-                        Mobile Number
+                        {t('mobileNumber', 'Mobile Number')}
                       </Button>
                       <Button
                         fullWidth
@@ -747,7 +747,7 @@ export default function Login() {
                           transition: 'all 0.15s ease',
                         }}
                       >
-                        Email Address
+                        {t('emailAddress', 'Email Address')}
                       </Button>
                     </Box>
                   )}
@@ -764,13 +764,13 @@ export default function Login() {
                           fontSize: '0.82rem',
                         }}
                       >
-                        Mobile Number
+                        {t('mobileNumber', 'Mobile Number')}
                       </Typography>
                       <TextField
                         fullWidth
                         id="login-citizen-mobile"
                         type="tel"
-                        placeholder="Enter 10-digit mobile number"
+                        placeholder={t('enterMobile', 'Enter 10-digit mobile number')}
                         value={mobileNumber}
                         onChange={(e) => {
                           const val = e.target.value.replace(/\D/g, '').slice(0, 10);
@@ -788,7 +788,7 @@ export default function Login() {
                             </InputAdornment>
                           ),
                         }}
-                        helperText="Registered 10-digit Indian mobile number."
+                        helperText={t('mobileHelper', 'Registered 10-digit Indian mobile number.')}
                         sx={{
                           '& .MuiOutlinedInput-root': {
                             backgroundColor: inputBg,
@@ -834,7 +834,7 @@ export default function Login() {
                           fontSize: '0.82rem',
                         }}
                       >
-                        Citizen Email Address
+                        {t('citizenEmail', 'Citizen Email Address')}
                       </Typography>
                       <TextField
                         fullWidth
@@ -853,7 +853,7 @@ export default function Login() {
                         }}
                         variant="outlined"
                         size="small"
-                        helperText="Registered citizen email address."
+                        helperText={t('citizenEmailHelper', 'Registered citizen email address.')}
                         sx={{
                           '& .MuiOutlinedInput-root': {
                             backgroundColor: inputBg,
@@ -899,7 +899,7 @@ export default function Login() {
                           fontSize: '0.82rem',
                         }}
                       >
-                        Admin ID (12 characters)
+                        {t('adminId', 'Admin ID (12 characters)')}
                       </Typography>
                       <TextField
                         fullWidth
@@ -912,7 +912,7 @@ export default function Login() {
                         }}
                         variant="outlined"
                         size="small"
-                        helperText="Format: Fixed 'NETRA' + 7 digits (e.g. NETRA0012121) or official admin email"
+                        helperText={t('adminIdHelper', "Format: Fixed 'NETRA' + 7 digits (e.g. NETRA0012121) or official admin email")}
                         sx={{
                           '& .MuiOutlinedInput-root': {
                             backgroundColor: inputBg,
@@ -957,13 +957,13 @@ export default function Login() {
                         fontSize: '0.82rem',
                       }}
                     >
-                      Password
+                      {t('password', 'Password')}
                     </Typography>
                     <TextField
                       fullWidth
                       id="login-password"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Enter your password"
+                      placeholder={t('enterPassword', 'Enter your password')}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       variant="outlined"
@@ -1035,7 +1035,7 @@ export default function Login() {
                         }
                         label={
                           <Typography sx={{ color: brandDarkNavy, fontSize: '0.82rem', fontWeight: 600 }}>
-                            Remember me
+                            {t('rememberMe', 'Remember me')}
                           </Typography>
                         }
                         sx={{ m: 0 }}
@@ -1061,7 +1061,7 @@ export default function Login() {
                         '&:hover': { textDecoration: 'underline' },
                       }}
                     >
-                      {activeRole === 'citizen' ? 'Forgot password?' : 'Forgot admin password?'}
+                      {activeRole === 'citizen' ? t('forgotPassword', 'Forgot password?') : t('forgotAdminPassword', 'Forgot admin password?')}
                     </Typography>
                   </Box>
 
@@ -1095,10 +1095,10 @@ export default function Login() {
                     }}
                   >
                     {loading
-                      ? 'Authenticating...'
+                      ? t('authenticating', 'Authenticating...')
                       : activeRole === 'citizen'
-                      ? (citizenMethod === 'mobile' ? 'Sign In with Mobile Number' : 'Sign In with Email')
-                      : 'Sign In as Administrator'}
+                      ? (citizenMethod === 'mobile' ? t('signInWithMobile', 'Sign In with Mobile Number') : t('signInWithEmail', 'Sign In with Email'))
+                      : t('signInAsAdmin', 'Sign In as Administrator')}
                   </Button>
 
                   {/* CITIZEN-ONLY: OR Divider, Google SSO, and Create Account */}
@@ -1125,7 +1125,7 @@ export default function Login() {
                               letterSpacing: '0.04em',
                             }}
                           >
-                            OR
+                            {t('or', 'OR')}
                           </Typography>
                         </Box>
                       </Box>
@@ -1178,13 +1178,13 @@ export default function Login() {
                           mb: 3,
                         }}
                       >
-                        Sign in with Google
+                        {t('signInGoogle', 'Sign in with Google')}
                       </Button>
 
                       {/* Create an account */}
                       <Box sx={{ textAlign: 'center' }}>
                         <Typography sx={{ color: brandMutedText, fontSize: '0.86rem' }}>
-                          Don't have an account?{' '}
+                          {t('dontHaveAccount', "Don't have an account?")}{' '}
                           <Typography
                             component={Link}
                             to="/signup"
@@ -1195,7 +1195,7 @@ export default function Login() {
                               '&:hover': { textDecoration: 'underline' },
                             }}
                           >
-                            Create an account
+                            {t('createAccount', 'Create an account')}
                           </Typography>
                         </Typography>
                       </Box>
@@ -1225,10 +1225,10 @@ export default function Login() {
       >
         <Box>
           <Typography sx={{ color: brandDarkNavy, fontSize: '0.8rem', fontWeight: 650 }}>
-            Building a safer, more resilient tomorrow.
+            {t('footerResilient', 'Building a safer, more resilient tomorrow.')}
           </Typography>
           <Typography sx={{ color: brandMutedText, fontSize: '0.74rem' }}>
-            Empowering communities with data, intelligence, and timely action.
+            {t('footerEmpowering', 'Empowering communities with data, intelligence, and timely action.')}
           </Typography>
         </Box>
 
@@ -1238,29 +1238,29 @@ export default function Login() {
               onClick={() => setInfoModal('about')}
               sx={{ color: brandSecondaryNavy, fontSize: '0.76rem', cursor: 'pointer', '&:hover': { color: primaryBrandBlue } }}
             >
-              About
+              {t('about', 'About')}
             </Typography>
             <Typography sx={{ color: brandMutedText, fontSize: '0.74rem' }}>|</Typography>
             <Typography
               onClick={() => setInfoModal('contact')}
               sx={{ color: brandSecondaryNavy, fontSize: '0.76rem', cursor: 'pointer', '&:hover': { color: primaryBrandBlue } }}
             >
-              Contact
+              {t('contact', 'Contact')}
             </Typography>
             <Typography sx={{ color: brandMutedText, fontSize: '0.74rem' }}>|</Typography>
             <Typography sx={{ color: brandSecondaryNavy, fontSize: '0.76rem' }}>
-              Privacy Policy
+              {t('privacyPolicy', 'Privacy Policy')}
             </Typography>
             <Typography sx={{ color: brandMutedText, fontSize: '0.74rem' }}>|</Typography>
             <Typography sx={{ color: brandSecondaryNavy, fontSize: '0.76rem' }}>
-              Terms of Service
+              {t('termsOfService', 'Terms of Service')}
             </Typography>
           </Stack>
 
           <Box sx={{ display: { xs: 'none', sm: 'block' }, width: '1px', height: 16, backgroundColor: '#dfe1e6', mx: 1 }} />
 
           <Typography sx={{ color: brandMutedText, fontSize: '0.76rem' }}>
-            © 2026. All rights reserved.
+            {t('allRightsReserved', '© 2026. All rights reserved.')}
           </Typography>
         </Box>
       </Box>

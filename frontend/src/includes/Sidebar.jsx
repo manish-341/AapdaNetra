@@ -17,10 +17,12 @@ import {
 } from 'lucide-react';
 import { getUserRole } from '../lib/auth';
 import { useThemeMode } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const Sidebar = () => {
   const role = getUserRole();
   const { isDark } = useThemeMode();
+  const { t } = useLanguage();
   const isAdmin = ["ADMIN", "ADMINISTRATOR"].includes(role);
 
   return (
@@ -43,7 +45,7 @@ const Sidebar = () => {
               AapdaNetra
             </h2>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-              AI Disaster Intelligence
+              {t('aiDisasterIntelligence', 'AI Disaster Intelligence')}
             </span>
           </div>
         </div>
@@ -52,27 +54,27 @@ const Sidebar = () => {
       <nav style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', overflowY: 'auto', maxHeight: 'calc(100vh - 120px)' }}>
         
         <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '0.25rem', paddingLeft: '0.5rem' }}>
-          Command & Intelligence
+          {t('cmdIntelligence', 'Command & Intelligence')}
         </div>
         
-        <NavLink to="/dashboard" className="nav-item"><LayoutDashboard size={17} /> Command Dashboard</NavLink>
-        <NavLink to="/disaster-map" className="nav-item"><Map size={17} /> Live Disaster Map</NavLink>
-        <NavLink to="/ai-assistant" className="nav-item"><Bot size={17} /> AI Emergency Assistant</NavLink>
+        <NavLink to="/dashboard" className="nav-item"><LayoutDashboard size={17} /> {t('commandDashboard', 'Command Dashboard')}</NavLink>
+        <NavLink to="/disaster-map" className="nav-item"><Map size={17} /> {t('liveDisasterMap', 'Live Disaster Map')}</NavLink>
+        <NavLink to="/ai-assistant" className="nav-item"><Bot size={17} /> {t('aiEmergencyAssistant', 'AI Emergency Assistant')}</NavLink>
 
         <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', margin: '0.85rem 0 0.25rem 0', paddingLeft: '0.5rem' }}>
-          Analytics & Predictions
+          {t('analyticsPredictions', 'Analytics & Predictions')}
         </div>
 
-        <NavLink to="/citizen-reports" className="nav-item"><FileCheck2 size={17} /> Citizen Reports</NavLink>
-        <NavLink to="/forecasts" className="nav-item"><TrendingUp size={17} /> Temporal Forecasts</NavLink>
+        <NavLink to="/citizen-reports" className="nav-item"><FileCheck2 size={17} /> {t('citizenReports', 'Citizen Reports')}</NavLink>
+        <NavLink to="/forecasts" className="nav-item"><TrendingUp size={17} /> {t('temporalForecasts', 'Temporal Forecasts')}</NavLink>
         {isAdmin && (
-          <NavLink to="/risk-analysis" className="nav-item"><SearchCode size={17} /> Risk Analysis (XAI)</NavLink>
+          <NavLink to="/risk-analysis" className="nav-item"><SearchCode size={17} /> {t('riskAnalysis', 'Risk Analysis (XAI)')}</NavLink>
         )}
 
         {/* What If Simulation (Admin Only) */}
         {isAdmin && (
           <NavLink to="/simulation" className="nav-item">
-            <Sliders size={17} /> "What If?" Simulation
+            <Sliders size={17} /> {t('whatIfSimulation', '"What If?" Simulation')}
           </NavLink>
         )}
 
@@ -80,23 +82,23 @@ const Sidebar = () => {
         {isAdmin && (
           <>
             <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', margin: '0.85rem 0 0.25rem 0', paddingLeft: '0.5rem' }}>
-              Operations & Relocation
+              {t('operationsRelocation', 'Operations & Relocation')}
             </div>
-            <NavLink to="/vulnerable-habitations" className="nav-item"><AlertTriangle size={17} /> Vulnerable Habitations</NavLink>
-            <NavLink to="/carrying-capacity" className="nav-item"><BarChart3 size={17} /> Shelter Capacity</NavLink>
-            <NavLink to="/relocation-planning" className="nav-item"><Navigation size={17} /> Relocation Plans</NavLink>
-            <NavLink to="/user-management" className="nav-item"><Users size={17} /> User Management</NavLink>
+            <NavLink to="/vulnerable-habitations" className="nav-item"><AlertTriangle size={17} /> {t('vulnerableHabitations', 'Vulnerable Habitations')}</NavLink>
+            <NavLink to="/carrying-capacity" className="nav-item"><BarChart3 size={17} /> {t('shelterCapacity', 'Shelter Capacity')}</NavLink>
+            <NavLink to="/relocation-planning" className="nav-item"><Navigation size={17} /> {t('relocationPlans', 'Relocation Plans')}</NavLink>
+            <NavLink to="/user-management" className="nav-item"><Users size={17} /> {t('userManagement', 'User Management')}</NavLink>
           </>
         )}
 
         <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', margin: '0.85rem 0 0.25rem 0', paddingLeft: '0.5rem' }}>
-          System
+          {t('system', 'System')}
         </div>
         
         {isAdmin && (
-          <NavLink to="/reports" className="nav-item"><FileText size={17} /> System Reports</NavLink>
+          <NavLink to="/reports" className="nav-item"><FileText size={17} /> {t('systemReports', 'System Reports')}</NavLink>
         )}
-        <NavLink to="/settings" className="nav-item"><Settings size={17} /> Settings</NavLink>
+        <NavLink to="/settings" className="nav-item"><Settings size={17} /> {t('settings', 'Settings')}</NavLink>
       </nav>
     </aside>
   );
