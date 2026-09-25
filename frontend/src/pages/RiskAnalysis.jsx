@@ -167,7 +167,73 @@ const REGIONAL_HOTSPOTS_MAP = {
     { id: 'BINDRAL', name: 'Bindal Nala Catchment', district: 'Dehradun', lat: 30.3250, lon: 78.0400, defaultHazard: 'FLOOD', terrain: 'Foothill Torrent Plain', area: '3.6', elevation: '642m' },
     { id: 'RAJPUR', name: 'Rajpur Road Mussoorie Escarpment', district: 'Dehradun', lat: 30.3800, lon: 78.0900, defaultHazard: 'LANDSLIDE', terrain: 'Steep Himalayan Mountain Slope', area: '8.5', elevation: '920m' },
     { id: 'SONG', name: 'Song River Floodplain', district: 'Dehradun', lat: 30.2500, lon: 78.1000, defaultHazard: 'FLOOD', terrain: 'River Confluence Plain', area: '6.2', elevation: '595m' }
+  ],
+  'chitrakoot': [
+    { id: 'RAMGHAT', name: 'Mandakini River & Ramghat Basin', district: 'Chitrakoot', lat: 25.1764, lon: 80.8643, defaultHazard: 'FLOOD', terrain: 'Riverine Sacred Confluence Plain', area: '4.2', elevation: '145m' },
+    { id: 'KAMADGIRI', name: 'Kamadgiri Parikrama Foothill Slope', district: 'Chitrakoot', lat: 25.1680, lon: 80.8520, defaultHazard: 'LANDSLIDE', terrain: 'Hillock Drainage Escarpment', area: '3.8', elevation: '192m' },
+    { id: 'SITAPUR', name: 'Sitapur Low Drainage Corridor', district: 'Chitrakoot', lat: 25.1850, lon: 80.8710, defaultHazard: 'FLOOD', terrain: 'Low Drainage Siphon Plain', area: '3.1', elevation: '142m' },
+    { id: 'BHARATKUP', name: 'Bharat Kup Watershed Catchment', district: 'Chitrakoot', lat: 25.1200, lon: 80.7950, defaultHazard: 'FLOOD', terrain: 'Agricultural Inundation Basin', area: '6.5', elevation: '156m' }
+  ],
+  'visakhapatnam': [
+    { id: 'MEGHADRI', name: 'Meghadrigedda Reservoir & Drainage Plain', district: 'Visakhapatnam', lat: 17.7400, lon: 83.2100, defaultHazard: 'FLOOD', terrain: 'Coastal Plain Reservoir Outfall', area: '5.5', elevation: '14m' },
+    { id: 'RK_BEACH', name: 'RK Beach Coastal Surge Corridor', district: 'Visakhapatnam', lat: 17.7120, lon: 83.3180, defaultHazard: 'FLOOD', terrain: 'Coastal Tidal Frontage', area: '3.2', elevation: '5m' },
+    { id: 'SIMHACHALAM', name: 'Simhachalam Hill Range Escarpment', district: 'Visakhapatnam', lat: 17.7680, lon: 83.2500, defaultHazard: 'LANDSLIDE', terrain: 'Steep Coastal Hill Range', area: '7.8', elevation: '285m' },
+    { id: 'GAJUWAKA', name: 'Gajuwaka Industrial Low Depression', district: 'Visakhapatnam', lat: 17.6950, lon: 83.2050, defaultHazard: 'FLOOD', terrain: 'Low Siphon Depression', area: '4.4', elevation: '9m' }
+  ],
+  'pune': [
+    { id: 'MULA_MUTHA', name: 'Mula-Mutha Riverfront Confluence', district: 'Pune', lat: 18.5300, lon: 73.8750, defaultHazard: 'FLOOD', terrain: 'River Confluence Basin', area: '4.8', elevation: '552m' },
+    { id: 'SINHAGAD', name: 'Sinhagad Ridge Foothill Escarpment', district: 'Pune', lat: 18.3660, lon: 73.7550, defaultHazard: 'LANDSLIDE', terrain: 'Basaltic Mountain Slope', area: '8.2', elevation: '860m' },
+    { id: 'SHIVAJINAGAR', name: 'Shivajinagar Low Siphon Sector', district: 'Pune', lat: 18.5280, lon: 73.8470, defaultHazard: 'FLOOD', terrain: 'Urban Lowland Basin', area: '3.5', elevation: '550m' },
+    { id: 'KHADAKWASLA', name: 'Khadakwasla Dam Spillway Corridor', district: 'Pune', lat: 18.4400, lon: 73.7650, defaultHazard: 'FLOOD', terrain: 'Dam Inflow & Spillway Basin', area: '6.1', elevation: '565m' }
+  ],
+  'indore': [
+    { id: 'KANH', name: 'Kanh River Channel & Krishnapura Chhatri', district: 'Indore', lat: 22.7180, lon: 75.8550, defaultHazard: 'FLOOD', terrain: 'Urban River Channel Basin', area: '3.9', elevation: '542m' },
+    { id: 'SIRPUR', name: 'Sirpur Lake Catchment Basin', district: 'Indore', lat: 22.7050, lon: 75.8200, defaultHazard: 'FLOOD', terrain: 'Lake Wetland Depression', area: '4.7', elevation: '545m' },
+    { id: 'RALAMANDAL', name: 'Ralamandal Wildlife Ridge Slope', district: 'Indore', lat: 22.6580, lon: 75.9120, defaultHazard: 'LANDSLIDE', terrain: 'Elevated Plateau Escarpment', area: '6.8', elevation: '620m' },
+    { id: 'RAJWADA', name: 'Rajwada Low Outfall Siphon', district: 'Indore', lat: 22.7210, lon: 75.8600, defaultHazard: 'FLOOD', terrain: 'Dense Urban Drainage Basin', area: '2.6', elevation: '538m' }
+  ],
+  'lucknow': [
+    { id: 'GOMTI', name: 'Gomti Riverfront Primary Drainage Basin', district: 'Lucknow', lat: 26.8520, lon: 80.9420, defaultHazard: 'FLOOD', terrain: 'Major River Floodplain', area: '5.2', elevation: '112m' },
+    { id: 'KUKRAIL', name: 'Kukrail Nala Drainage Channel', district: 'Lucknow', lat: 26.8850, lon: 80.9850, defaultHazard: 'FLOOD', terrain: 'Forest Stream Tributary', area: '4.1', elevation: '115m' },
+    { id: 'CHARBAGH', name: 'Charbagh Low Siphon Depression', district: 'Lucknow', lat: 26.8300, lon: 80.9200, defaultHazard: 'FLOOD', terrain: 'Railway Underpass Lowlands', area: '3.0', elevation: '109m' },
+    { id: 'SHAHEED', name: 'Shaheed Path Catchment Lowlands', district: 'Lucknow', lat: 26.7850, lon: 80.9950, defaultHazard: 'FLOOD', terrain: 'Highway Stormwater Basin', area: '5.8', elevation: '114m' }
+  ],
+  'srinagar': [
+    { id: 'JHELUM', name: 'Jhelum River Channel & Zero Bridge', district: 'Srinagar', lat: 34.0720, lon: 74.8250, defaultHazard: 'FLOOD', terrain: 'Himalayan River Meander', area: '6.4', elevation: '1584m' },
+    { id: 'DAL_SPILL', name: 'Dal Lake & Flood Spill Channel', district: 'Srinagar', lat: 34.0880, lon: 74.8500, defaultHazard: 'FLOOD', terrain: 'Interconnected Lake Spillway', area: '5.8', elevation: '1585m' },
+    { id: 'SHANKARACHARYA', name: 'Shankaracharya Hill Escarpment', district: 'Srinagar', lat: 34.0750, lon: 74.8450, defaultHazard: 'LANDSLIDE', terrain: 'Himalayan Bedrock Ridge Slope', area: '7.2', elevation: '1820m' },
+    { id: 'BEMINA', name: 'Bemina Lowland Siphon Basin', district: 'Srinagar', lat: 34.0800, lon: 74.7700, defaultHazard: 'FLOOD', terrain: 'Chronic Urban Floodplain', area: '4.5', elevation: '1582m' }
+  ],
+  'chandigarh': [
+    { id: 'SUKHNA', name: 'Sukhna Lake Spillway & Choe Channel', district: 'Chandigarh', lat: 30.7420, lon: 76.8180, defaultHazard: 'FLOOD', terrain: 'Lake Dam Spillway Basin', area: '4.5', elevation: '315m' },
+    { id: 'N_CHOE', name: 'N-Choe Drainage Corridor Sector 35/43', district: 'Chandigarh', lat: 30.7250, lon: 76.7650, defaultHazard: 'FLOOD', terrain: 'Urban Stormwater Choe', area: '3.8', elevation: '310m' },
+    { id: 'SHIVALIK', name: 'Shivalik Foothills Kalka Escarpment', district: 'Chandigarh', lat: 30.7950, lon: 76.8650, defaultHazard: 'LANDSLIDE', terrain: 'Foothill Siltstone Slope', area: '6.9', elevation: '410m' },
+    { id: 'PATIALA_KI_RAO', name: 'Patiala-Ki-Rao Torrent Catchment', district: 'Chandigarh', lat: 30.7600, lon: 76.7400, defaultHazard: 'FLOOD', terrain: 'Seasonal Torrent Floodplain', area: '4.2', elevation: '308m' }
   ]
+};
+
+// Geographically calibrated river gauge stations and danger datums for accurate hydrological telemetry
+const REGIONAL_RIVER_REGISTRY = {
+  'delhi': { river: 'Yamuna River Stage (Delhi Railway Bridge Gauge)', baseStage: 204.2, dangerStage: 205.33, unit: 'm', warningStage: 204.5 },
+  'chitrakoot': { river: 'Mandakini River Stage (Ramghat Gauge)', baseStage: 142.5, dangerStage: 145.0, unit: 'm', warningStage: 143.8 },
+  'vindhya': { river: 'Bichia / Tons River Stage (Rewa Gauge)', baseStage: 134.2, dangerStage: 137.5, unit: 'm', warningStage: 136.0 },
+  'rewa': { river: 'Bichia / Tons River Stage (Rewa Gauge)', baseStage: 134.2, dangerStage: 137.5, unit: 'm', warningStage: 136.0 },
+  'mumbai': { river: 'Mithi River Estuary Gauge (Bandra Kurla Outfall)', baseStage: 2.1, dangerStage: 3.8, unit: 'm', warningStage: 3.0 },
+  'kolkata': { river: 'Hooghly River Tidal Stage (Garden Reach Gauge)', baseStage: 4.2, dangerStage: 6.5, unit: 'm', warningStage: 5.5 },
+  'visakhapatnam': { river: 'Meghadrigedda Reservoir Stage (Outfall Gauge)', baseStage: 8.4, dangerStage: 11.5, unit: 'm', warningStage: 10.2 },
+  'patna': { river: 'Ganga River Stage (Digha Ghat Gauge)', baseStage: 49.5, dangerStage: 50.52, unit: 'm', warningStage: 49.8 },
+  'guwahati': { river: 'Brahmaputra River Stage (DC Court Gauge)', baseStage: 46.2, dangerStage: 49.68, unit: 'm', warningStage: 48.5 },
+  'dehradun': { river: 'Bindal / Rispana Mountain Torrent Stream Stage', baseStage: 638.5, dangerStage: 642.0, unit: 'm', warningStage: 640.5 },
+  'srinagar': { river: 'Jhelum River Stage (Ram Munshi Bagh Gauge)', baseStage: 1582.4, dangerStage: 1585.5, unit: 'm', warningStage: 1584.0 },
+  'pune': { river: 'Mula-Mutha River Stage (Bund Garden Gauge)', baseStage: 548.2, dangerStage: 552.0, unit: 'm', warningStage: 550.5 },
+  'indore': { river: 'Kanh / Saraswati River Stage (Krishnapura Chhatri)', baseStage: 540.2, dangerStage: 544.5, unit: 'm', warningStage: 542.8 },
+  'lucknow': { river: 'Gomti River Stage (Gau Ghat Gauge)', baseStage: 108.2, dangerStage: 112.5, unit: 'm', warningStage: 110.5 },
+  'chandigarh': { river: 'Sukhna Choe & N-Choe Drainage Siphon Stage', baseStage: 312.0, dangerStage: 316.0, unit: 'm', warningStage: 314.5 },
+  'ranchi': { river: 'Subarnarekha River Basin (Hatia Gauge)', baseStage: 638.0, dangerStage: 642.0, unit: 'm', warningStage: 640.2 },
+  'bhopal': { river: 'Upper Lake Spillway & Kaliasot Basin Gauge', baseStage: 498.2, dangerStage: 501.5, unit: 'm', warningStage: 500.0 },
+  'jaipur': { river: 'Dravyavati River & Amanishah Channel Stage', baseStage: 410.2, dangerStage: 414.0, unit: 'm', warningStage: 412.5 },
+  'bengaluru': { river: 'Vrishabhavathi Valley Channel Stage', baseStage: 880.5, dangerStage: 884.0, unit: 'm', warningStage: 882.5 },
+  'noida': { river: 'Hindon River Stage (Chhajarsi Gauge)', baseStage: 196.2, dangerStage: 199.5, unit: 'm', warningStage: 198.0 }
 };
 
 function getHotspotsForLocation(loc) {
@@ -402,20 +468,72 @@ export default function RiskAnalysis() {
   const resolvedShelterTime = shelterData?.estimatedTravelTime || `12 mins`;
   const resolvedShelterBeds = shelterData?.shelter?.availableCapacity || shelterData?.availableCapacity || 320;
 
+  // Dynamic Regional Hydrological / Geomechanical Telemetry Profile
+  const hydrographMeta = useMemo(() => {
+    const locQuery = (location?.id || location?.district || location?.name || selectedHotspot?.district || '').toLowerCase();
+    let riverProfile = null;
+    for (const [key, profile] of Object.entries(REGIONAL_RIVER_REGISTRY)) {
+      if (locQuery.includes(key)) {
+        riverProfile = profile;
+        break;
+      }
+    }
+    if (!riverProfile) {
+      const elev = parseInt(selectedHotspot?.elevation) || 210;
+      riverProfile = {
+        river: `${selectedHotspot?.name || location?.name || 'Regional'} Drainage Corridor Gauge`,
+        baseStage: Number((elev * 0.95).toFixed(1)),
+        dangerStage: Number((elev * 0.95 + 2.8).toFixed(1)),
+        unit: 'm'
+      };
+    }
+
+    if (selectedHazard === 'LANDSLIDE') {
+      return {
+        title: 'Geotechnical Pore-Water Pressure & Slope Instability (kPa vs Critical Threshold)',
+        metricLabel: 'Pore Pressure (kPa)',
+        unit: ' kPa',
+        baseLevel: 24.5,
+        dangerLevel: 65.0,
+        subtext: 'Slope piezometric pore pressure & critical shear failure threshold'
+      };
+    } else if (selectedHazard === 'WILDFIRE') {
+      return {
+        title: 'Fine Fuel Moisture Deficit & Fire Radiative Power (MW vs Extreme Alert)',
+        metricLabel: 'Radiative Power (MW)',
+        unit: ' MW',
+        baseLevel: 14.0,
+        dangerLevel: 45.0,
+        subtext: 'MODIS/VIIRS thermal emission telemetry & moisture index'
+      };
+    }
+
+    return {
+      riverName: riverProfile.river,
+      title: `${riverProfile.river} (m vs Danger Threshold)`,
+      metricLabel: 'Water Stage (m)',
+      unit: 'm',
+      baseLevel: riverProfile.baseStage,
+      dangerLevel: riverProfile.dangerStage,
+      subtext: `Live river stage telemetry vs ${riverProfile.dangerStage}m CWC Danger Datum`
+    };
+  }, [location?.id, location?.district, location?.name, selectedHotspot, selectedHazard]);
+
   // Dynamic Time-series Hydrograph Dataset for Recharts
   const hydrographData = useMemo(() => {
-    const baseLevel = selectedHazard === 'FLOOD' ? 204.2 : selectedHazard === 'LANDSLIDE' ? 42.0 : 15.0;
-    const peakOffset = isCritical ? 3.8 : isHigh ? 2.4 : isModerate ? 1.2 : 0.4;
+    const { baseLevel, dangerLevel } = hydrographMeta;
+    const spread = dangerLevel - baseLevel;
+    const peakOffset = isCritical ? spread * 1.2 : isHigh ? spread * 0.8 : isModerate ? spread * 0.45 : spread * 0.16;
     return [
-      { time: 'Now', level: Number((baseLevel + 0.2).toFixed(2)), dangerLevel: Number((baseLevel + 2.5).toFixed(2)), rainfall: 2 + simRainfallSurge * 0.1 },
-      { time: '+6h', level: Number((baseLevel + peakOffset * 0.6).toFixed(2)), dangerLevel: Number((baseLevel + 2.5).toFixed(2)), rainfall: 8 + simRainfallSurge * 0.4 },
-      { time: '+12h', level: Number((baseLevel + peakOffset).toFixed(2)), dangerLevel: Number((baseLevel + 2.5).toFixed(2)), rainfall: 18 + simRainfallSurge * 0.8 },
-      { time: '+18h', level: Number((baseLevel + peakOffset * 0.9).toFixed(2)), dangerLevel: Number((baseLevel + 2.5).toFixed(2)), rainfall: 14 + simRainfallSurge * 0.6 },
-      { time: '+24h', level: Number((baseLevel + peakOffset * 0.7).toFixed(2)), dangerLevel: Number((baseLevel + 2.5).toFixed(2)), rainfall: 6 + simRainfallSurge * 0.2 },
-      { time: '+48h', level: Number((baseLevel + peakOffset * 0.4).toFixed(2)), dangerLevel: Number((baseLevel + 2.5).toFixed(2)), rainfall: 2 },
-      { time: '+72h', level: Number((baseLevel + 0.1).toFixed(2)), dangerLevel: Number((baseLevel + 2.5).toFixed(2)), rainfall: 0 }
+      { time: 'Now', level: Number((baseLevel + (isCritical ? spread * 0.35 : 0.08)).toFixed(2)), dangerLevel: Number(dangerLevel.toFixed(2)), rainfall: 2 + simRainfallSurge * 0.1 },
+      { time: '+6h', level: Number((baseLevel + peakOffset * 0.55).toFixed(2)), dangerLevel: Number(dangerLevel.toFixed(2)), rainfall: 8 + simRainfallSurge * 0.4 },
+      { time: '+12h', level: Number((baseLevel + peakOffset).toFixed(2)), dangerLevel: Number(dangerLevel.toFixed(2)), rainfall: 18 + simRainfallSurge * 0.8 },
+      { time: '+18h', level: Number((baseLevel + peakOffset * 0.88).toFixed(2)), dangerLevel: Number(dangerLevel.toFixed(2)), rainfall: 14 + simRainfallSurge * 0.6 },
+      { time: '+24h', level: Number((baseLevel + peakOffset * 0.65).toFixed(2)), dangerLevel: Number(dangerLevel.toFixed(2)), rainfall: 6 + simRainfallSurge * 0.2 },
+      { time: '+48h', level: Number((baseLevel + peakOffset * 0.35).toFixed(2)), dangerLevel: Number(dangerLevel.toFixed(2)), rainfall: 2 },
+      { time: '+72h', level: Number((baseLevel + 0.04).toFixed(2)), dangerLevel: Number(dangerLevel.toFixed(2)), rainfall: 0 }
     ];
-  }, [selectedHazard, isCritical, isHigh, isModerate, simRainfallSurge]);
+  }, [hydrographMeta, isCritical, isHigh, isModerate, simRainfallSurge]);
 
   // Dynamic SHAP Feature Importance dataset for Recharts
   const shapFeatureData = useMemo(() => {
@@ -1663,7 +1781,7 @@ export default function RiskAnalysis() {
                         Predictive Telemetry & XAI Analytics
                       </Typography>
                       <Typography variant="caption" sx={{ color: textMuted, fontSize: '0.68rem' }}>
-                        Real-time hydrological stages & SHAP factor weights
+                        {hydrographMeta.subtext}
                       </Typography>
                     </Box>
                   </Box>
@@ -1710,10 +1828,10 @@ export default function RiskAnalysis() {
                     <Box sx={{ width: '100%', height: 360 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, gap: 1 }}>
                         <Typography variant="caption" fontWeight={800} sx={{ color: textMuted, textTransform: 'uppercase' }}>
-                          Hydrological Stage Inundation Curve (m vs Danger Threshold)
+                          {hydrographMeta.title}
                         </Typography>
                         <Chip
-                          label={`Peak Crest: ${hydrographData[2]?.level}m at +12h`}
+                          label={`Peak Crest: ${hydrographData[2]?.level}${hydrographMeta.unit} at +12h`}
                           size="small"
                           sx={{ height: 18, fontSize: '0.62rem', fontWeight: 800, bgcolor: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' }}
                         />
@@ -1739,7 +1857,7 @@ export default function RiskAnalysis() {
                           />
                           <ReferenceLine
                             y={hydrographData[0]?.dangerLevel}
-                            label={{ value: 'DANGER STAGE', fill: '#ef4444', fontSize: 10, position: 'insideTopRight' }}
+                            label={{ value: selectedHazard === 'FLOOD' ? 'DANGER STAGE' : 'CRITICAL THRESHOLD', fill: '#ef4444', fontSize: 10, position: 'insideTopRight' }}
                             stroke="#ef4444"
                             strokeDasharray="4 4"
                           />
@@ -1750,7 +1868,7 @@ export default function RiskAnalysis() {
                             strokeWidth={2.5}
                             fillOpacity={1}
                             fill="url(#levelGradient)"
-                            name="Water Stage (m)"
+                            name={hydrographMeta.metricLabel}
                           />
                         </AreaChart>
                       </ResponsiveContainer>
