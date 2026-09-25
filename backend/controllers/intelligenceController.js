@@ -210,32 +210,32 @@ const REGIONAL_TELEMETRY = {
     "vindhya": {
         riverName: "Bichia River Gauge",
         riverLevel: "134.20m",
-        riverTrend: "(+0.12m)",
+        riverTrend: "(Stable)",
         riverStatus: "Normal",
-        rainfall: "24.2mm (Moderate)",
-        activeSectors: 4,
-        criticalSectors: 1,
-        occupiedShelterCount: 420
+        rainfall: "0.0mm (Normal)",
+        activeSectors: 2,
+        criticalSectors: 0,
+        occupiedShelterCount: 20
     },
     "rewa": {
         riverName: "Tons River Gauge",
         riverLevel: "138.50m",
-        riverTrend: "(+0.15m)",
+        riverTrend: "(Stable)",
         riverStatus: "Normal",
-        rainfall: "22.8mm (Moderate)",
-        activeSectors: 3,
-        criticalSectors: 1,
-        occupiedShelterCount: 380
+        rainfall: "0.0mm (Normal)",
+        activeSectors: 2,
+        criticalSectors: 0,
+        occupiedShelterCount: 20
     },
     "chitrakoot": {
         riverName: "Mandakini River (Ramghat Gauge)",
-        riverLevel: "145.80m (3.3m Above Danger Mark)",
-        riverTrend: "(+0.85m Flash Surge)",
-        riverStatus: "Critical",
-        rainfall: "114.2mm (Severe Cloudburst)",
-        activeSectors: 5,
-        criticalSectors: 4,
-        occupiedShelterCount: 4200
+        riverLevel: "142.50m",
+        riverTrend: "(Stable)",
+        riverStatus: "Normal",
+        rainfall: "0.0mm (Normal)",
+        activeSectors: 2,
+        criticalSectors: 0,
+        occupiedShelterCount: 25
     },
     "delhi": {
         riverName: "Yamuna Gauge",
@@ -448,36 +448,25 @@ const getDashboardStats = async (req, res) => {
             telemetry = {
                 riverName: `${districtName || "Regional"} Basin Gauge`,
                 riverLevel: "142.50m",
-                riverTrend: "(+0.18m)",
+                riverTrend: "(Stable)",
                 riverStatus: "Normal",
-                rainfall: "38.0mm (Moderate)",
-                activeSectors: 4,
-                criticalSectors: 1,
-                occupiedShelterCount: 650
+                rainfall: "0.0mm (Normal)",
+                activeSectors: 2,
+                criticalSectors: 0,
+                occupiedShelterCount: 25
             };
         }
 
         // Enrich telemetry with live real-time satellite & meteorological telemetry
         try {
             const { getCurrentWeather } = require("../services/weatherService");
+            const { resolveDistrictCoordinates } = require("../services/districtProvisioner");
             let lat = req.query.lat ? parseFloat(req.query.lat) : null;
             let lon = req.query.lng ? parseFloat(req.query.lng) : null;
             if (!lat || !lon) {
-                const COORDS_MAP = {
-                    "bhopal": { lat: 23.2599, lng: 77.4126 },
-                    "delhi": { lat: 28.6139, lng: 77.2090 },
-                    "central delhi": { lat: 28.6139, lng: 77.2090 },
-                    "mumbai": { lat: 19.0760, lng: 72.8777 },
-                    "pune": { lat: 18.5204, lng: 73.8567 },
-                    "gautam buddha nagar": { lat: 28.4744, lng: 77.5040 },
-                    "noida": { lat: 28.5355, lng: 77.3910 },
-                    "indore": { lat: 22.7196, lng: 75.8577 },
-                    "dehradun": { lat: 30.3165, lng: 78.0322 },
-                    "ranchi": { lat: 23.3441, lng: 85.3096 }
-                };
-                const mapped = COORDS_MAP[cleanKey] || { lat: 28.6139, lng: 77.2090 };
-                lat = mapped.lat;
-                lon = mapped.lng;
+                const resolvedCoords = await resolveDistrictCoordinates(districtName, stateName);
+                lat = resolvedCoords.lat;
+                lon = resolvedCoords.lng;
             }
             const liveWeather = await getCurrentWeather(lat, lon);
             if (liveWeather && liveWeather.rainfall !== undefined) {
@@ -518,15 +507,7 @@ const getDashboardStats = async (req, res) => {
             availableShelters = 10;
         }
         if (populationAtRisk === 0 && districtName) {
-            if (cleanKey.includes("chitrakoot")) {
-                populationAtRisk = 74000;
-            } else {
-                populationAtRisk = habitationCount > 0 ? habitationCount * 500 : 0;
-            }
-        }
-        if (cleanKey.includes("chitrakoot")) {
-            telemetry.activeSectors = habitationCount > 0 ? habitationCount : 5;
-            telemetry.criticalSectors = highRiskHabitations > 0 ? highRiskHabitations : 4;
+            populationAtRisk = highRiskHabitations > 0 ? highRiskHabitations * 500 : 0;
         }
         if (reportCount === 0 && districtName) {
             reportCount = 0;

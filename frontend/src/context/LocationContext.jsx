@@ -110,6 +110,7 @@ export const INDIAN_DISTRICT_GAZETTEER = {
   'madurai': { lat: 9.9252, lng: 78.1198, state: 'Tamil Nadu', name: 'Madurai' },
   'hyderabad': { lat: 17.3850, lng: 78.4867, state: 'Telangana', name: 'Hyderabad' },
   'visakhapatnam': { lat: 17.6868, lng: 83.2185, state: 'Andhra Pradesh', name: 'Visakhapatnam' },
+  'vizag': { lat: 17.6868, lng: 83.2185, state: 'Andhra Pradesh', name: 'Visakhapatnam' },
   'vijayawada': { lat: 16.5062, lng: 80.6480, state: 'Andhra Pradesh', name: 'Vijayawada' },
   'thiruvananthapuram': { lat: 8.5241, lng: 76.9366, state: 'Kerala', name: 'Thiruvananthapuram' },
   'kochi': { lat: 9.9312, lng: 76.2673, state: 'Kerala', name: 'Kochi' },
@@ -213,21 +214,66 @@ export function LocationProvider({ children }) {
     const clean = (district || '').toLowerCase().trim();
     const cleanNormalized = clean.replace(/[-_]/g, ' ');
 
-    // 1. Direct preset match
+    // 1. Direct exact preset match
     let matched = PRESET_DISTRICTS.find(p => 
       p.id.toLowerCase() === clean ||
       p.id.toLowerCase().replace(/[-_]/g, ' ') === cleanNormalized ||
       p.district.toLowerCase() === clean ||
-      p.district.toLowerCase() === cleanNormalized ||
-      p.name.toLowerCase().includes(clean) ||
-      clean.includes(p.district.toLowerCase()) ||
-      p.district.toLowerCase().includes(clean)
+      p.district.toLowerCase() === cleanNormalized
     );
 
-    // 2. Gazetteer lookup for any Indian district/city
+    // 2. Direct Gazetteer key or name lookup (O(1) exact match)
+    if (!matched && INDIAN_DISTRICT_GAZETTEER[clean]) {
+      const val = INDIAN_DISTRICT_GAZETTEER[clean];
+      matched = {
+        id: clean,
+        name: `${val.name} (${val.state})`,
+        district: val.name,
+        state: val.state,
+        lat: val.lat,
+        lng: val.lng,
+        isGPS: false
+      };
+    }
+
+    if (!matched && INDIAN_DISTRICT_GAZETTEER[cleanNormalized]) {
+      const val = INDIAN_DISTRICT_GAZETTEER[cleanNormalized];
+      matched = {
+        id: cleanNormalized,
+        name: `${val.name} (${val.state})`,
+        district: val.name,
+        state: val.state,
+        lat: val.lat,
+        lng: val.lng,
+        isGPS: false
+      };
+    }
+
+    // 3. Exact name match across gazetteer values
     if (!matched) {
       for (const [key, val] of Object.entries(INDIAN_DISTRICT_GAZETTEER)) {
-        if (clean === key || cleanNormalized === key || clean.includes(key) || key.includes(clean)) {
+        if (clean === val.name.toLowerCase() || cleanNormalized === val.name.toLowerCase()) {
+          matched = {
+            id: key,
+            name: `${val.name} (${val.state})`,
+            district: val.name,
+            state: val.state,
+            lat: val.lat,
+            lng: val.lng,
+            isGPS: false
+          };
+          break;
+        }
+      }
+    }
+
+    // 4. Token / Word boundary match sorted by longest key first (prevents 'patna' matching inside 'visakhapatnam')
+    if (!matched) {
+      const sortedEntries = Object.entries(INDIAN_DISTRICT_GAZETTEER).sort((a, b) => b[0].length - a[0].length);
+      const cleanTokens = clean.split(/[\s,()\-]+/);
+      for (const [key, val] of sortedEntries) {
+        const valLower = val.name.toLowerCase();
+        if (cleanTokens.includes(key) || cleanTokens.includes(valLower) || clean.startsWith(key) || clean.startsWith(valLower)) {
           matched = {
             id: key,
             name: `${val.name} (${val.state})`,
