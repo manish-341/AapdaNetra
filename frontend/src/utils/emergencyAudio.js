@@ -204,15 +204,37 @@ function startWebAudioSirenNodes(durationMs = 8000) {
   }
 }
 
+export function isAudioGloballySilenced() {
+  try {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('an_siren_globally_muted') === 'true';
+  } catch {
+    return false;
+  }
+}
+
+let armedGestureHandler = null;
+const GESTURE_EVENTS = ['pointerdown', 'click', 'keydown', 'touchstart', 'mousemove', 'pointermove', 'wheel', 'scroll', 'focus'];
+
+function disarmGestureUnlock() {
+  gestureUnlockArmed = false;
+  pendingSirenDuration = 0;
+  if (armedGestureHandler && typeof window !== 'undefined') {
+    GESTURE_EVENTS.forEach(evt => window.removeEventListener(evt, armedGestureHandler, true));
+    armedGestureHandler = null;
+  }
+}
+
 function armOneTouchSirenUnlock(durationMs = 8000) {
-  if (gestureUnlockArmed || typeof window === 'undefined') return;
+  if (gestureUnlockArmed || typeof window === 'undefined' || isAudioGloballySilenced()) return;
   gestureUnlockArmed = true;
 
-  const events = ['pointerdown', 'click', 'keydown', 'touchstart', 'mousemove', 'pointermove', 'wheel', 'scroll', 'focus'];
+  armedGestureHandler = async (evt) => {
+    // If the event target is a button (e.g. Mute/Stop siren or dismiss), do not re-trigger
+    if (evt?.target?.closest?.('button')) return;
 
-  const onUserGesture = async () => {
-    gestureUnlockArmed = false;
-    events.forEach(evt => window.removeEventListener(evt, onUserGesture, true));
+    disarmGestureUnlock();
+    if (isAudioGloballySilenced()) return;
 
     // Play native siren audio element on first touch/cursor move
     const audioElem = getSirenAudioElement();
@@ -237,7 +259,7 @@ function armOneTouchSirenUnlock(durationMs = 8000) {
     }
   };
 
-  events.forEach(evt => window.addEventListener(evt, onUserGesture, { capture: true, once: true }));
+  GESTURE_EVENTS.forEach(evt => window.addEventListener(evt, armedGestureHandler, { capture: true, once: true }));
 }
 
 /**
@@ -248,6 +270,18 @@ function armOneTouchSirenUnlock(durationMs = 8000) {
  */
 export async function playEmergencySiren(durationMs = 8000, userInitiated = false) {
   if (typeof window === 'undefined') return false;
+
+  // If user explicitly muted siren, do NOT auto-play or ring on background checks / tab switches
+  if (!userInitiated && isAudioGloballySilenced()) {
+    return false;
+  }
+
+  // If this play is explicitly triggered by the user (clicking "Sound siren"), clear the mute flag
+  if (userInitiated) {
+    try {
+      sessionStorage.removeItem('an_siren_globally_muted');
+    } catch {}
+  }
 
   try {
     if (autoStopTimer) {
@@ -265,6 +299,11 @@ export async function playEmergencySiren(durationMs = 8000, userInitiated = fals
       const playPromise = audioElem.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
+          if (isAudioGloballySilenced() && !userInitiated) {
+            audioElem.pause();
+            audioElem.currentTime = 0;
+            return;
+          }
           isPlaying = true;
           started = true;
           if (typeof window !== 'undefined') {
@@ -294,24 +333,26 @@ export async function playEmergencySiren(durationMs = 8000, userInitiated = fals
       if (ctx.state === 'running') {
         const webAudioStarted = startWebAudioSirenNodes(durationMs);
         if (webAudioStarted) started = true;
-      } else {
+      } else if (!isAudioGloballySilenced()) {
         armOneTouchSirenUnlock(durationMs);
       }
-    } else {
+    } else if (!isAudioGloballySilenced()) {
       armOneTouchSirenUnlock(durationMs);
     }
 
     return started;
   } catch (err) {
     console.warn('[AapdaNetra Audio] Emergency siren start warning:', err);
-    armOneTouchSirenUnlock(durationMs);
+    if (!isAudioGloballySilenced()) {
+      armOneTouchSirenUnlock(durationMs);
+    }
     return false;
   }
 }
 
 function stopEmergencySirenInternal(resetState = true) {
   pendingSirenDuration = 0;
-  gestureUnlockArmed = false;
+  disarmGestureUnlock();
 
   if (autoStopTimer) {
     clearTimeout(autoStopTimer);
@@ -333,15 +374,13 @@ function stopEmergencySirenInternal(resetState = true) {
     try {
       const now = audioCtx.currentTime;
       prevGain.gain.setValueAtTime(prevGain.gain.value, now);
-      prevGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+      prevGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
     } catch {}
   }
 
-  setTimeout(() => {
-    try { prevOsc?.stop(); prevOsc?.disconnect(); } catch {}
-    try { prevHarmonic?.stop(); prevHarmonic?.disconnect(); } catch {}
-    try { prevMod?.stop(); prevMod?.disconnect(); } catch {}
-  }, 180);
+  try { prevOsc?.stop(); prevOsc?.disconnect(); } catch {}
+  try { prevHarmonic?.stop(); prevHarmonic?.disconnect(); } catch {}
+  try { prevMod?.stop(); prevMod?.disconnect(); } catch {}
 
   // Stop HTML5 audio element
   if (activeAudioElement) {
@@ -363,6 +402,18 @@ function stopEmergencySirenInternal(resetState = true) {
  * Stop active emergency siren immediately
  */
 export function stopEmergencySiren() {
+  stopEmergencySirenInternal(true);
+}
+
+/**
+ * Silence and stop emergency siren permanently for this session
+ */
+export function silenceEmergencySiren() {
+  try {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('an_siren_globally_muted', 'true');
+    }
+  } catch {}
   stopEmergencySirenInternal(true);
 }
 

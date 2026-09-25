@@ -39,7 +39,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { getAlerts, dispatchEmergencyAlert, getWeather } from '../services/api';
-import { playEmergencySiren, stopEmergencySiren, isSirenActive, unlockAudioContext } from '../utils/emergencyAudio';
+import { playEmergencySiren, stopEmergencySiren, silenceEmergencySiren, isSirenActive, isAudioGloballySilenced, unlockAudioContext } from '../utils/emergencyAudio';
 import { triggerDisasterNotification } from '../utils/emergencyNotification';
 import { useLocationContext } from '../context/LocationContext';
 import { useThemeMode } from '../context/ThemeContext';
@@ -57,6 +57,40 @@ import {
 
 const NOTIFICATIONS_STORAGE_KEY = 'aapdanetra_notifications_config';
 const ACKNOWLEDGED_ALERTS_KEY = 'an_acknowledged_critical_alerts';
+const SIREN_MUTED_ALERTS_KEY = 'an_siren_muted_alerts';
+
+function isSirenMutedByUser(alertId) {
+  try {
+    if (isAudioGloballySilenced()) return true;
+    if (sessionStorage.getItem('an_siren_globally_muted') === 'true') return true;
+    const mutedIds = JSON.parse(sessionStorage.getItem(SIREN_MUTED_ALERTS_KEY) || '[]');
+    return alertId ? mutedIds.includes(alertId) : false;
+  } catch {
+    return false;
+  }
+}
+
+function setSirenMutedByUser(alertId, muted = true) {
+  try {
+    if (muted) {
+      sessionStorage.setItem('an_siren_globally_muted', 'true');
+      if (alertId) {
+        const mutedIds = JSON.parse(sessionStorage.getItem(SIREN_MUTED_ALERTS_KEY) || '[]');
+        if (!mutedIds.includes(alertId)) {
+          mutedIds.push(alertId);
+          sessionStorage.setItem(SIREN_MUTED_ALERTS_KEY, JSON.stringify(mutedIds));
+        }
+      }
+    } else {
+      sessionStorage.removeItem('an_siren_globally_muted');
+      if (alertId) {
+        let mutedIds = JSON.parse(sessionStorage.getItem(SIREN_MUTED_ALERTS_KEY) || '[]');
+        mutedIds = mutedIds.filter(id => id !== alertId);
+        sessionStorage.setItem(SIREN_MUTED_ALERTS_KEY, JSON.stringify(mutedIds));
+      }
+    }
+  } catch {}
+}
 
 // Clean formatting helpers for emergency banner & toast
 function getCleanAlertTitle(rawTitle = '') {
@@ -355,7 +389,7 @@ export default function EmergencyAlertSentinel() {
         }
 
         // Trigger acoustic siren when user is under/monitoring active critical hazard
-        if (!isAcknowledged && notifConfig.audioSiren !== false) {
+        if (!isAcknowledged && notifConfig.audioSiren !== false && !isSirenMutedByUser(critAlertId) && !isAudioGloballySilenced()) {
           playEmergencySiren(12000, false).then((started) => {
             if (started) setSirenPlaying(true);
           }).catch(() => {});
@@ -405,6 +439,7 @@ export default function EmergencyAlertSentinel() {
   }, [location?.district, location?.name]);
 
   const handleAcknowledgeAndSilence = () => {
+    silenceEmergencySiren();
     stopEmergencySiren();
     setSirenPlaying(false);
     setModalOpen(false);
@@ -414,6 +449,7 @@ export default function EmergencyAlertSentinel() {
     if (activeCriticalAlert) {
       try {
         const id = activeCriticalAlert._id || activeCriticalAlert.id || activeCriticalAlert.title;
+        setSirenMutedByUser(id, true);
         let acknowledgedIds = JSON.parse(sessionStorage.getItem(ACKNOWLEDGED_ALERTS_KEY) || '[]');
         if (!acknowledgedIds.includes(id)) {
           acknowledgedIds.push(id);
@@ -441,19 +477,27 @@ export default function EmergencyAlertSentinel() {
     };
   }, []);
 
-  // Automatic immediate siren trigger on active critical alert
+  // Automatic immediate siren trigger on active critical alert (persists mute state on tab switch)
   useEffect(() => {
     if (activeCriticalAlert) {
+      const critId = activeCriticalAlert._id || activeCriticalAlert.id || activeCriticalAlert.title;
+      if (isSirenMutedByUser(critId) || isAudioGloballySilenced()) {
+        // User explicitly stopped or muted the siren - do NOT ring again on tab switch
+        return;
+      }
+
       // 1. Immediately attempt autoplay
-      playEmergencySiren(15000, true).then((played) => {
+      playEmergencySiren(15000, false).then((played) => {
         if (played) setSirenPlaying(true);
       }).catch(() => {});
 
-      // 2. Attach capture-phase gesture unlock on ANY user gesture or cursor movement
-      const handleImmediateSiren = async () => {
+      // 2. Attach capture-phase gesture unlock on user interaction (ignoring mute/dismiss buttons)
+      const handleImmediateSiren = async (evt) => {
+        if (evt?.target?.closest?.('button')) return;
+        if (isSirenMutedByUser(critId) || isAudioGloballySilenced()) return;
         try {
           await unlockAudioContext();
-          await playEmergencySiren(15000, true);
+          await playEmergencySiren(15000, false);
           setSirenPlaying(true);
         } catch (e) {
           console.warn('[Emergency Sentinel] Siren gesture trigger error:', e);
@@ -469,14 +513,38 @@ export default function EmergencyAlertSentinel() {
     }
   }, [activeCriticalAlert]);
 
+  // Keep siren stopped if muted when switching browser tabs (visibilitychange / focus)
+  useEffect(() => {
+    const handleTabSwitch = () => {
+      const critId = activeCriticalAlert?._id || activeCriticalAlert?.id || activeCriticalAlert?.title;
+      if (isSirenMutedByUser(critId) || isAudioGloballySilenced()) {
+        silenceEmergencySiren();
+        stopEmergencySiren();
+        setSirenPlaying(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleTabSwitch);
+    window.addEventListener('focus', handleTabSwitch);
+    return () => {
+      document.removeEventListener('visibilitychange', handleTabSwitch);
+      window.removeEventListener('focus', handleTabSwitch);
+    };
+  }, [activeCriticalAlert]);
+
   const handleSilenceOnly = (e) => {
     if (e && e.stopPropagation) e.stopPropagation();
+    silenceEmergencySiren();
     stopEmergencySiren();
     setSirenPlaying(false);
+    const critId = activeCriticalAlert?._id || activeCriticalAlert?.id || activeCriticalAlert?.title;
+    setSirenMutedByUser(critId, true);
   };
 
   const handlePlaySiren = async (e) => {
     if (e && e.stopPropagation) e.stopPropagation();
+    const critId = activeCriticalAlert?._id || activeCriticalAlert?.id || activeCriticalAlert?.title;
+    setSirenMutedByUser(critId, false);
     await unlockAudioContext();
     await playEmergencySiren(15000, true);
     setSirenPlaying(true);
@@ -812,12 +880,13 @@ export default function EmergencyAlertSentinel() {
               gap={1.5}
             >
               <Box display="flex" alignItems="center" gap={1.25}>
-                {/* Mute Siren / Sound Siren Pill Button */}
+                {/* Stop Siren / Sound Siren Pill Button */}
                 <Button
                   onClick={handleToggleSiren}
+                  startIcon={sirenPlaying ? <VolumeX size={15} /> : <Volume2 size={15} />}
                   sx={{
-                    bgcolor: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid rgba(255, 255, 255, 0.18)',
+                    bgcolor: sirenPlaying ? 'rgba(239, 68, 68, 0.28)' : 'rgba(255, 255, 255, 0.08)',
+                    border: sirenPlaying ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid rgba(255, 255, 255, 0.18)',
                     color: '#ffffff',
                     fontWeight: 600,
                     fontSize: '0.82rem',
@@ -828,13 +897,15 @@ export default function EmergencyAlertSentinel() {
                     whiteSpace: 'nowrap',
                     backdropFilter: 'blur(10px)',
                     transition: 'all 0.2s ease',
+                    boxShadow: sirenPlaying ? '0 0 12px rgba(239, 68, 68, 0.35)' : 'none',
                     '&:hover': {
-                      bgcolor: 'rgba(255, 255, 255, 0.16)',
-                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                      bgcolor: sirenPlaying ? 'rgba(239, 68, 68, 0.42)' : 'rgba(255, 255, 255, 0.16)',
+                      borderColor: sirenPlaying ? '#ef4444' : 'rgba(255, 255, 255, 0.3)',
                     },
                   }}
+                  title={sirenPlaying ? "Stop emergency siren (will stay silenced across tab switching)" : "Sound emergency siren"}
                 >
-                  {sirenPlaying ? 'Mute siren' : 'Sound siren'}
+                  {sirenPlaying ? 'Stop siren' : 'Sound siren'}
                 </Button>
 
                 {/* Open Command Center Pill Button */}
@@ -864,7 +935,10 @@ export default function EmergencyAlertSentinel() {
 
               {/* Close ✕ Button (Never wraps) */}
               <IconButton
-                onClick={() => setBannerDismissed(true)}
+                onClick={(e) => {
+                  handleSilenceOnly(e);
+                  setBannerDismissed(true);
+                }}
                 sx={{
                   color: 'rgba(255, 255, 255, 0.5)',
                   p: 0.5,
@@ -874,7 +948,7 @@ export default function EmergencyAlertSentinel() {
                     bgcolor: 'rgba(255, 255, 255, 0.12)',
                   },
                 }}
-                title="Dismiss alert"
+                title="Dismiss alert and stop siren"
               >
                 <X size={18} />
               </IconButton>
@@ -957,7 +1031,10 @@ export default function EmergencyAlertSentinel() {
 
               <IconButton
                 size="small"
-                onClick={() => setToastPopupOpen(false)}
+                onClick={(e) => {
+                  handleSilenceOnly(e);
+                  setToastPopupOpen(false);
+                }}
                 sx={{ color: 'text.secondary', p: 0.5, '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' } }}
               >
                 <X size={16} />
@@ -997,7 +1074,7 @@ export default function EmergencyAlertSentinel() {
                     startIcon={<VolumeX size={13} />}
                     sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', py: 0.4, px: 1.25, borderRadius: 2 }}
                   >
-                    Mute Siren
+                    Stop Siren
                   </Button>
                 ) : (
                   <Button
