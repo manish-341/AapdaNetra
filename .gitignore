@@ -45,3 +45,9 @@ yarn-debug.log*
 yarn-error.log*
 scratch/
 
+# Intermediate Wildfire training artifacts (not required for runtime inference)
+ai-services/models/Wildfire/h3_res6_features_final.parquet
+ai-services/models/Wildfire/h3_res6_fire_events.parquet
+ai-services/models/Wildfire/h3_res6_daily_weather.parquet
+ai-services/models/Wildfire/h3_res6_fire_history.parquet
+ai-services/models/Wildfire/aapdanetra_24h_predictions.csv

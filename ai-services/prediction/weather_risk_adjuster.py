@@ -68,7 +68,9 @@ class WeatherRiskAdjuster:
     def _load_thresholds(self):
         """Load percentile thresholds computed during model training."""
         for hazard in ["flood", "landslide", "wildfire"]:
-            path = os.path.join(MODEL_DIR, f"{hazard}_thresholds.json")
+            wf_bundle_path = os.path.join(MODEL_DIR, "Wildfire", "wildfire_thresholds.json")
+            std_path = os.path.join(MODEL_DIR, f"{hazard}_thresholds.json")
+            path = wf_bundle_path if (hazard == "wildfire" and os.path.exists(wf_bundle_path)) else std_path
             if os.path.exists(path):
                 try:
                     with open(path, "r") as f:

@@ -291,7 +291,7 @@ async function runStage2Verification() {
         const predictCode = fs.readFileSync(predictPath, "utf8");
         assert(predictCode.includes("def predict_unified"), "predict_unified exists in predict.py");
         assert(fs.existsSync(path.join(__dirname, "../ai-services/models/landslide_model.joblib")), "landslide_model.joblib exists");
-        assert(fs.existsSync(path.join(__dirname, "../ai-services/models/wildfire_model.joblib")), "wildfire_model.joblib exists");
+        assert(fs.existsSync(path.join(__dirname, "../ai-services/models/Wildfire/aapdanetra_xgboost_res6.json")), "aapdanetra_xgboost_res6.json exists");
         console.log("✅ TEST K PASSED: Landslide and Wildfire pipelines remain intact.");
 
         // ─────────────────────────────────────────────────────────────────────────────

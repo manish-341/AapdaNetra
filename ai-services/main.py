@@ -90,6 +90,13 @@ class RiskPredictionRequest(BaseModel):
     no_previous_flood: Optional[float] = None
     monsoon_season: Optional[str] = None
 
+    # Wildfire H3 & fuel indices
+    h3_cell_id: Optional[str] = None
+    forest_fraction: Optional[float] = None
+    fuel_drying_index: Optional[float] = None
+    fuel_combustion_risk: Optional[float] = None
+    vpd_kpa: Optional[float] = None
+
     class Config:
         extra = "allow"
 
@@ -151,6 +158,43 @@ def predict_landslide(req: RiskPredictionRequest):
 @app.post("/predict/wildfire")
 def predict_wildfire(req: RiskPredictionRequest):
     return predictor.predict_hazard("wildfire", req.dict())
+
+
+@app.get("/predict/wildfire/24h")
+def get_wildfire_24h(
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    h3_cell_id: Optional[str] = None
+):
+    """Fast-track 24-hour wildfire prediction lookup from in-memory precomputed H3 grid."""
+    actual_lat = lat if lat is not None else latitude
+    actual_lon = lon if lon is not None else longitude
+    return predictor.get_wildfire_24h_prediction(lat=actual_lat, lon=actual_lon, h3_cell_id=h3_cell_id)
+
+
+@app.post("/predict/wildfire/24h")
+def post_wildfire_24h(req: RiskPredictionRequest):
+    """POST endpoint for fast-track 24-hour wildfire prediction lookup."""
+    return predictor.get_wildfire_24h_prediction(lat=req.latitude, lon=req.longitude, h3_cell_id=req.h3_cell_id)
+
+
+@app.get("/predict/wildfire/24h-grid")
+def get_wildfire_24h_grid(
+    state: Optional[str] = None,
+    min_risk: Optional[str] = None,
+    min_lon: Optional[float] = None,
+    min_lat: Optional[float] = None,
+    max_lon: Optional[float] = None,
+    max_lat: Optional[float] = None,
+    limit: int = 500
+):
+    """Returns high-risk wildfire H3 cells with polygons for frontend GIS map overlays."""
+    bbox = None
+    if all(v is not None for v in [min_lon, min_lat, max_lon, max_lat]):
+        bbox = (min_lon, min_lat, max_lon, max_lat)
+    return predictor.get_wildfire_24h_grid(state=state, min_risk=min_risk, bbox=bbox, limit=limit)
 
 
 @app.post("/predict/unified")

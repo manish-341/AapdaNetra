@@ -9,3 +9,7 @@ python-dotenv
 pydantic
 python-multipart
 Pillow
+pyarrow
+h3
+scipy
+
