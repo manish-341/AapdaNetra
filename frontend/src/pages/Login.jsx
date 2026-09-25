@@ -410,7 +410,7 @@ export default function Login() {
                     fontSize: '0.74rem',
                     letterSpacing: '0.14em',
                     textTransform: 'uppercase',
-                    color: primaryBrandBlue,
+                    color: isDark ? '#ffffff' : primaryBrandBlue,
                     mb: 1.5,
                   }}
                 >
