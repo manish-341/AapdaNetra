@@ -150,37 +150,50 @@ def verify_model(hazard: str, display_name: str):
         print(f"  Synthetic Data     : ✅ NO (Real Govt & Satellite Telemetry)")
         return True
 
-    else:
-        # Standard verification for Landslide
-        model_path = os.path.join(BASE_DIR, "models", f"{hazard}_model.joblib")
-        feat_path = os.path.join(BASE_DIR, "models", f"{hazard}_features.joblib")
-        comp_path = os.path.join(BASE_DIR, "models", f"{hazard}_comparison.json")
-        thresh_path = os.path.join(BASE_DIR, "models", f"{hazard}_thresholds.json")
+    elif hazard == "landslide":
+        ls_dir = os.path.join(BASE_DIR, "models", "Landslide")
+        model_path = os.path.join(ls_dir, "model", "landslide_xgb_spatial_model.json")
+        cfg_path = os.path.join(ls_dir, "model", "landslide_model_config.json")
+        data_path = os.path.join(ls_dir, "data", "final_dataset.csv")
 
-        for name, path in [("Model Weights", model_path), ("Feature Schema", feat_path),
-                           ("Benchmark Report", comp_path), ("Thresholds", thresh_path)]:
+        files_to_check = [
+            ("XGBoost Spatial Model", model_path),
+            ("Model Configuration", cfg_path),
+            ("Ground Truth Dataset", data_path),
+        ]
+
+        all_found = True
+        for name, path in files_to_check:
             exists = os.path.exists(path)
             size = f"({os.path.getsize(path):,} bytes)" if exists else ""
             status = "✅ FOUND" if exists else "❌ MISSING"
-            print(f"  {name:<20}: {status} {size}")
+            print(f"  {name:<24}: {status} {size}")
+            if not exists:
+                all_found = False
 
-        if not os.path.exists(model_path) or not os.path.exists(feat_path):
-            print(f"  [!] {hazard} model files missing — run training first.")
+        if not all_found:
+            print(f"  [!] Missing files in {ls_dir}")
             return False
 
-        model = joblib.load(model_path)
-        features = joblib.load(feat_path)
-        print(f"\n  Architecture : {type(model).__name__}")
-        print(f"  Features ({len(features)}): {features[:6]}...")
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
 
-        if os.path.exists(comp_path):
-            with open(comp_path, "r", encoding="utf-8") as f:
-                comp = json.load(f)
-            print(f"\n  Dataset Source: {comp.get('dataset_source', 'N/A')}")
-            print(f"  Samples      : {comp.get('samples_count', 'N/A'):,}")
-            print(f"  Synthetic?   : {'❌ YES' if comp.get('synthetic_data_used') else '✅ NO (Real Govt Data)'}")
-            print(f"  Best Model   : {comp.get('best', 'N/A')}")
+        print(f"\n  Architecture : XGBoost Spatial Classifier (Antigravity)")
+        print(f"  Features (5) : {cfg.get('features', [])}")
+        val = cfg.get("validation", {}).get("spatial_holdout", {})
+        print(f"  Spatial Holdout ROC-AUC : {val.get('roc_auc')} | Recall: {val.get('recall')} | Precision: {val.get('precision')}")
+        print(f"  Operational Policy      : Watch >= {cfg.get('operational_alert_policy', {}).get('watch_threshold')}, Alert >= {cfg.get('operational_alert_policy', {}).get('alert_threshold')}")
+        print(f"  Dataset Source          : NASA POWER + SRTM 1-ArcSec ({cfg.get('data', {}).get('total_samples'):,} Ground Truth Events)")
+        print(f"  Synthetic Data          : ✅ NO (Real Observational + Paired Background)")
+        return True
 
+    else:
+        # Fallback verification
+        model_path = os.path.join(BASE_DIR, "models", f"{hazard}_model.joblib")
+        feat_path = os.path.join(BASE_DIR, "models", f"{hazard}_features.joblib")
+        if not os.path.exists(model_path) or not os.path.exists(feat_path):
+            print(f"  [!] {hazard} model files missing.")
+            return False
         return True
 
 

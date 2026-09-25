@@ -12,4 +12,6 @@ Pillow
 pyarrow
 h3
 scipy
+requests
+
 

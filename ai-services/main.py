@@ -46,11 +46,11 @@ class RiskPredictionRequest(BaseModel):
     longitude: float
     temperature: Optional[float] = 30.0
     humidity: Optional[float] = 65.0
-    rainfall: Optional[float] = 10.0
+    rainfall: Optional[float] = None
     wind_speed: Optional[float] = 10.0
     pressure: Optional[float] = 1013.0
-    slope_angle_deg: Optional[float] = 15.0
-    elevation_m: Optional[float] = 150.0
+    slope_angle_deg: Optional[float] = None
+    elevation_m: Optional[float] = None
     annual_rainfall_mm: Optional[float] = None
     earthquake_frequency: Optional[float] = None
     erosion_index: Optional[float] = None
@@ -151,6 +151,7 @@ def predict_flood(req: RiskPredictionRequest):
 
 
 @app.post("/predict/landslide")
+@app.post("/predict")
 def predict_landslide(req: RiskPredictionRequest):
     return predictor.predict_hazard("landslide", req.dict())
 

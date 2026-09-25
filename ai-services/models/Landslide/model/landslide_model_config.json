@@ -1,0 +1,90 @@
+{
+  "project": "AapdaNetra",
+  "prediction_target": {
+    "name": "landslide_risk",
+    "type": "binary_classification",
+    "positive_class": 1,
+    "negative_class": 0
+  },
+  "model": {
+    "type": "XGBoost",
+    "n_estimators": 200,
+    "max_depth": 3,
+    "learning_rate": 0.03,
+    "min_child_weight": 3,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "random_state": 42
+  },
+  "features": [
+    "srtm_elevation_m",
+    "srtm_slope_deg",
+    "rainfall_24h_mm",
+    "rainfall_3day_mm",
+    "rainfall_7day_mm"
+  ],
+  "score": {
+    "type": "XGBoost risk score",
+    "calibrated_probability": false,
+    "interpretation": "Model output used as a relative landslide risk score, not a calibrated real-world probability."
+  },
+  "operational_alert_policy": {
+    "watch_threshold": 0.35,
+    "alert_threshold": 0.5,
+    "status": "configurable_operational_policy",
+    "note": "Thresholds are configurable deployment policy and are not claimed to be universally optimal or scientifically calibrated."
+  },
+  "validation": {
+    "spatial_holdout": {
+      "train_samples": 1873,
+      "test_samples": 656,
+      "train_groups": 50,
+      "test_groups": 12,
+      "accuracy": 0.7393,
+      "precision": 0.6997,
+      "recall": 0.8384,
+      "f1": 0.7628,
+      "roc_auc": 0.8073,
+      "confusion_matrix": [
+        [
+          210,
+          118
+        ],
+        [
+          53,
+          275
+        ]
+      ]
+    },
+    "temporal_holdout": {
+      "cutoff_date": "2013-12-31",
+      "train_samples": 1730,
+      "test_samples": 799,
+      "accuracy": 0.6846,
+      "precision": 0.6516,
+      "recall": 0.795,
+      "f1": 0.7162,
+      "roc_auc": 0.7634,
+      "confusion_matrix": [
+        [
+          229,
+          170
+        ],
+        [
+          82,
+          318
+        ]
+      ]
+    }
+  },
+  "data": {
+    "total_samples": 2529,
+    "positive_samples": 1265,
+    "background_samples": 1264,
+    "background_definition": "Locations at least approximately 10 km from recorded landslide events, sampled using the historical background-pairing methodology."
+  },
+  "sources": {
+    "terrain": "SRTM",
+    "rainfall": "NASA POWER PRECTOTCORR"
+  }
+}
