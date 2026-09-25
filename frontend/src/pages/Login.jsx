@@ -61,14 +61,16 @@ export default function Login() {
     }
   }, [searchParams]);
 
-  // Color Tokens matching exact design mockup
-  const primaryBrandBlue = '#0065ff';
-  const brandDarkNavy = isDark ? '#f8fafc' : '#091e42';
-  const brandSecondaryNavy = isDark ? '#cbd5e1' : '#42526e';
-  const brandMutedText = isDark ? '#94a3b8' : '#5e6c84';
+  // Color Tokens precisely matching user requirements & WCAG contrast
+  const primaryBrandBlue = '#0B6BFF';
+  const brandDarkNavy = isDark ? '#F5F8FF' : '#0B2347';
+  const brandSecondaryNavy = isDark ? '#B8C7DD' : '#334E73';
+  const brandMutedText = isDark ? '#B8C7DD' : '#52627A';
+  const pillarMutedText = isDark ? '#B8C7DD' : '#526B8A';
   const cardBg = isDark ? '#0f172a' : '#ffffff';
-  const inputBorder = isDark ? 'rgba(255, 255, 255, 0.12)' : '#dfe1e6';
+  const inputBorder = isDark ? 'rgba(255, 255, 255, 0.14)' : '#dfe1e6';
   const inputBg = isDark ? 'rgba(255, 255, 255, 0.03)' : '#ffffff';
+  const inputTextColor = isDark ? '#F5F8FF' : '#0B2347';
 
   const handleRoleChange = (role) => {
     setActiveRole(role);
@@ -229,8 +231,8 @@ export default function Login() {
             <Typography
               sx={{
                 fontSize: '0.76rem',
-                fontWeight: 600,
-                color: brandSecondaryNavy,
+                fontWeight: 650,
+                color: brandDarkNavy,
                 lineHeight: 1.25,
               }}
             >
@@ -239,8 +241,8 @@ export default function Login() {
             <Typography
               sx={{
                 fontSize: '0.76rem',
-                fontWeight: 600,
-                color: brandSecondaryNavy,
+                fontWeight: 650,
+                color: brandDarkNavy,
                 lineHeight: 1.25,
               }}
             >
@@ -383,7 +385,24 @@ export default function Login() {
           <Grid container spacing={{ xs: 4, md: 6, lg: 8 }} alignItems="center">
             {/* LEFT COLUMN: Clean Typography, Brand Identity, Pillars & Floating Sticker */}
             <Grid size={{ xs: 12, md: 6.5 }}>
-              <Box sx={{ pr: { md: 2, lg: 5 } }}>
+              <Box
+                sx={{
+                  pr: { md: 2, lg: 5 },
+                  position: 'relative',
+                  zIndex: 1,
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    inset: { xs: '-16px -14px', md: '-24px -28px' },
+                    background: isDark
+                      ? 'radial-gradient(ellipse at 35% 35%, rgba(8, 12, 20, 0.52) 0%, rgba(8, 12, 20, 0.18) 65%, transparent 100%)'
+                      : 'radial-gradient(ellipse at 35% 35%, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.18) 65%, transparent 100%)',
+                    borderRadius: 4,
+                    pointerEvents: 'none',
+                    zIndex: -1,
+                  }
+                }}
+              >
                 {/* Eyebrow */}
                 <Typography
                   sx={{
@@ -435,6 +454,7 @@ export default function Login() {
                     lineHeight: 1.5,
                     maxWidth: 520,
                     mb: 2,
+                    fontWeight: 500,
                   }}
                 >
                   Intelligent disaster risk management for a safer, more resilient India.
@@ -466,31 +486,31 @@ export default function Login() {
                     <Typography sx={{ fontWeight: 750, fontSize: '0.86rem', color: brandDarkNavy }}>
                       Anticipate Risks
                     </Typography>
-                    <Typography sx={{ fontSize: '0.78rem', color: brandMutedText }}>
+                    <Typography sx={{ fontSize: '0.78rem', color: pillarMutedText, fontWeight: 500 }}>
                       Data-driven insights
                     </Typography>
                   </Box>
 
-                  <Box sx={{ width: '1px', height: 26, backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : '#dfe1e6' }} />
+                  <Box sx={{ width: '1px', height: 26, backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(11, 35, 71, 0.15)' }} />
 
                   {/* Pillar 2 */}
                   <Box>
                     <Typography sx={{ fontWeight: 750, fontSize: '0.86rem', color: brandDarkNavy }}>
                       Enable Faster Response
                     </Typography>
-                    <Typography sx={{ fontSize: '0.78rem', color: brandMutedText }}>
+                    <Typography sx={{ fontSize: '0.78rem', color: pillarMutedText, fontWeight: 500 }}>
                       Coordinated action
                     </Typography>
                   </Box>
 
-                  <Box sx={{ width: '1px', height: 26, backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : '#dfe1e6' }} />
+                  <Box sx={{ width: '1px', height: 26, backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(11, 35, 71, 0.15)' }} />
 
                   {/* Pillar 3 */}
                   <Box>
                     <Typography sx={{ fontWeight: 750, fontSize: '0.86rem', color: brandDarkNavy }}>
                       Build Safer Communities
                     </Typography>
-                    <Typography sx={{ fontSize: '0.78rem', color: brandMutedText }}>
+                    <Typography sx={{ fontSize: '0.78rem', color: pillarMutedText, fontWeight: 500 }}>
                       A more resilient tomorrow
                     </Typography>
                   </Box>
@@ -519,9 +539,9 @@ export default function Login() {
                       fontWeight: 700,
                       lineHeight: 0.92,
                       letterSpacing: '-0.02em',
-                      color: isDark ? '#ffffff' : '#0c2340',
+                      color: isDark ? '#F5F8FF' : '#0B2347',
                       textShadow: isDark
-                        ? '0 2px 8px rgba(0, 0, 0, 0.95), 0 0 25px rgba(0, 101, 255, 0.45)'
+                        ? '0 2px 8px rgba(0, 0, 0, 0.95), 0 0 25px rgba(11, 107, 255, 0.45)'
                         : '0 2px 4px rgba(255, 255, 255, 0.95), 0 0 12px rgba(255, 255, 255, 0.9)',
                     }}
                   >
@@ -536,7 +556,7 @@ export default function Login() {
                       sx={{
                         display: 'block',
                         pl: 2,
-                        color: isDark ? '#60a5fa' : '#0065ff',
+                        color: primaryBrandBlue,
                       }}
                     >
                       Tomorrow
@@ -554,7 +574,7 @@ export default function Login() {
                       />
                       <path
                         d="M 22,14 C 60,18 105,17 148,10"
-                        stroke={isDark ? '#38bdf8' : '#0052cc'}
+                        stroke={isDark ? '#38bdf8' : primaryBrandBlue}
                         strokeWidth="2.2"
                         strokeLinecap="round"
                         opacity="0.85"
@@ -767,13 +787,23 @@ export default function Login() {
                           '& .MuiOutlinedInput-root': {
                             backgroundColor: inputBg,
                             borderRadius: 2,
-                            color: brandDarkNavy,
+                            color: inputTextColor,
                             fontSize: '0.88rem',
                             '& fieldset': { borderColor: inputBorder },
                             '&:hover fieldset': { borderColor: primaryBrandBlue },
                             '&.Mui-focused fieldset': {
                               borderColor: primaryBrandBlue,
                               borderWidth: '1.5px',
+                            },
+                          },
+                          '& .MuiOutlinedInput-input': {
+                            color: inputTextColor,
+                            WebkitTextFillColor: `${inputTextColor} !important`,
+                            '&:-webkit-autofill': {
+                              WebkitBoxShadow: isDark ? '0 0 0 100px #0f172a inset' : '0 0 0 100px #ffffff inset',
+                              WebkitTextFillColor: `${inputTextColor} !important`,
+                              caretColor: inputTextColor,
+                              borderRadius: 'inherit',
                             },
                           },
                           '& .MuiFormHelperText-root': {
@@ -822,13 +852,23 @@ export default function Login() {
                           '& .MuiOutlinedInput-root': {
                             backgroundColor: inputBg,
                             borderRadius: 2,
-                            color: brandDarkNavy,
+                            color: inputTextColor,
                             fontSize: '0.88rem',
                             '& fieldset': { borderColor: inputBorder },
                             '&:hover fieldset': { borderColor: primaryBrandBlue },
                             '&.Mui-focused fieldset': {
                               borderColor: primaryBrandBlue,
                               borderWidth: '1.5px',
+                            },
+                          },
+                          '& .MuiOutlinedInput-input': {
+                            color: inputTextColor,
+                            WebkitTextFillColor: `${inputTextColor} !important`,
+                            '&:-webkit-autofill': {
+                              WebkitBoxShadow: isDark ? '0 0 0 100px #0f172a inset' : '0 0 0 100px #ffffff inset',
+                              WebkitTextFillColor: `${inputTextColor} !important`,
+                              caretColor: inputTextColor,
+                              borderRadius: 'inherit',
                             },
                           },
                           '& .MuiFormHelperText-root': {
@@ -871,13 +911,23 @@ export default function Login() {
                           '& .MuiOutlinedInput-root': {
                             backgroundColor: inputBg,
                             borderRadius: 2,
-                            color: brandDarkNavy,
+                            color: inputTextColor,
                             fontSize: '0.88rem',
                             '& fieldset': { borderColor: inputBorder },
                             '&:hover fieldset': { borderColor: primaryBrandBlue },
                             '&.Mui-focused fieldset': {
                               borderColor: primaryBrandBlue,
                               borderWidth: '1.5px',
+                            },
+                          },
+                          '& .MuiOutlinedInput-input': {
+                            color: inputTextColor,
+                            WebkitTextFillColor: `${inputTextColor} !important`,
+                            '&:-webkit-autofill': {
+                              WebkitBoxShadow: isDark ? '0 0 0 100px #0f172a inset' : '0 0 0 100px #ffffff inset',
+                              WebkitTextFillColor: `${inputTextColor} !important`,
+                              caretColor: inputTextColor,
+                              borderRadius: 'inherit',
                             },
                           },
                           '& .MuiFormHelperText-root': {
@@ -930,13 +980,23 @@ export default function Login() {
                         '& .MuiOutlinedInput-root': {
                           backgroundColor: inputBg,
                           borderRadius: 2,
-                          color: brandDarkNavy,
+                          color: inputTextColor,
                           fontSize: '0.88rem',
                           '& fieldset': { borderColor: inputBorder },
                           '&:hover fieldset': { borderColor: primaryBrandBlue },
                           '&.Mui-focused fieldset': {
                             borderColor: primaryBrandBlue,
                             borderWidth: '1.5px',
+                          },
+                        },
+                        '& .MuiOutlinedInput-input': {
+                          color: inputTextColor,
+                          WebkitTextFillColor: `${inputTextColor} !important`,
+                          '&:-webkit-autofill': {
+                            WebkitBoxShadow: isDark ? '0 0 0 100px #0f172a inset' : '0 0 0 100px #ffffff inset',
+                            WebkitTextFillColor: `${inputTextColor} !important`,
+                            caretColor: inputTextColor,
+                            borderRadius: 'inherit',
                           },
                         },
                       }}
@@ -961,14 +1021,14 @@ export default function Login() {
                             onChange={(e) => setRememberMe(e.target.checked)}
                             size="small"
                             sx={{
-                              color: inputBorder,
+                              color: isDark ? 'rgba(255,255,255,0.3)' : '#52627A',
                               '&.Mui-checked': { color: primaryBrandBlue },
                               p: 0.5,
                             }}
                           />
                         }
                         label={
-                          <Typography sx={{ color: brandSecondaryNavy, fontSize: '0.82rem', fontWeight: 500 }}>
+                          <Typography sx={{ color: brandDarkNavy, fontSize: '0.82rem', fontWeight: 600 }}>
                             Remember me
                           </Typography>
                         }
@@ -1090,7 +1150,7 @@ export default function Login() {
                           </svg>
                         }
                         sx={{
-                          color: isDark ? '#ffffff' : '#1f2937',
+                          color: isDark ? '#F5F8FF' : '#0B2347',
                           backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#ffffff',
                           border: isDark ? '1.5px solid rgba(255, 255, 255, 0.22)' : '1.5px solid #d0d5dd',
                           boxShadow: isDark
@@ -1106,8 +1166,8 @@ export default function Login() {
                             borderColor: primaryBrandBlue,
                             backgroundColor: isDark ? 'rgba(255, 255, 255, 0.14)' : '#f9fafb',
                             boxShadow: isDark
-                              ? '0 4px 12px rgba(0, 101, 255, 0.3)'
-                              : '0 4px 12px rgba(0, 101, 255, 0.15)',
+                              ? '0 4px 12px rgba(11, 107, 255, 0.3)'
+                              : '0 4px 12px rgba(11, 107, 255, 0.15)',
                           },
                           mb: 3,
                         }}
@@ -1117,7 +1177,7 @@ export default function Login() {
 
                       {/* Create an account */}
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography sx={{ color: brandSecondaryNavy, fontSize: '0.86rem' }}>
+                        <Typography sx={{ color: brandMutedText, fontSize: '0.86rem' }}>
                           Don't have an account?{' '}
                           <Typography
                             component={Link}
