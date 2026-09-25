@@ -93,63 +93,91 @@ class WeatherRiskAdjuster:
         the current instantaneous weather snapshot for exceedance calculations.
         """
         api_key = os.environ.get("OPENWEATHER_API_KEY", "")
-        if not api_key or api_key == "your_openweather_api_key_here":
-            print("[WeatherRiskAdjuster] OPENWEATHER_API_KEY not set — using baseline")
-            return self._default_weather(lat, lon)
+        if api_key and api_key != "your_openweather_api_key_here":
+            try:
+                url = (
+                    f"https://api.openweathermap.org/data/2.5/weather?"
+                    f"lat={lat}&lon={lon}&appid={api_key}&units=metric"
+                )
+                req = urllib.request.Request(url, headers={"User-Agent": "AapdaNetra/3.1"})
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    data = json.loads(resp.read().decode())
 
+                temp = data.get("main", {}).get("temp", 28)
+                humidity = data.get("main", {}).get("humidity", 65)
+                wind = data.get("wind", {}).get("speed", 8)
+                pressure = data.get("main", {}).get("pressure", 1013)
+                precip_1h = data.get("rain", {}).get("1h", 0) or 0
+
+                return {
+                    "temperature_2m": temp,
+                    "humidity_pct": humidity,
+                    "wind_speed_ms": wind,
+                    "precipitation_now_mm": precip_1h,
+                    "daily_precipitation_mm": precip_1h,
+                    "pressure_hpa": pressure,
+                    "max_daily_rainfall_mm": precip_1h * 24,
+                    "annual_rainfall_mm": precip_1h * 24 * 365 * 0.3,
+                    "monsoon_rainfall_mm": precip_1h * 24 * 120 * 0.4,
+                    "mean_temperature_c": temp,
+                    "fuel_aridity_index": max(0, (temp / 3.5) - (humidity / 15)),
+                    "source": "OpenWeather",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "status": "live",
+                    "lat": lat,
+                    "lon": lon,
+                }
+            except Exception as e:
+                print(f"[WeatherRiskAdjuster] OpenWeather fetch failed: {e}")
+
+        # 2. Free live fallback: Open-Meteo (Real-time telemetry, no API key required)
+        open_meteo = self._fetch_open_meteo(lat, lon)
+        if open_meteo:
+            return open_meteo
+
+        # 3. Static fallback if network unreachable
+        return self._default_weather(lat, lon)
+
+    def _fetch_open_meteo(self, lat: float, lon: float) -> dict:
+        """Fetch live real-time meteorological telemetry from Open-Meteo API."""
         try:
             url = (
-                f"https://api.openweathermap.org/data/2.5/weather?"
-                f"lat={lat}&lon={lon}&appid={api_key}&units=metric"
+                f"https://api.open-meteo.com/v1/forecast?"
+                f"latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,"
+                f"precipitation,rain,surface_pressure,wind_speed_10m&timezone=auto"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "AapdaNetra/3.1"})
             with urllib.request.urlopen(req, timeout=8) as resp:
                 data = json.loads(resp.read().decode())
 
-            # Extract current weather fields
-            temp = data.get("main", {}).get("temp", 28)
-            humidity = data.get("main", {}).get("humidity", 65)
-            wind = data.get("wind", {}).get("speed", 8)
-            pressure = data.get("main", {}).get("pressure", 1013)
-            precip_1h = data.get("rain", {}).get("1h", 0) or 0
-            description = ""
-            if data.get("weather") and len(data["weather"]) > 0:
-                description = data["weather"][0].get("description", "")
+            curr = data.get("current", {})
+            temp = float(curr.get("temperature_2m", 28.0))
+            humidity = float(curr.get("relative_humidity_2m", 65.0))
+            wind = float(curr.get("wind_speed_10m", 8.0))
+            pressure = float(curr.get("surface_pressure", 1013.0))
+            precip = float(curr.get("precipitation", curr.get("rain", 0.0)) or 0.0)
 
-            # Compute derived features that match training data schema
-            weather = {
-                # Direct mappings to training features
+            return {
                 "temperature_2m": temp,
                 "humidity_pct": humidity,
-                "wind_speed_ms": wind,
-                "precipitation_now_mm": precip_1h,
-                "daily_precipitation_mm": precip_1h,  # best instantaneous estimate
+                "wind_speed_ms": wind / 3.6,  # km/h to m/s
+                "precipitation_now_mm": precip,
+                "daily_precipitation_mm": precip,
                 "pressure_hpa": pressure,
-
-                # Mapped to training feature names for exceedance calculation
-                "max_daily_rainfall_mm": precip_1h * 24,  # projected worst-case
-                "annual_rainfall_mm": precip_1h * 24 * 365 * 0.3,  # rough annualized proxy
-                "monsoon_rainfall_mm": precip_1h * 24 * 120 * 0.4,  # monsoon proxy
+                "max_daily_rainfall_mm": precip * 24,
+                "annual_rainfall_mm": precip * 24 * 365 * 0.3,
+                "monsoon_rainfall_mm": precip * 24 * 120 * 0.4,
                 "mean_temperature_c": temp,
-                "fuel_aridity_index": max(0, (temp / 3.5) - (humidity / 15)),  # FAI proxy
-
-                # Antecedent rainfall: NOT computed here.
-                # These are populated from the MongoDB accumulator via the backend
-                # request payload (predict.py reads them from the incoming data dict).
-                # We intentionally do NOT fabricate multi-day rainfall from a single reading.
-
-                # Metadata
-                "source": "OpenWeather",
+                "fuel_aridity_index": max(0, (temp / 3.5) - (humidity / 15)),
+                "source": "Open-Meteo",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "status": "live",
                 "lat": lat,
                 "lon": lon,
             }
-            return weather
-
-        except (urllib.error.URLError, Exception) as e:
-            print(f"[WeatherRiskAdjuster] OpenWeather fetch failed: {e}")
-            return self._default_weather(lat, lon)
+        except Exception as err:
+            print(f"[WeatherRiskAdjuster] Open-Meteo live telemetry fetch failed: {err}")
+            return None
 
     def _default_weather(self, lat: float, lon: float) -> dict:
         """Fallback weather when API is unreachable."""
