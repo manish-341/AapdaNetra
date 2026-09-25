@@ -7,11 +7,14 @@ import { useThemeMode } from '../context/ThemeContext';
 import { useLocationContext, INDIAN_DISTRICT_GAZETTEER } from '../context/LocationContext';
 import { alertMatchesLocation } from '../utils/alertMatcher';
 import { getUnreadAlerts, markAllAlertsAsRead } from '../utils/notificationsStore';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSelector from '../components/LanguageSelector';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const { toggleTheme, isDark } = useThemeMode();
   const { location, switchLocation, detectLiveGPS, gpsLoading, presets } = useLocationContext();
+  const { t } = useLanguage();
   const user = getCurrentUser() || { name: 'Guest User', role: 'CITIZEN', district: 'Vindhya' };
   const [alerts, setAlerts] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -152,14 +155,17 @@ const Navbar = () => {
     <header className="top-navbar">
       <div>
         <h1 style={{ fontSize: '1.15rem', margin: 0, color: 'var(--text-primary)', fontWeight: 700 }}>
-          AapdaNetra Crisis Decision Support
+          {t('appTitle', 'AapdaNetra Crisis Decision Support')}
         </h1>
         <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-          Real-Time Geospatial Intelligence • ML Predictions • Emergency Guidance
+          {t('appSubtitle', 'Real-Time Geospatial Intelligence • ML Predictions • Emergency Guidance')}
         </p>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+        {/* Interactive Indian Language Switcher */}
+        <LanguageSelector />
+
         {/* Interactive District Location Switcher */}
         <div style={{ position: 'relative' }} ref={locationMenuRef}>
           <button
@@ -218,12 +224,12 @@ const Navbar = () => {
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
-                  LOCATION TELEMETRY
+                  {t('locationTelemetry', 'LOCATION TELEMETRY')}
                 </span>
                 {location.isGPS && (
                   <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }}></span>
-                    GPS Active
+                    {t('gpsActive', 'GPS Active')}
                   </span>
                 )}
               </div>
@@ -258,14 +264,14 @@ const Navbar = () => {
                 }}
               >
                 <Crosshair size={16} style={{ color: '#10b981' }} />
-                {gpsLoading ? 'Acquiring Live GPS Satellite Lock...' : 'Use My Live GPS Location'}
+                {gpsLoading ? 'Acquiring Live GPS Satellite Lock...' : t('useGps', 'Use My Live GPS Location')}
               </button>
 
               <form onSubmit={handleCustomSearch} style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.65rem' }}>
                 <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
                   <input
                     type="text"
-                    placeholder="Search district (e.g. Bhopal, Pune)..."
+                    placeholder={t('searchDistrict', 'Search district (e.g. Bhopal, Pune)...')}
                     value={searchDistrict}
                     onChange={(e) => setSearchDistrict(e.target.value)}
                     style={{
@@ -553,7 +559,7 @@ const Navbar = () => {
           <button
             type="button"
             onClick={handleLogout}
-            title="Sign out"
+            title={t('signOut', 'Sign out')}
             style={{
               display: 'flex',
               alignItems: 'center',

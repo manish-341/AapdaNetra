@@ -30,12 +30,15 @@ import {
 import { loginUser } from '../services/api';
 import { setAuthToken } from '../lib/auth';
 import { useThemeMode } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSelector from '../components/LanguageSelector';
 import aapdaHeroBg from '../assets/aapda_hero_bg.jpg';
 
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isDark, toggleTheme } = useThemeMode();
+  const { t } = useLanguage();
 
   // ONLY 2 Roles: 'citizen' and 'admin'
   const [activeRole, setActiveRole] = useState('citizen');
@@ -267,7 +270,7 @@ export default function Login() {
                 borderBottom: `2.5px solid ${primaryBrandBlue}`,
               }}
             >
-              Home
+              {t('home', 'Home')}
             </Typography>
 
             <Typography
@@ -281,7 +284,7 @@ export default function Login() {
                 '&:hover': { color: primaryBrandBlue },
               }}
             >
-              About
+              {t('about', 'About')}
             </Typography>
 
             <Typography
@@ -295,7 +298,7 @@ export default function Login() {
                 '&:hover': { color: primaryBrandBlue },
               }}
             >
-              How It Works
+              {t('howItWorks', 'How It Works')}
             </Typography>
 
             <Typography
@@ -309,9 +312,12 @@ export default function Login() {
                 '&:hover': { color: primaryBrandBlue },
               }}
             >
-              Contact
+              {t('contact', 'Contact')}
             </Typography>
           </Box>
+
+          {/* Interactive Indian Language Switcher */}
+          <LanguageSelector compact />
 
           {/* Clean Rounded Pill Theme Toggle */}
           <Box
