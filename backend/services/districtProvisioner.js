@@ -284,17 +284,44 @@ function computeTopographicalRisk(districtName, lat, lng, liveRain = 0) {
         slopeZoneName = "Vindhya Tons River Gorge Slope Sector (Monitored)";
     }
 
+    let baseFireProb = isMountain ? 0.16 : isPlateau ? 0.11 : isCoastal ? 0.03 : 0.05;
+    if (liveRain >= 15) baseFireProb = Math.max(0.02, baseFireProb - 0.08);
+    const fireProb = Number(Math.min(0.95, Math.max(0.02, baseFireProb)).toFixed(2));
+    const fireScore = Math.round(fireProb * 100);
+    const fireSev = Math.min(30, Math.round(fireScore * 1.05));
+    const fireCategory = fireScore >= 60 ? "RED" : fireScore >= 25 ? "AMBER" : "GREEN";
+    let fireZoneName = `${districtName} Vegetative & Forest Canopy Buffer (Monitored)`;
+
+    if (clean.includes("dehradun")) {
+        fireZoneName = "Dehradun Mussoorie Foothill Pine Canopy Zone (Monitored)";
+    } else if (clean.includes("srinagar")) {
+        fireZoneName = "Srinagar Dachigam Pine Forest Buffer (Monitored)";
+    } else if (clean.includes("vindhya") || clean.includes("rewa")) {
+        fireZoneName = "Vindhya Kaimur Range Forest Buffer (Monitored)";
+    } else if (clean.includes("pune")) {
+        fireZoneName = "Pune Sinhagad Foothills Vegetative Sector (Monitored)";
+    } else if (clean.includes("guwahati")) {
+        fireZoneName = "Guwahati Nilachal Hill Canopy Buffer (Monitored)";
+    } else if (clean.includes("delhi")) {
+        fireZoneName = "Central Delhi Ridge Forest Reserve Sector (Monitored)";
+    }
+
     return {
         floodProb,
         slopeProb,
+        fireProb,
         floodScore,
         slopeScore,
+        fireScore,
         floodSev,
         slopeSev,
+        fireSev,
         floodCategory,
         slopeCategory,
+        fireCategory,
         floodZoneName,
         slopeZoneName,
+        fireZoneName,
         isMountain
     };
 }
@@ -339,12 +366,27 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                 await HazardZone.deleteMany({ district: reg });
                 await Alert.deleteMany({ district: reg });
             } else {
-                // Remove older duplicates if any
-                if (existingZones.length > 2) {
-                    const sortedZones = existingZones.sort((a, b) => b.createdAt - a.createdAt);
-                    const toDelete = sortedZones.slice(2).map(z => z._id);
-                    await HazardZone.deleteMany({ _id: { $in: toDelete } });
+                // Ensure at most 1 zone per hazard type for the district
+                const typesPresent = new Set(existingZones.map(z => z.hazardType));
+                if (!typesPresent.has("WILDFIRE")) {
+                    console.log(`[districtProvisioner] Generating missing WILDFIRE hazard zone for ${districtName}...`);
+                    await HazardZone.create({
+                        name: topoRisk.fireZoneName,
+                        hazardType: "WILDFIRE",
+                        district: districtName,
+                        state: stateName || coords.state,
+                        severity: topoRisk.fireSev,
+                        riskScore: topoRisk.fireScore,
+                        riskCategory: topoRisk.fireCategory,
+                        probability: topoRisk.fireProb,
+                        geometry: {
+                            type: "Polygon",
+                            coordinates: [[[lng + 0.02, lat - 0.04], [lng + 0.05, lat - 0.04], [lng + 0.05, lat - 0.01], [lng + 0.02, lat - 0.01], [lng + 0.02, lat - 0.04]]]
+                        },
+                        source: "Forest Survey & Satellite Telemetry"
+                    });
                 }
+
                 if (existingHabs.length > 3) {
                     const sortedHabs = existingHabs.sort((a, b) => b.createdAt - a.createdAt);
                     const toDeleteHabs = sortedHabs.slice(3).map(h => h._id);
@@ -367,7 +409,7 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                         }
                     );
                     await HazardZone.updateMany(
-                        { district: reg, hazardType: { $ne: "FLOOD" } },
+                        { district: reg, hazardType: "LANDSLIDE" },
                         {
                             $set: {
                                 riskCategory: topoRisk.slopeCategory,
@@ -375,6 +417,18 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                                 severity: topoRisk.slopeSev,
                                 probability: topoRisk.slopeProb,
                                 name: topoRisk.slopeZoneName
+                            }
+                        }
+                    );
+                    await HazardZone.updateMany(
+                        { district: reg, hazardType: "WILDFIRE" },
+                        {
+                            $set: {
+                                riskCategory: topoRisk.fireCategory,
+                                riskScore: topoRisk.fireScore,
+                                severity: topoRisk.fireSev,
+                                probability: topoRisk.fireProb,
+                                name: topoRisk.fireZoneName
                             }
                         }
                     );
@@ -509,6 +563,21 @@ async function ensureDistrictProvisioned(districtName, stateName = "") {
                     coordinates: [[[lng - 0.05, lat + 0.02], [lng - 0.02, lat + 0.02], [lng - 0.02, lat + 0.05], [lng - 0.05, lat + 0.05], [lng - 0.05, lat + 0.02]]]
                 },
                 source: "Geological Survey Analysis"
+            },
+            {
+                name: topoRisk.fireZoneName,
+                hazardType: "WILDFIRE",
+                district: districtName,
+                state: stateName || coords.state,
+                severity: topoRisk.fireSev,
+                riskScore: topoRisk.fireScore,
+                riskCategory: topoRisk.fireCategory,
+                probability: topoRisk.fireProb,
+                geometry: {
+                    type: "Polygon",
+                    coordinates: [[[lng + 0.02, lat - 0.04], [lng + 0.05, lat - 0.04], [lng + 0.05, lat - 0.01], [lng + 0.02, lat - 0.01], [lng + 0.02, lat - 0.04]]]
+                },
+                source: "Forest Survey & Satellite Telemetry"
             }
         ]);
 
