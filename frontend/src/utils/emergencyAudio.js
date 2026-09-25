@@ -61,15 +61,21 @@ function getSirenAudioElement() {
   if (typeof window === 'undefined') return null;
   if (!activeAudioElement) {
     try {
-      if (!sirenBlobUrl) {
-        const blob = createSirenWavBlob();
-        sirenBlobUrl = URL.createObjectURL(blob);
-      }
-      activeAudioElement = new Audio(sirenBlobUrl);
+      activeAudioElement = new Audio('/siren.wav');
       activeAudioElement.loop = true;
-      activeAudioElement.volume = 0.9;
+      activeAudioElement.volume = 1.0;
     } catch (e) {
-      console.warn('[AapdaNetra Audio] Fallback audio element init failed:', e);
+      try {
+        if (!sirenBlobUrl) {
+          const blob = createSirenWavBlob();
+          sirenBlobUrl = URL.createObjectURL(blob);
+        }
+        activeAudioElement = new Audio(sirenBlobUrl);
+        activeAudioElement.loop = true;
+        activeAudioElement.volume = 1.0;
+      } catch (err) {
+        console.warn('[AapdaNetra Audio] Fallback audio element init failed:', err);
+      }
     }
   }
   return activeAudioElement;
@@ -101,19 +107,13 @@ export function unlockAudioContext() {
 export function initAudioUnlock() {
   if (typeof window === 'undefined') return;
 
-  const unlock = () => {
+  const unlock = async () => {
     try {
       const ctx = getAudioContext();
       if (ctx && ctx.state === 'suspended') {
-        ctx.resume().then(() => {
-          console.log('[AapdaNetra Audio] AudioContext unlocked.');
-          if (pendingSirenDuration > 0) {
-            const dur = pendingSirenDuration;
-            pendingSirenDuration = 0;
-            playEmergencySiren(dur, true);
-          }
-        }).catch(() => {});
-      } else if (pendingSirenDuration > 0) {
+        await ctx.resume().catch(() => {});
+      }
+      if (pendingSirenDuration > 0) {
         const dur = pendingSirenDuration;
         pendingSirenDuration = 0;
         playEmergencySiren(dur, true);
@@ -140,10 +140,9 @@ function startWebAudioSirenNodes(durationMs = 8000) {
   try {
     const now = ctx.currentTime;
 
-    // Master volume gain
+    // Master volume gain - full penetration volume
     const masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(0.001, now);
-    masterGain.gain.linearRampToValueAtTime(0.55, now + 0.15);
+    masterGain.gain.setValueAtTime(0.85, now);
 
     // Primary carrier oscillator (Sawtooth tone for penetrating warning)
     const carrier = ctx.createOscillator();
@@ -211,29 +210,40 @@ function armOneTouchSirenUnlock(durationMs = 8000) {
   if (gestureUnlockArmed || typeof window === 'undefined') return;
   gestureUnlockArmed = true;
 
-  const onUserGesture = () => {
+  const onUserGesture = async () => {
     gestureUnlockArmed = false;
     window.removeEventListener('pointerdown', onUserGesture, true);
     window.removeEventListener('click', onUserGesture, true);
     window.removeEventListener('keydown', onUserGesture, true);
     window.removeEventListener('touchstart', onUserGesture, true);
 
+    // Play native siren audio element on first touch
+    const audioElem = getSirenAudioElement();
+    if (audioElem) {
+      audioElem.currentTime = 0;
+      audioElem.volume = 1.0;
+      audioElem.play().then(() => {
+        isPlaying = true;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('emergency-siren-started'));
+        }
+      }).catch(() => {});
+    }
+
+    // Also resume and start Web Audio synth
     const ctx = getAudioContext();
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().then(() => {
-        startWebAudioSirenNodes(durationMs);
-      }).catch(() => {
-        startWebAudioSirenNodes(durationMs);
-      });
-    } else {
+    if (ctx) {
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch(() => {});
+      }
       startWebAudioSirenNodes(durationMs);
     }
   };
 
-  window.addEventListener('pointerdown', onUserGesture, true);
-  window.addEventListener('click', onUserGesture, true);
-  window.addEventListener('keydown', onUserGesture, true);
-  window.addEventListener('touchstart', onUserGesture, true);
+  window.addEventListener('pointerdown', onUserGesture, { capture: true, once: true });
+  window.addEventListener('click', onUserGesture, { capture: true, once: true });
+  window.addEventListener('keydown', onUserGesture, { capture: true, once: true });
+  window.addEventListener('touchstart', onUserGesture, { capture: true, once: true });
 }
 
 /**
@@ -242,7 +252,7 @@ function armOneTouchSirenUnlock(durationMs = 8000) {
  * @param {boolean} userInitiated - true if triggered directly by user gesture
  * @returns {boolean} true if audio playback was initiated
  */
-export function playEmergencySiren(durationMs = 8000, userInitiated = false) {
+export async function playEmergencySiren(durationMs = 8000, userInitiated = false) {
   if (typeof window === 'undefined') return false;
 
   try {
@@ -251,38 +261,18 @@ export function playEmergencySiren(durationMs = 8000, userInitiated = false) {
       autoStopTimer = null;
     }
 
-    const ctx = getAudioContext();
+    let started = false;
 
-    if (userInitiated && ctx && ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
-
-    // If context is running, synthesize immediately
-    if (ctx && ctx.state === 'running') {
-      pendingSirenDuration = 0;
-      return startWebAudioSirenNodes(durationMs);
-    }
-
-    // If suspended by browser autoplay policy
-    if (ctx && ctx.state === 'suspended') {
-      pendingSirenDuration = durationMs;
-      armOneTouchSirenUnlock(durationMs);
-
-      // Attempt resume in case policy allows
-      ctx.resume().then(() => {
-        if (ctx.state === 'running') {
-          pendingSirenDuration = 0;
-          startWebAudioSirenNodes(durationMs);
-        }
-      }).catch(() => {});
-
-      // Also trigger HTML5 Audio element fallback
-      const audioElem = getSirenAudioElement();
-      if (audioElem) {
-        audioElem.currentTime = 0;
-        audioElem.play().then(() => {
+    // 1. Play HTML5 Audio element (/siren.wav)
+    const audioElem = getSirenAudioElement();
+    if (audioElem) {
+      audioElem.currentTime = 0;
+      audioElem.volume = 1.0;
+      const playPromise = audioElem.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
           isPlaying = true;
-          pendingSirenDuration = 0;
+          started = true;
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('emergency-siren-started'));
           }
@@ -292,15 +282,32 @@ export function playEmergencySiren(durationMs = 8000, userInitiated = false) {
               stopEmergencySiren();
             }, durationMs);
           }
-        }).catch(() => {
-          // Autoplay blocked fallback audio as well; armed for 1st touch
+        }).catch((err) => {
+          console.log('[AapdaNetra Audio] Autoplay pending interaction:', err?.message);
         });
       }
-
-      return false;
     }
 
-    return startWebAudioSirenNodes(durationMs);
+    // 2. Web Audio API synthesis
+    const ctx = getAudioContext();
+    if (ctx) {
+      if (ctx.state === 'suspended') {
+        try {
+          await ctx.resume();
+        } catch {}
+      }
+
+      if (ctx.state === 'running') {
+        const webAudioStarted = startWebAudioSirenNodes(durationMs);
+        if (webAudioStarted) started = true;
+      } else {
+        armOneTouchSirenUnlock(durationMs);
+      }
+    } else {
+      armOneTouchSirenUnlock(durationMs);
+    }
+
+    return started;
   } catch (err) {
     console.warn('[AapdaNetra Audio] Emergency siren start warning:', err);
     armOneTouchSirenUnlock(durationMs);
@@ -369,7 +376,8 @@ export function stopEmergencySiren() {
  * Check if siren is currently active
  */
 export function isSirenActive() {
-  return isPlaying;
+  const audioPlaying = activeAudioElement && !activeAudioElement.paused && activeAudioElement.currentTime > 0;
+  return isPlaying || Boolean(audioPlaying);
 }
 
 /**
