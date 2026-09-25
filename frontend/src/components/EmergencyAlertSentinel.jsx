@@ -14,7 +14,8 @@ import {
   Tabs,
   Tab,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Stack
 } from '@mui/material';
 import {
   AlertTriangle,
@@ -601,7 +602,7 @@ export default function EmergencyAlertSentinel() {
             </Box>
 
             {/* Right Action Controls */}
-            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ zIndex: 1, flexShrink: 0 }}>
+            <Box display="flex" alignItems="center" gap={1.25} sx={{ zIndex: 1, flexShrink: 0 }}>
               {sirenPlaying ? (
                 <Button
                   size="small"
@@ -689,7 +690,7 @@ export default function EmergencyAlertSentinel() {
               >
                 <X size={18} />
               </IconButton>
-            </Stack>
+            </Box>
           </Box>
         );
       })()}
