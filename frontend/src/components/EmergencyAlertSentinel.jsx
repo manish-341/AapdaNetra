@@ -57,6 +57,36 @@ import {
 const NOTIFICATIONS_STORAGE_KEY = 'aapdanetra_notifications_config';
 const ACKNOWLEDGED_ALERTS_KEY = 'an_acknowledged_critical_alerts';
 
+// Clean formatting helpers for emergency banner & toast
+function getCleanAlertTitle(rawTitle = '') {
+  if (!rawTitle) return 'Active Disaster Emergency';
+  return rawTitle
+    .replace(/^[🚨⚠️\s]+/, '')
+    .replace(/^CRITICAL\s+(FLOOD|EMERGENCY|DISASTER|WARNING|HAZARD)\s*[-—:]*\s*/i, '')
+    .replace(/^STATEWIDE\s+CRITICAL\s+FLOOD\s+EMERGENCY\s*[-—:]*\s*/i, '')
+    .replace(/^CRITICAL\s*[-—:]*\s*/i, '')
+    .trim();
+}
+
+function getAlertBasinInfo(alert) {
+  if (!alert) return { district: 'Regional', river: 'River Basin' };
+  const d = (alert.district || '').trim();
+  const district = d ? d.charAt(0).toUpperCase() + d.slice(1) : 'Bihar';
+
+  const text = `${alert.title || ''} ${alert.description || ''} ${alert.message || ''}`.toLowerCase();
+  let river = '';
+  if (text.includes('kosi')) river = 'Kosi Basin';
+  else if (text.includes('ganga')) river = 'Ganga Basin';
+  else if (text.includes('bagmati')) river = 'Bagmati Basin';
+  else if (text.includes('gandak')) river = 'Gandak Basin';
+  else if (text.includes('kamla') || text.includes('balan')) river = 'Kamla-Balan Basin';
+  else if (text.includes('yamuna')) river = 'Yamuna Basin';
+  else if (text.includes('mandakini')) river = 'Mandakini Basin';
+  else river = `${district} River Basin`;
+
+  return { district, river };
+}
+
 export default function EmergencyAlertSentinel() {
   const navigate = useNavigate();
   const { location, switchLocation } = useLocationContext();
@@ -416,192 +446,322 @@ export default function EmergencyAlertSentinel() {
 
   return (
     <>
-      {/* 1. TOP PULSING CRITICAL BANNER (Shown ONLY when a true CRITICAL situation is active in current district) */}
-      {activeCriticalAlert && !bannerDismissed && (
-        <Box
-          sx={{
-            mb: 2.5,
-            p: 1.5,
-            px: 2.5,
-            borderRadius: 3,
-            bgcolor: '#dc2626',
-            background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
-            color: '#ffffff',
-            boxShadow: '0 10px 30px rgba(220, 38, 38, 0.45)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 1.5,
-            border: '1px solid rgba(255, 255, 255, 0.3)',
-            animation: 'pulse 2s infinite'
-          }}
-        >
-          <Box display="flex" alignItems="center" gap={1.5}>
+      {/* 1. TOP PULSING CRITICAL CIVIL DEFENSE BANNER */}
+      {activeCriticalAlert && !bannerDismissed && (() => {
+        const { district: alertDist, river: alertRiver } = getAlertBasinInfo(activeCriticalAlert);
+        const cleanTitle = getCleanAlertTitle(activeCriticalAlert.title);
+        const userSectorName = location?.name || location?.district || 'Regional Sector';
+        const isSameSector = (location?.district || '').toLowerCase().trim() === (activeCriticalAlert.district || '').toLowerCase().trim();
+        const directive = activeCriticalAlert.instructions || activeCriticalAlert.directive || activeCriticalAlert.message || activeCriticalAlert.description;
+
+        return (
+          <Box
+            sx={{
+              mb: 2.5,
+              p: { xs: 2, sm: 2.25 },
+              px: { xs: 2, sm: 2.75 },
+              borderRadius: 3.5,
+              background: 'linear-gradient(135deg, rgba(185, 28, 28, 0.96) 0%, rgba(127, 29, 29, 0.98) 100%)',
+              backdropFilter: 'blur(20px)',
+              color: '#ffffff',
+              boxShadow: '0 14px 40px rgba(185, 28, 28, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 2,
+              border: '1px solid rgba(254, 202, 202, 0.35)',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Ambient Background Glow Effect */}
             <Box
               sx={{
-                width: 36,
-                height: 36,
+                position: 'absolute',
+                top: -40,
+                left: -40,
+                width: 140,
+                height: 140,
                 borderRadius: '50%',
-                bgcolor: '#ffffff',
-                color: '#dc2626',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 900,
-                flexShrink: 0
+                bgcolor: 'rgba(239, 68, 68, 0.4)',
+                filter: 'blur(45px)',
+                pointerEvents: 'none',
               }}
-            >
-              <AlertTriangle size={20} />
-            </Box>
-            <Box>
-              <Typography variant="body2" fontWeight={900} sx={{ letterSpacing: '0.02em', color: '#fff' }}>
-                🚨 CRITICAL EMERGENCY ACTIVE: {activeCriticalAlert.title}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.95)', display: 'block', fontWeight: 600 }}>
-                Jurisdiction: <strong>{location?.name || location?.district}</strong> • Automated 7-second civil defense siren dispatched.
-              </Typography>
-            </Box>
-          </Box>
+            />
 
-          <Box display="flex" alignItems="center" gap={1}>
-            {sirenPlaying ? (
-              <Button
-                size="small"
-                variant="contained"
-                onClick={handleSilenceOnly}
-                startIcon={<VolumeX size={15} />}
+            {/* Left Beacon & Threat Intelligence Content */}
+            <Box display="flex" alignItems="flex-start" gap={2} sx={{ flex: '1 1 500px', minWidth: 0, zIndex: 1 }}>
+              {/* Pulsing Beacon Icon */}
+              <Box
                 sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 2.5,
                   bgcolor: '#ffffff',
                   color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   fontWeight: 900,
-                  fontSize: '0.78rem',
-                  textTransform: 'none',
-                  borderRadius: 2,
-                  px: 1.5,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-                  '&:hover': { bgcolor: '#fef2f2' }
+                  flexShrink: 0,
+                  boxShadow: '0 0 20px rgba(255, 255, 255, 0.5), 0 4px 12px rgba(0,0,0,0.2)',
+                  position: 'relative',
+                  mt: 0.25,
                 }}
               >
-                Mute Siren
-              </Button>
-            ) : (
+                <AlertTriangle size={24} />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: -4,
+                    right: -4,
+                    width: 13,
+                    height: 13,
+                    borderRadius: '50%',
+                    bgcolor: '#ef4444',
+                    border: '2px solid #ffffff',
+                    animation: 'ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite',
+                  }}
+                />
+              </Box>
+
+              {/* Informational Context */}
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                {/* Meta Badges Row */}
+                <Box display="flex" alignItems="center" gap={1} flexWrap="wrap" mb={0.75}>
+                  <Chip
+                    label="🚨 CRITICAL EMERGENCY"
+                    size="small"
+                    sx={{
+                      bgcolor: '#ffffff',
+                      color: '#b91c1c',
+                      fontWeight: 900,
+                      fontSize: '0.65rem',
+                      height: 22,
+                      letterSpacing: '0.04em',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                    }}
+                  />
+                  <Chip
+                    label={`🌊 ${alertRiver} • ${alertDist}`}
+                    size="small"
+                    sx={{
+                      bgcolor: 'rgba(255, 255, 255, 0.18)',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '0.65rem',
+                      height: 22,
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
+                    }}
+                  />
+                  <Chip
+                    label={isSameSector ? `📍 Local Sector: ${userSectorName}` : `📍 Monitored from: ${userSectorName}`}
+                    size="small"
+                    sx={{
+                      bgcolor: 'rgba(0, 0, 0, 0.2)',
+                      color: '#ffffff',
+                      fontWeight: 600,
+                      fontSize: '0.63rem',
+                      height: 22,
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                    }}
+                  />
+                </Box>
+
+                {/* Main Clean Alert Title */}
+                <Typography
+                  variant="subtitle1"
+                  fontWeight={900}
+                  sx={{
+                    color: '#ffffff',
+                    lineHeight: 1.35,
+                    fontSize: { xs: '0.95rem', sm: '1.05rem' },
+                    textShadow: '0 1px 3px rgba(0,0,0,0.35)',
+                    mb: 0.5,
+                  }}
+                >
+                  {cleanTitle}
+                </Typography>
+
+                {/* Directive / Telemetry Callout */}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'rgba(254, 226, 226, 0.95)',
+                    display: 'block',
+                    fontWeight: 600,
+                    lineHeight: 1.45,
+                    fontSize: '0.78rem',
+                  }}
+                >
+                  {directive ? `⚠️ Directive: ${directive}` : 'Continuous CWC river gauge & IMD precipitation telemetry active. Responders standing by.'}
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Right Action Controls */}
+            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ zIndex: 1, flexShrink: 0 }}>
+              {sirenPlaying ? (
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={handleSilenceOnly}
+                  startIcon={<VolumeX size={16} />}
+                  sx={{
+                    bgcolor: '#ffffff',
+                    color: '#b91c1c',
+                    fontWeight: 900,
+                    fontSize: '0.78rem',
+                    textTransform: 'none',
+                    borderRadius: 2.5,
+                    py: 0.75,
+                    px: 1.75,
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+                    '&:hover': { bgcolor: '#fef2f2', transform: 'scale(1.02)' },
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Mute Siren
+                </Button>
+              ) : (
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={handlePlaySiren}
+                  startIcon={<Volume2 size={16} />}
+                  sx={{
+                    bgcolor: '#ffffff',
+                    color: '#dc2626',
+                    fontWeight: 900,
+                    fontSize: '0.78rem',
+                    textTransform: 'none',
+                    borderRadius: 2.5,
+                    py: 0.75,
+                    px: 1.75,
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+                    animation: 'pulse 1.8s infinite',
+                    '&:hover': { bgcolor: '#fef2f2', transform: 'scale(1.02)' },
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  🚨 Siren Active
+                </Button>
+              )}
+
               <Button
                 size="small"
-                variant="contained"
-                onClick={handlePlaySiren}
-                startIcon={<Volume2 size={16} />}
+                variant="outlined"
+                onClick={() => setModalOpen(true)}
                 sx={{
-                  bgcolor: '#ffffff',
-                  color: '#dc2626',
-                  fontWeight: 900,
-                  fontSize: '0.78rem',
+                  bgcolor: 'rgba(255, 255, 255, 0.15)',
+                  borderColor: 'rgba(255, 255, 255, 0.45)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.76rem',
                   textTransform: 'none',
-                  borderRadius: 2,
-                  px: 1.8,
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
-                  animation: 'pulse 1.5s infinite',
-                  '&:hover': { bgcolor: '#fef2f2' }
+                  borderRadius: 2.5,
+                  py: 0.75,
+                  px: 1.75,
+                  backdropFilter: 'blur(8px)',
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 0.25)',
+                    borderColor: '#ffffff',
+                    transform: 'scale(1.02)',
+                  },
+                  transition: 'all 0.15s ease',
                 }}
               >
-                🚨 Ring Siren
+                {isAdmin ? 'Command Center' : 'Safety Protocols'}
               </Button>
-            )}
 
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => setModalOpen(true)}
-              sx={{
-                borderColor: '#ffffff',
-                color: '#ffffff',
-                fontWeight: 800,
-                fontSize: '0.75rem',
-                textTransform: 'none',
-                borderRadius: 2,
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.15)', borderColor: '#ffffff' }
-              }}
-            >
-              {isAdmin ? 'Open Command Popup' : 'View Safety Protocols'}
-            </Button>
-
-            <IconButton
-              size="small"
-              onClick={() => setBannerDismissed(true)}
-              sx={{ color: '#ffffff' }}
-              title="Dismiss banner"
-            >
-              <X size={18} />
-            </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => setBannerDismissed(true)}
+                sx={{
+                  color: '#ffffff',
+                  bgcolor: 'rgba(255, 255, 255, 0.12)',
+                  borderRadius: 2,
+                  p: 0.75,
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.25)' },
+                }}
+                title="Dismiss top banner"
+              >
+                <X size={18} />
+              </IconButton>
+            </Stack>
           </Box>
-        </Box>
-      )}
+        );
+      })()}
 
-      {/* 2. REAL-TIME FLOATING ALERT POPUP TOAST (Shown strictly for the searched / active area) */}
-      {toastPopupOpen && activeAreaAlert && !modalOpen && (() => {
+      {/* 2. REAL-TIME FLOATING ALERT POPUP TOAST (Shown when banner is not visible or for area advisories) */}
+      {toastPopupOpen && activeAreaAlert && !modalOpen && (!activeCriticalAlert || bannerDismissed) && (() => {
         const isCrit = isTrueCriticalAlert(activeAreaAlert);
-        const isHigh = activeAreaAlert.severity === 'HIGH';
+        const isHigh = activeAreaAlert.severity === 'HIGH' || activeAreaAlert.severity === 'RED';
         const themeColor = isCrit ? '#ef4444' : isHigh ? '#f97316' : '#0284c7';
-        const sevLabel = isCrit ? 'CRITICAL / RED ALERT' : isHigh ? 'HIGH ALERT' : 'AREA ADVISORY';
-        const areaName = location?.name || location?.district || getAlertRegionName(activeAreaAlert);
+        const sevLabel = isCrit ? 'CRITICAL EMERGENCY' : isHigh ? 'HIGH WARNING' : 'AREA ADVISORY';
+        const { district: alertDist, river: alertRiver } = getAlertBasinInfo(activeAreaAlert);
+        const cleanTitle = getCleanAlertTitle(activeAreaAlert.title);
+        const areaName = location?.name || location?.district || alertDist;
 
         return (
           <Box
             sx={{
               position: 'fixed',
-              top: 76,
-              right: 20,
+              bottom: { xs: 16, sm: 24 },
+              right: { xs: 16, sm: 24 },
               zIndex: 9999,
-              width: { xs: 'calc(100vw - 40px)', sm: 400 },
-              bgcolor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)',
-              backdropFilter: 'blur(16px)',
-              border: `2px solid ${themeColor}`,
+              width: { xs: 'calc(100vw - 32px)', sm: 420 },
+              bgcolor: isDark ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.98)',
+              backdropFilter: 'blur(20px)',
+              border: `1.5px solid ${themeColor}`,
               borderRadius: 3.5,
               boxShadow: isCrit
-                ? '0 20px 40px rgba(239, 68, 68, 0.35)'
-                : '0 15px 35px rgba(249, 115, 22, 0.25)',
-              p: 2,
+                ? '0 20px 48px rgba(239, 68, 68, 0.3), 0 0 0 1px rgba(239, 68, 68, 0.2)'
+                : '0 16px 36px rgba(0, 0, 0, 0.2)',
+              p: 2.25,
               transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-              animation: 'slideInRight 0.4s ease-out'
+              animation: 'slideInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={1.5} mb={1}>
-              <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+            {/* Header */}
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.25}>
+              <Box display="flex" alignItems="center" gap={0.75} flexWrap="wrap">
                 <Box
                   sx={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 2,
-                    bgcolor: isCrit ? 'rgba(239, 68, 68, 0.18)' : 'rgba(249, 115, 22, 0.18)',
+                    width: 28,
+                    height: 28,
+                    borderRadius: 1.5,
+                    bgcolor: isCrit ? 'rgba(239, 68, 68, 0.15)' : 'rgba(249, 115, 22, 0.15)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: themeColor
+                    color: themeColor,
                   }}
                 >
-                  <AlertTriangle size={18} />
+                  <AlertTriangle size={16} />
                 </Box>
                 <Chip
-                  label={areaName}
+                  label={sevLabel}
                   size="small"
                   sx={{
                     bgcolor: themeColor,
                     color: '#ffffff',
                     fontWeight: 900,
-                    fontSize: '0.68rem',
-                    height: 22
+                    fontSize: '0.62rem',
+                    height: 22,
                   }}
                 />
                 <Chip
-                  label={sevLabel}
+                  label={`🌊 ${alertDist} (${alertRiver})`}
                   size="small"
                   variant="outlined"
                   sx={{
-                    borderColor: themeColor,
-                    color: themeColor,
-                    fontWeight: 800,
+                    borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+                    color: isDark ? '#ffffff' : '#0f172a',
+                    fontWeight: 700,
                     fontSize: '0.62rem',
-                    height: 20
+                    height: 22,
                   }}
                 />
               </Box>
@@ -609,32 +769,35 @@ export default function EmergencyAlertSentinel() {
               <IconButton
                 size="small"
                 onClick={() => setToastPopupOpen(false)}
-                sx={{ color: 'text.secondary', p: 0.5 }}
+                sx={{ color: 'text.secondary', p: 0.5, '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' } }}
               >
                 <X size={16} />
               </IconButton>
             </Box>
 
-            <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.primary', mb: 0.5, lineHeight: 1.3 }}>
-              {activeAreaAlert.title}
+            {/* Title */}
+            <Typography variant="subtitle2" fontWeight={800} sx={{ color: isDark ? '#f8fafc' : '#0f172a', mb: 0.75, lineHeight: 1.35 }}>
+              {cleanTitle}
             </Typography>
 
+            {/* Body Message */}
             <Typography
               variant="caption"
               sx={{
-                color: 'text.secondary',
+                color: isDark ? '#94a3b8' : '#64748b',
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: 'vertical',
                 overflow: 'hidden',
                 mb: 1.5,
-                lineHeight: 1.4
+                lineHeight: 1.45,
               }}
             >
-              {activeAreaAlert.message || activeAreaAlert.description}
+              {activeAreaAlert.instructions || activeAreaAlert.message || activeAreaAlert.description}
             </Typography>
 
-            <Box display="flex" alignItems="center" justifyContent="space-between" gap={1} pt={1} borderTop="1px solid var(--border-color)">
+            {/* Footer Buttons */}
+            <Box display="flex" alignItems="center" justifyContent="space-between" gap={1} pt={1.25} borderTop={isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)'}>
               {isCrit && (
                 sirenPlaying ? (
                   <Button
@@ -643,9 +806,9 @@ export default function EmergencyAlertSentinel() {
                     color="error"
                     onClick={handleSilenceOnly}
                     startIcon={<VolumeX size={13} />}
-                    sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', py: 0.3, px: 1, borderRadius: 1.5 }}
+                    sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', py: 0.4, px: 1.25, borderRadius: 2 }}
                   >
-                    Mute
+                    Mute Siren
                   </Button>
                 ) : (
                   <Button
@@ -654,7 +817,7 @@ export default function EmergencyAlertSentinel() {
                     color="error"
                     onClick={handlePlaySiren}
                     startIcon={<Volume2 size={13} />}
-                    sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'none', py: 0.3, px: 1.2, borderRadius: 1.5 }}
+                    sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'none', py: 0.4, px: 1.25, borderRadius: 2 }}
                   >
                     🚨 Ring Siren
                   </Button>
@@ -676,11 +839,11 @@ export default function EmergencyAlertSentinel() {
                   fontSize: '0.72rem',
                   fontWeight: 800,
                   textTransform: 'none',
-                  py: 0.4,
-                  px: 1.5,
+                  py: 0.45,
+                  px: 1.75,
                   borderRadius: 2,
                   ml: 'auto',
-                  '&:hover': { bgcolor: themeColor }
+                  '&:hover': { bgcolor: themeColor },
                 }}
               >
                 View {areaName} Advisories
