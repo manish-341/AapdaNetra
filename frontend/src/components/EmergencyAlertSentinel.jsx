@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -208,6 +208,8 @@ function getBasinTelemetry(alert, liveWeather = null) {
 
 export default function EmergencyAlertSentinel() {
   const navigate = useNavigate();
+  const routeLocation = useLocation();
+  const isDashboard = routeLocation.pathname === '/' || routeLocation.pathname === '/dashboard';
   const { location, switchLocation } = useLocationContext();
   const { isDark } = useThemeMode();
 
@@ -222,6 +224,14 @@ export default function EmergencyAlertSentinel() {
   const [selectedRegionZone, setSelectedRegionZone] = useState('ALL');
   const [notificationsVersion, setNotificationsVersion] = useState(0);
   const [liveWeather, setLiveWeather] = useState(null);
+
+  // Stop siren immediately if navigating away from dashboard
+  useEffect(() => {
+    if (!isDashboard && isSirenActive()) {
+      stopEmergencySiren();
+      setSirenPlaying(false);
+    }
+  }, [isDashboard]);
 
   // Sync state when notifications are updated (read, cleared, restored)
   useEffect(() => {
@@ -388,8 +398,8 @@ export default function EmergencyAlertSentinel() {
           setToastPopupOpen(true);
         }
 
-        // Trigger acoustic siren when user is under/monitoring active critical hazard
-        if (!isAcknowledged && notifConfig.audioSiren !== false && !isSirenMutedByUser(critAlertId) && !isAudioGloballySilenced()) {
+        // Trigger acoustic siren when user is on dashboard and monitoring active critical hazard
+        if (isDashboard && !isAcknowledged && notifConfig.audioSiren !== false && !isSirenMutedByUser(critAlertId) && !isAudioGloballySilenced()) {
           playEmergencySiren(12000, false).then((started) => {
             if (started) setSirenPlaying(true);
           }).catch(() => {});
@@ -436,7 +446,7 @@ export default function EmergencyAlertSentinel() {
         stopEmergencySiren();
       }
     };
-  }, [location?.district, location?.name]);
+  }, [location?.district, location?.name, isDashboard]);
 
   const handleAcknowledgeAndSilence = () => {
     silenceEmergencySiren();
@@ -477,9 +487,9 @@ export default function EmergencyAlertSentinel() {
     };
   }, []);
 
-  // Automatic immediate siren trigger on active critical alert (persists mute state on tab switch)
+  // Automatic immediate siren trigger on active critical alert (only on dashboard, persists mute state on tab switch)
   useEffect(() => {
-    if (activeCriticalAlert) {
+    if (isDashboard && activeCriticalAlert) {
       const critId = activeCriticalAlert._id || activeCriticalAlert.id || activeCriticalAlert.title;
       if (isSirenMutedByUser(critId) || isAudioGloballySilenced()) {
         // User explicitly stopped or muted the siren - do NOT ring again on tab switch
@@ -511,7 +521,7 @@ export default function EmergencyAlertSentinel() {
         events.forEach((evt) => window.removeEventListener(evt, handleImmediateSiren, { capture: true }));
       };
     }
-  }, [activeCriticalAlert]);
+  }, [activeCriticalAlert, isDashboard]);
 
   // Keep siren stopped if muted when switching browser tabs (visibilitychange / focus)
   useEffect(() => {
@@ -661,8 +671,8 @@ export default function EmergencyAlertSentinel() {
 
   return (
     <>
-      {/* 1. CRITICAL CIVIL DEFENSE ALERT CARD (COMPACT VERTICAL PROFILE) */}
-      {activeCriticalAlert && !bannerDismissed && (() => {
+      {/* 1. CRITICAL CIVIL DEFENSE ALERT CARD (ONLY ON DASHBOARD, LIGHT/DARK RESPONSIVE) */}
+      {isDashboard && activeCriticalAlert && !bannerDismissed && (() => {
         const telemetry = getBasinTelemetry(activeCriticalAlert, liveWeather);
         const userSectorName = (location?.district || location?.name || 'Patna').trim();
         const cleanUserSector = userSectorName.charAt(0).toUpperCase() + userSectorName.slice(1);
@@ -674,10 +684,16 @@ export default function EmergencyAlertSentinel() {
               p: { xs: 1.5, sm: 1.75 },
               px: { xs: 2, sm: 2.75 },
               borderRadius: '14px',
-              background: 'linear-gradient(180deg, #430a0e 0%, #250406 100%)',
-              border: '1px solid rgba(239, 68, 68, 0.25)',
-              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
-              color: '#ffffff',
+              background: isDark
+                ? 'linear-gradient(180deg, #430a0e 0%, #250406 100%)'
+                : 'linear-gradient(180deg, #fff5f5 0%, #fee2e2 100%)',
+              border: isDark
+                ? '1px solid rgba(239, 68, 68, 0.25)'
+                : '1px solid rgba(239, 68, 68, 0.35)',
+              boxShadow: isDark
+                ? '0 12px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
+                : '0 8px 24px rgba(239, 68, 68, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)',
+              color: isDark ? '#ffffff' : '#1e293b',
               position: 'relative',
               overflow: 'hidden',
               transition: 'all 0.25s ease',
@@ -692,14 +708,14 @@ export default function EmergencyAlertSentinel() {
                     height: 8,
                     borderRadius: '50%',
                     bgcolor: '#ef4444',
-                    boxShadow: '0 0 8px #ef4444',
+                    boxShadow: isDark ? '0 0 8px #ef4444' : '0 0 8px rgba(239, 68, 68, 0.6)',
                     flexShrink: 0,
                   }}
                 />
                 <Typography
                   component="span"
                   sx={{
-                    color: '#ffffff',
+                    color: isDark ? '#ffffff' : '#dc2626',
                     fontWeight: 700,
                     fontSize: '0.88rem',
                     lineHeight: 1,
@@ -710,7 +726,7 @@ export default function EmergencyAlertSentinel() {
                 <Typography
                   component="span"
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.35)',
+                    color: isDark ? 'rgba(255, 255, 255, 0.35)' : 'rgba(15, 23, 42, 0.3)',
                     fontSize: '0.88rem',
                     lineHeight: 1,
                   }}
@@ -720,8 +736,8 @@ export default function EmergencyAlertSentinel() {
                 <Typography
                   component="span"
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.75)',
-                    fontWeight: 500,
+                    color: isDark ? 'rgba(255, 255, 255, 0.75)' : '#334155',
+                    fontWeight: 600,
                     fontSize: '0.88rem',
                     lineHeight: 1,
                   }}
@@ -733,9 +749,9 @@ export default function EmergencyAlertSentinel() {
               {/* Sub-header: Real-time Elapsed Time & Monitoring Sector */}
               <Typography
                 sx={{
-                  color: 'rgba(255, 255, 255, 0.45)',
+                  color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#64748b',
                   fontSize: '0.78rem',
-                  fontWeight: 400,
+                  fontWeight: 500,
                   lineHeight: 1,
                 }}
               >
@@ -746,7 +762,7 @@ export default function EmergencyAlertSentinel() {
             {/* Main Headline (Tight & bold) */}
             <Typography
               sx={{
-                color: '#ffffff',
+                color: isDark ? '#ffffff' : '#991b1b',
                 fontWeight: 800,
                 fontSize: { xs: '1.05rem', sm: '1.2rem' },
                 lineHeight: 1.25,
@@ -761,7 +777,7 @@ export default function EmergencyAlertSentinel() {
             {/* Narrative Context Description (Compact 1-2 lines) */}
             <Typography
               sx={{
-                color: 'rgba(255, 255, 255, 0.72)',
+                color: isDark ? 'rgba(255, 255, 255, 0.72)' : '#475569',
                 fontSize: '0.84rem',
                 lineHeight: 1.4,
                 mb: 1.25,
@@ -774,8 +790,9 @@ export default function EmergencyAlertSentinel() {
             {/* Inset Telemetry Gauges Strip (Vertically Slim, Single-line numbers) */}
             <Box
               sx={{
-                bgcolor: 'rgba(0, 0, 0, 0.45)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                bgcolor: isDark ? 'rgba(0, 0, 0, 0.45)' : 'rgba(255, 255, 255, 0.88)',
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(239, 68, 68, 0.2)',
+                boxShadow: isDark ? 'none' : '0 2px 8px rgba(239, 68, 68, 0.06)',
                 borderRadius: '10px',
                 py: 1,
                 px: { xs: 1.75, sm: 2.5 },
@@ -790,7 +807,7 @@ export default function EmergencyAlertSentinel() {
               <Box>
                 <Typography
                   sx={{
-                    color: '#ffffff',
+                    color: isDark ? '#ffffff' : '#0f172a',
                     fontSize: { xs: '1.25rem', sm: '1.45rem' },
                     fontWeight: 800,
                     lineHeight: 1,
@@ -803,7 +820,7 @@ export default function EmergencyAlertSentinel() {
                     sx={{
                       fontSize: '0.95rem',
                       fontWeight: 600,
-                      color: 'rgba(255, 255, 255, 0.85)',
+                      color: isDark ? 'rgba(255, 255, 255, 0.85)' : '#475569',
                     }}
                   >
                     {telemetry.unit}
@@ -811,7 +828,7 @@ export default function EmergencyAlertSentinel() {
                 </Typography>
                 <Typography
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.45)',
+                    color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#64748b',
                     fontSize: '0.74rem',
                     mt: 0.25,
                     fontWeight: 500,
@@ -825,7 +842,7 @@ export default function EmergencyAlertSentinel() {
               <Box>
                 <Typography
                   sx={{
-                    color: '#f59e0b',
+                    color: isDark ? '#f59e0b' : '#dc2626',
                     fontSize: { xs: '1.05rem', sm: '1.18rem' },
                     fontWeight: 800,
                     lineHeight: 1,
@@ -836,7 +853,7 @@ export default function EmergencyAlertSentinel() {
                 </Typography>
                 <Typography
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.45)',
+                    color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#64748b',
                     fontSize: '0.74rem',
                     mt: 0.25,
                     fontWeight: 500,
@@ -850,7 +867,7 @@ export default function EmergencyAlertSentinel() {
               <Box>
                 <Typography
                   sx={{
-                    color: '#f59e0b',
+                    color: isDark ? '#f59e0b' : '#dc2626',
                     fontSize: { xs: '1.05rem', sm: '1.18rem' },
                     fontWeight: 800,
                     lineHeight: 1,
@@ -861,7 +878,7 @@ export default function EmergencyAlertSentinel() {
                 </Typography>
                 <Typography
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.45)',
+                    color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#64748b',
                     fontSize: '0.74rem',
                     mt: 0.25,
                     fontWeight: 500,
@@ -885,9 +902,15 @@ export default function EmergencyAlertSentinel() {
                   onClick={handleToggleSiren}
                   startIcon={sirenPlaying ? <VolumeX size={15} /> : <Volume2 size={15} />}
                   sx={{
-                    bgcolor: sirenPlaying ? 'rgba(239, 68, 68, 0.28)' : 'rgba(255, 255, 255, 0.08)',
-                    border: sirenPlaying ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid rgba(255, 255, 255, 0.18)',
-                    color: '#ffffff',
+                    bgcolor: sirenPlaying
+                      ? (isDark ? 'rgba(239, 68, 68, 0.28)' : '#fee2e2')
+                      : (isDark ? 'rgba(255, 255, 255, 0.08)' : '#ffffff'),
+                    border: sirenPlaying
+                      ? (isDark ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid #ef4444')
+                      : (isDark ? '1px solid rgba(255, 255, 255, 0.18)' : '1px solid rgba(15, 23, 42, 0.18)'),
+                    color: sirenPlaying
+                      ? (isDark ? '#ffffff' : '#b91c1c')
+                      : (isDark ? '#ffffff' : '#1e293b'),
                     fontWeight: 600,
                     fontSize: '0.82rem',
                     textTransform: 'none',
@@ -897,10 +920,16 @@ export default function EmergencyAlertSentinel() {
                     whiteSpace: 'nowrap',
                     backdropFilter: 'blur(10px)',
                     transition: 'all 0.2s ease',
-                    boxShadow: sirenPlaying ? '0 0 12px rgba(239, 68, 68, 0.35)' : 'none',
+                    boxShadow: sirenPlaying
+                      ? (isDark ? '0 0 12px rgba(239, 68, 68, 0.35)' : '0 2px 8px rgba(239, 68, 68, 0.2)')
+                      : (isDark ? 'none' : '0 1px 3px rgba(0, 0, 0, 0.05)'),
                     '&:hover': {
-                      bgcolor: sirenPlaying ? 'rgba(239, 68, 68, 0.42)' : 'rgba(255, 255, 255, 0.16)',
-                      borderColor: sirenPlaying ? '#ef4444' : 'rgba(255, 255, 255, 0.3)',
+                      bgcolor: sirenPlaying
+                        ? (isDark ? 'rgba(239, 68, 68, 0.42)' : '#fecaca')
+                        : (isDark ? 'rgba(255, 255, 255, 0.16)' : '#f8fafc'),
+                      borderColor: sirenPlaying
+                        ? '#ef4444'
+                        : (isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(15, 23, 42, 0.3)'),
                     },
                   }}
                   title={sirenPlaying ? "Stop emergency siren (will stay silenced across tab switching)" : "Sound emergency siren"}
@@ -912,8 +941,8 @@ export default function EmergencyAlertSentinel() {
                 <Button
                   onClick={() => setModalOpen(true)}
                   sx={{
-                    bgcolor: '#ffffff',
-                    color: '#1a0505',
+                    bgcolor: isDark ? '#ffffff' : '#dc2626',
+                    color: isDark ? '#1a0505' : '#ffffff',
                     fontWeight: 700,
                     fontSize: '0.82rem',
                     textTransform: 'none',
@@ -921,10 +950,12 @@ export default function EmergencyAlertSentinel() {
                     px: 2.75,
                     py: 0.6,
                     whiteSpace: 'nowrap',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+                    boxShadow: isDark
+                      ? '0 2px 8px rgba(0, 0, 0, 0.25)'
+                      : '0 2px 8px rgba(220, 38, 38, 0.3)',
                     transition: 'all 0.2s ease',
                     '&:hover': {
-                      bgcolor: '#f3f4f6',
+                      bgcolor: isDark ? '#f3f4f6' : '#b91c1c',
                       transform: 'translateY(-1px)',
                     },
                   }}
@@ -940,12 +971,12 @@ export default function EmergencyAlertSentinel() {
                   setBannerDismissed(true);
                 }}
                 sx={{
-                  color: 'rgba(255, 255, 255, 0.5)',
+                  color: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(15, 23, 42, 0.45)',
                   p: 0.5,
                   flexShrink: 0,
                   '&:hover': {
-                    color: '#ffffff',
-                    bgcolor: 'rgba(255, 255, 255, 0.12)',
+                    color: isDark ? '#ffffff' : '#0f172a',
+                    bgcolor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.06)',
                   },
                 }}
                 title="Dismiss alert and stop siren"
@@ -957,8 +988,8 @@ export default function EmergencyAlertSentinel() {
         );
       })()}
 
-      {/* 2. REAL-TIME FLOATING ALERT POPUP TOAST (Shown when banner is not visible or for area advisories) */}
-      {toastPopupOpen && activeAreaAlert && !modalOpen && (!activeCriticalAlert || bannerDismissed) && (() => {
+      {/* 2. REAL-TIME FLOATING ALERT POPUP TOAST (Shown only on dashboard when banner is not visible or for area advisories) */}
+      {isDashboard && toastPopupOpen && activeAreaAlert && !modalOpen && (!activeCriticalAlert || bannerDismissed) && (() => {
         const isCrit = isTrueCriticalAlert(activeAreaAlert);
         const isHigh = activeAreaAlert.severity === 'HIGH' || activeAreaAlert.severity === 'RED';
         const themeColor = isCrit ? '#ef4444' : isHigh ? '#f97316' : '#0284c7';
