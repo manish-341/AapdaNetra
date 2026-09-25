@@ -121,10 +121,8 @@ export function initAudioUnlock() {
     } catch {}
   };
 
-  window.addEventListener('pointerdown', unlock, { capture: true, passive: true });
-  window.addEventListener('click', unlock, { capture: true, passive: true });
-  window.addEventListener('keydown', unlock, { capture: true, passive: true });
-  window.addEventListener('touchstart', unlock, { capture: true, passive: true });
+  const unlockEvents = ['pointerdown', 'click', 'keydown', 'touchstart', 'mousemove', 'scroll', 'wheel'];
+  unlockEvents.forEach(evt => window.addEventListener(evt, unlock, { capture: true, passive: true }));
 }
 
 if (typeof window !== 'undefined') {
@@ -210,14 +208,13 @@ function armOneTouchSirenUnlock(durationMs = 8000) {
   if (gestureUnlockArmed || typeof window === 'undefined') return;
   gestureUnlockArmed = true;
 
+  const events = ['pointerdown', 'click', 'keydown', 'touchstart', 'mousemove', 'pointermove', 'wheel', 'scroll', 'focus'];
+
   const onUserGesture = async () => {
     gestureUnlockArmed = false;
-    window.removeEventListener('pointerdown', onUserGesture, true);
-    window.removeEventListener('click', onUserGesture, true);
-    window.removeEventListener('keydown', onUserGesture, true);
-    window.removeEventListener('touchstart', onUserGesture, true);
+    events.forEach(evt => window.removeEventListener(evt, onUserGesture, true));
 
-    // Play native siren audio element on first touch
+    // Play native siren audio element on first touch/cursor move
     const audioElem = getSirenAudioElement();
     if (audioElem) {
       audioElem.currentTime = 0;
@@ -240,10 +237,7 @@ function armOneTouchSirenUnlock(durationMs = 8000) {
     }
   };
 
-  window.addEventListener('pointerdown', onUserGesture, { capture: true, once: true });
-  window.addEventListener('click', onUserGesture, { capture: true, once: true });
-  window.addEventListener('keydown', onUserGesture, { capture: true, once: true });
-  window.addEventListener('touchstart', onUserGesture, { capture: true, once: true });
+  events.forEach(evt => window.addEventListener(evt, onUserGesture, { capture: true, once: true }));
 }
 
 /**

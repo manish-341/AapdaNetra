@@ -38,7 +38,7 @@ import {
   Trash2,
   RotateCcw
 } from 'lucide-react';
-import { getAlerts, dispatchEmergencyAlert } from '../services/api';
+import { getAlerts, dispatchEmergencyAlert, getWeather } from '../services/api';
 import { playEmergencySiren, stopEmergencySiren, isSirenActive, unlockAudioContext } from '../utils/emergencyAudio';
 import { triggerDisasterNotification } from '../utils/emergencyNotification';
 import { useLocationContext } from '../context/LocationContext';
@@ -69,6 +69,19 @@ function getCleanAlertTitle(rawTitle = '') {
     .trim();
 }
 
+function formatRealtimeAgo(dateInput) {
+  if (!dateInput) return 'just now';
+  const diffMs = Math.max(0, Date.now() - new Date(dateInput).getTime());
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 45) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hr ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  return `${diffDays}d ago`;
+}
+
 function getAlertBasinInfo(alert) {
   if (!alert) return { district: 'Regional', river: 'River Basin' };
   const d = (alert.district || '').trim();
@@ -88,60 +101,74 @@ function getAlertBasinInfo(alert) {
   return { district, river };
 }
 
-function getBasinTelemetry(alert) {
+function getBasinTelemetry(alert, liveWeather = null) {
   const text = `${alert?.title || ''} ${alert?.description || ''} ${alert?.message || ''}`.toLowerCase();
+  const timeAgo = formatRealtimeAgo(alert?.updatedAt || alert?.createdAt);
+  const rainOffset = liveWeather?.rainfall ? Math.round(liveWeather.rainfall * 0.7) : 0;
+
   if (text.includes('kamla') || text.includes('balan') || text.includes('jhanjharpur') || text.includes('madhubani')) {
+    const rateVal = Math.max(6, 6 + rainOffset);
     return {
       basinName: 'Kamla-Balan Basin, Madhubani',
-      headline: 'Kamla-Balan river crosses the danger mark at Jhanjharpur',
-      body: 'Water has been rising for four days after persistent heavy rain. Embankment patrols have been reinforced along the affected stretch.',
+      headline: alert?.title ? getCleanAlertTitle(alert.title) : 'Kamla-Balan river crosses the danger mark at Jhanjharpur',
+      body: alert?.message || alert?.description || 'Water has been rising for four days after persistent heavy rain. Embankment patrols have been reinforced along the affected stretch.',
       level: '34.62',
       unit: 'm',
       aboveDanger: '+38 cm',
-      rate: '6 cm/hr'
+      rate: `${rateVal} cm/hr`,
+      timeAgo
     };
   }
-  if (text.includes('kosi') || text.includes('birpur') || text.includes('baltara') || text.includes('supaul')) {
+  if (text.includes('kosi') || text.includes('birpur') || text.includes('baltara') || text.includes('supaul') || text.includes('khagaria')) {
+    const rateVal = Math.max(8, 8 + rainOffset);
     return {
-      basinName: 'Kosi Basin, Supaul / Baltara',
-      headline: 'Kosi river surges beyond the danger mark at Birpur & Baltara',
-      body: 'Heavy cross-border Nepal catchment discharge has escalated river levels. Evacuation of low-lying diara settlements is underway.',
+      basinName: 'Kosi Basin, Supaul / Khagaria',
+      headline: alert?.title ? getCleanAlertTitle(alert.title) : 'Kosi river surges beyond the danger mark at Birpur & Baltara',
+      body: alert?.message || alert?.description || 'Heavy cross-border Nepal catchment discharge has escalated river levels. Evacuation of low-lying diara settlements is underway.',
       level: '72.85',
       unit: 'm',
       aboveDanger: '+65 cm',
-      rate: '8 cm/hr'
+      rate: `${rateVal} cm/hr`,
+      timeAgo
     };
   }
   if (text.includes('ganga') || text.includes('sultanganj') || text.includes('bhagalpur') || text.includes('patna')) {
+    const rateVal = Math.max(4, 4 + rainOffset);
     return {
       basinName: 'Ganga Basin, Bhagalpur / Patna',
-      headline: 'River Ganga surpasses danger mark at Sultanganj & Patna monitoring points',
-      body: 'Continuous upstream monsoon swell has pushed water levels over danger stages. Riverside ghats and low-lying plains under evacuation alert.',
+      headline: alert?.title ? getCleanAlertTitle(alert.title) : 'River Ganga surpasses danger mark at Sultanganj & Patna monitoring points',
+      body: alert?.message || alert?.description || 'Continuous upstream monsoon swell has pushed water levels over danger stages. Riverside ghats and low-lying plains under evacuation alert.',
       level: '50.12',
       unit: 'm',
       aboveDanger: '+28 cm',
-      rate: '4 cm/hr'
+      rate: `${rateVal} cm/hr`,
+      timeAgo
     };
   }
   if (text.includes('bagmati') || text.includes('benibad') || text.includes('muzaffarpur')) {
+    const rateVal = Math.max(5, 5 + rainOffset);
     return {
       basinName: 'Bagmati Basin, Muzaffarpur',
-      headline: 'Bagmati river breaches danger mark at Benibad',
-      body: 'Intense rain across northern catchments has triggered rapid water level surge. SDRF boat teams pre-positioned.',
+      headline: alert?.title ? getCleanAlertTitle(alert.title) : 'Bagmati river breaches danger mark at Benibad',
+      body: alert?.message || alert?.description || 'Intense rain across northern catchments has triggered rapid water level surge. SDRF boat teams pre-positioned.',
       level: '49.30',
       unit: 'm',
       aboveDanger: '+45 cm',
-      rate: '5 cm/hr'
+      rate: `${rateVal} cm/hr`,
+      timeAgo
     };
   }
+
+  const dist = alert?.district ? alert.district.charAt(0).toUpperCase() + alert.district.slice(1) : 'River';
   return {
-    basinName: `${alert?.district ? alert.district.charAt(0).toUpperCase() + alert.district.slice(1) : 'River'} Basin, Regional Sector`,
+    basinName: `${dist} Basin, Regional Sector`,
     headline: getCleanAlertTitle(alert?.title || 'River crosses official danger stage'),
-    body: alert?.description || alert?.message || 'Water has been rising after persistent heavy precipitation. Civil defense and embankment patrols active.',
-    level: '34.62',
+    body: alert?.message || alert?.description || 'Water has been rising after persistent heavy precipitation. Civil defense and embankment patrols active.',
+    level: alert?.waterLevel ? String(alert.waterLevel) : '34.62',
     unit: 'm',
-    aboveDanger: '+38 cm',
-    rate: '6 cm/hr'
+    aboveDanger: alert?.aboveDanger ? `+${alert.aboveDanger} cm` : '+38 cm',
+    rate: alert?.rateOfRise ? `${alert.rateOfRise} cm/hr` : `${Math.max(5, 5 + rainOffset)} cm/hr`,
+    timeAgo
   };
 }
 
@@ -160,6 +187,7 @@ export default function EmergencyAlertSentinel() {
   const [zoneCategory, setZoneCategory] = useState('ALL'); // 'ALL' | 'CRITICAL' | 'RED' | 'AMBER' | 'GREEN' | 'LOCAL'
   const [selectedRegionZone, setSelectedRegionZone] = useState('ALL');
   const [notificationsVersion, setNotificationsVersion] = useState(0);
+  const [liveWeather, setLiveWeather] = useState(null);
 
   // Sync state when notifications are updated (read, cleared, restored)
   useEffect(() => {
@@ -240,6 +268,17 @@ export default function EmergencyAlertSentinel() {
         setAlerts(alertsList);
         // Timely sync across Navbar and active map cards
         window.dispatchEvent(new CustomEvent('alerts-updated', { detail: alertsList }));
+
+        // Fetch live realtime weather telemetry for active district
+        try {
+          const lat = location?.lat || 25.5941;
+          const lon = location?.lng || 85.1376;
+          getWeather(lat, lon).then((wRes) => {
+            if (isMounted && wRes.data?.data) {
+              setLiveWeather(wRes.data.data);
+            }
+          }).catch(() => {});
+        } catch {}
 
         const currentLocKey = (location?.district || location?.name || '').toLowerCase().trim();
 
@@ -402,26 +441,30 @@ export default function EmergencyAlertSentinel() {
     };
   }, []);
 
-  // Automatic first-interaction siren trigger: browsers block audio until 1st user gesture
+  // Automatic immediate siren trigger on active critical alert
   useEffect(() => {
     if (activeCriticalAlert) {
-      const handleUserGesture = async () => {
+      // 1. Immediately attempt autoplay
+      playEmergencySiren(15000, true).then((played) => {
+        if (played) setSirenPlaying(true);
+      }).catch(() => {});
+
+      // 2. Attach capture-phase gesture unlock on ANY user gesture or cursor movement
+      const handleImmediateSiren = async () => {
         try {
           await unlockAudioContext();
-          await playEmergencySiren(12000, true);
+          await playEmergencySiren(15000, true);
+          setSirenPlaying(true);
         } catch (e) {
           console.warn('[Emergency Sentinel] Siren gesture trigger error:', e);
         }
       };
 
-      window.addEventListener('pointerdown', handleUserGesture, { once: true, capture: true });
-      window.addEventListener('click', handleUserGesture, { once: true, capture: true });
-      window.addEventListener('keydown', handleUserGesture, { once: true, capture: true });
+      const events = ['pointerdown', 'click', 'keydown', 'touchstart', 'mousemove', 'scroll', 'wheel'];
+      events.forEach((evt) => window.addEventListener(evt, handleImmediateSiren, { once: true, capture: true }));
 
       return () => {
-        window.removeEventListener('pointerdown', handleUserGesture, { capture: true });
-        window.removeEventListener('click', handleUserGesture, { capture: true });
-        window.removeEventListener('keydown', handleUserGesture, { capture: true });
+        events.forEach((evt) => window.removeEventListener(evt, handleImmediateSiren, { capture: true }));
       };
     }
   }, [activeCriticalAlert]);
@@ -435,7 +478,7 @@ export default function EmergencyAlertSentinel() {
   const handlePlaySiren = async (e) => {
     if (e && e.stopPropagation) e.stopPropagation();
     await unlockAudioContext();
-    await playEmergencySiren(12000, true);
+    await playEmergencySiren(15000, true);
     setSirenPlaying(true);
   };
 
@@ -550,159 +593,159 @@ export default function EmergencyAlertSentinel() {
 
   return (
     <>
-      {/* 1. CRITICAL CIVIL DEFENSE ALERT CARD (EXACT REPRODUCTION OF USER SPECIFICATION) */}
+      {/* 1. CRITICAL CIVIL DEFENSE ALERT CARD (COMPACT VERTICAL PROFILE) */}
       {activeCriticalAlert && !bannerDismissed && (() => {
-        const telemetry = getBasinTelemetry(activeCriticalAlert);
+        const telemetry = getBasinTelemetry(activeCriticalAlert, liveWeather);
         const userSectorName = (location?.district || location?.name || 'Patna').trim();
         const cleanUserSector = userSectorName.charAt(0).toUpperCase() + userSectorName.slice(1);
 
         return (
           <Box
             sx={{
-              mb: 3,
-              p: { xs: 2.25, sm: 3 },
-              px: { xs: 2.5, sm: 3.5 },
-              borderRadius: '16px',
+              mb: 2,
+              p: { xs: 1.5, sm: 1.75 },
+              px: { xs: 2, sm: 2.75 },
+              borderRadius: '14px',
               background: 'linear-gradient(180deg, #430a0e 0%, #250406 100%)',
-              border: '1px solid rgba(239, 68, 68, 0.22)',
-              boxShadow: '0 20px 48px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
               color: '#ffffff',
               position: 'relative',
               overflow: 'hidden',
-              transition: 'all 0.3s ease',
+              transition: 'all 0.25s ease',
             }}
           >
-            {/* Header: Critical Dot & Basin Name */}
-            <Box display="flex" alignItems="center" gap={1} mb={0.4}>
-              <Box
-                sx={{
-                  width: 8.5,
-                  height: 8.5,
-                  borderRadius: '50%',
-                  bgcolor: '#ef4444',
-                  boxShadow: '0 0 10px #ef4444',
-                  flexShrink: 0,
-                }}
-              />
+            {/* Top Row: Critical Beacon Dot + Basin Name on Left, Realtime Updated Info on Right */}
+            <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={0.4}>
+              <Box display="flex" alignItems="center" gap={0.85}>
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: '#ef4444',
+                    boxShadow: '0 0 8px #ef4444',
+                    flexShrink: 0,
+                  }}
+                />
+                <Typography
+                  component="span"
+                  sx={{
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: '0.88rem',
+                    lineHeight: 1,
+                  }}
+                >
+                  Critical
+                </Typography>
+                <Typography
+                  component="span"
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.35)',
+                    fontSize: '0.88rem',
+                    lineHeight: 1,
+                  }}
+                >
+                  ·
+                </Typography>
+                <Typography
+                  component="span"
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.75)',
+                    fontWeight: 500,
+                    fontSize: '0.88rem',
+                    lineHeight: 1,
+                  }}
+                >
+                  {telemetry.basinName}
+                </Typography>
+              </Box>
+
+              {/* Sub-header: Real-time Elapsed Time & Monitoring Sector */}
               <Typography
-                component="span"
                 sx={{
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  fontSize: '0.94rem',
+                  color: 'rgba(255, 255, 255, 0.45)',
+                  fontSize: '0.78rem',
+                  fontWeight: 400,
                   lineHeight: 1,
-                  letterSpacing: '0.01em',
                 }}
               >
-                Critical
-              </Typography>
-              <Typography
-                component="span"
-                sx={{
-                  color: 'rgba(255, 255, 255, 0.38)',
-                  fontSize: '0.94rem',
-                  lineHeight: 1,
-                }}
-              >
-                ·
-              </Typography>
-              <Typography
-                component="span"
-                sx={{
-                  color: 'rgba(255, 255, 255, 0.72)',
-                  fontWeight: 500,
-                  fontSize: '0.94rem',
-                  lineHeight: 1,
-                }}
-              >
-                {telemetry.basinName}
+                Updated {telemetry.timeAgo} · monitored from {cleanUserSector}
               </Typography>
             </Box>
 
-            {/* Sub-header: Updated time & Monitoring Sector */}
+            {/* Main Headline (Tight & bold) */}
             <Typography
-              sx={{
-                color: 'rgba(255, 255, 255, 0.45)',
-                fontSize: '0.82rem',
-                mb: 2.25,
-                fontWeight: 400,
-              }}
-            >
-              Updated 3 min ago · monitored from {cleanUserSector}
-            </Typography>
-
-            {/* Main Headline */}
-            <Typography
-              variant="h5"
               sx={{
                 color: '#ffffff',
                 fontWeight: 800,
-                fontSize: { xs: '1.25rem', sm: '1.45rem' },
-                lineHeight: 1.3,
+                fontSize: { xs: '1.05rem', sm: '1.2rem' },
+                lineHeight: 1.25,
+                mt: 0.6,
+                mb: 0.35,
                 letterSpacing: '-0.01em',
-                mb: 1.25,
               }}
             >
               {telemetry.headline}
             </Typography>
 
-            {/* Narrative / Context Description */}
+            {/* Narrative Context Description (Compact 1-2 lines) */}
             <Typography
               sx={{
-                color: 'rgba(255, 255, 255, 0.75)',
-                fontSize: '0.93rem',
-                lineHeight: 1.55,
-                mb: 2.75,
-                maxWidth: '820px',
+                color: 'rgba(255, 255, 255, 0.72)',
+                fontSize: '0.84rem',
+                lineHeight: 1.4,
+                mb: 1.25,
+                maxWidth: '850px',
               }}
             >
               {telemetry.body}
             </Typography>
 
-            {/* Inset Telemetry Gauges Strip */}
+            {/* Inset Telemetry Gauges Strip (Vertically Slim, Single-line numbers) */}
             <Box
               sx={{
-                bgcolor: 'rgba(0, 0, 0, 0.42)',
+                bgcolor: 'rgba(0, 0, 0, 0.45)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '12px',
-                p: { xs: 1.75, sm: 2.25 },
-                px: { xs: 2.25, sm: 3 },
-                mb: 2.75,
+                borderRadius: '10px',
+                py: 1,
+                px: { xs: 1.75, sm: 2.5 },
+                mb: 1.5,
                 display: 'grid',
-                gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: '1fr 1fr 1fr' },
-                gap: { xs: 1.5, sm: 3 },
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: 1.5,
                 alignItems: 'center',
               }}
             >
               {/* Metric 1: Current Level */}
               <Box>
-                <Box display="flex" alignItems="baseline" gap={0.75}>
-                  <Typography
+                <Typography
+                  sx={{
+                    color: '#ffffff',
+                    fontSize: { xs: '1.25rem', sm: '1.45rem' },
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {telemetry.level}{' '}
+                  <Box
+                    component="span"
                     sx={{
-                      color: '#ffffff',
-                      fontSize: { xs: '1.5rem', sm: '1.85rem' },
-                      fontWeight: 800,
-                      lineHeight: 1,
-                    }}
-                  >
-                    {telemetry.level}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      color: '#ffffff',
-                      fontSize: { xs: '1.15rem', sm: '1.35rem' },
-                      fontWeight: 700,
-                      lineHeight: 1,
+                      fontSize: '0.95rem',
+                      fontWeight: 600,
+                      color: 'rgba(255, 255, 255, 0.85)',
                     }}
                   >
                     {telemetry.unit}
-                  </Typography>
-                </Box>
+                  </Box>
+                </Typography>
                 <Typography
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.42)',
-                    fontSize: '0.8rem',
-                    mt: 0.75,
+                    color: 'rgba(255, 255, 255, 0.45)',
+                    fontSize: '0.74rem',
+                    mt: 0.25,
                     fontWeight: 500,
                   }}
                 >
@@ -715,18 +758,19 @@ export default function EmergencyAlertSentinel() {
                 <Typography
                   sx={{
                     color: '#f59e0b',
-                    fontSize: { xs: '1.1rem', sm: '1.25rem' },
+                    fontSize: { xs: '1.05rem', sm: '1.18rem' },
                     fontWeight: 800,
                     lineHeight: 1,
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   ▲ {telemetry.aboveDanger}
                 </Typography>
                 <Typography
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.42)',
-                    fontSize: '0.8rem',
-                    mt: 0.75,
+                    color: 'rgba(255, 255, 255, 0.45)',
+                    fontSize: '0.74rem',
+                    mt: 0.25,
                     fontWeight: 500,
                   }}
                 >
@@ -739,18 +783,19 @@ export default function EmergencyAlertSentinel() {
                 <Typography
                   sx={{
                     color: '#f59e0b',
-                    fontSize: { xs: '1.1rem', sm: '1.25rem' },
+                    fontSize: { xs: '1.05rem', sm: '1.18rem' },
                     fontWeight: 800,
                     lineHeight: 1,
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {telemetry.rate}
                 </Typography>
                 <Typography
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.42)',
-                    fontSize: '0.8rem',
-                    mt: 0.75,
+                    color: 'rgba(255, 255, 255, 0.45)',
+                    fontSize: '0.74rem',
+                    mt: 0.25,
                     fontWeight: 500,
                   }}
                 >
@@ -759,29 +804,28 @@ export default function EmergencyAlertSentinel() {
               </Box>
             </Box>
 
-            {/* Bottom Actions Row */}
+            {/* Bottom Actions Row (Guaranteed single-row flex with close ✕ on far right) */}
             <Box
               display="flex"
               alignItems="center"
               justifyContent="space-between"
-              flexWrap="wrap"
-              gap={2}
+              gap={1.5}
             >
-              <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+              <Box display="flex" alignItems="center" gap={1.25}>
                 {/* Mute Siren / Sound Siren Pill Button */}
                 <Button
                   onClick={handleToggleSiren}
                   sx={{
                     bgcolor: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid rgba(255, 255, 255, 0.16)',
+                    border: '1px solid rgba(255, 255, 255, 0.18)',
                     color: '#ffffff',
                     fontWeight: 600,
-                    fontSize: '0.9rem',
+                    fontSize: '0.82rem',
                     textTransform: 'none',
-                    borderRadius: '24px',
-                    px: 3.5,
-                    py: 1.1,
-                    minWidth: '135px',
+                    borderRadius: '20px',
+                    px: 2.25,
+                    py: 0.6,
+                    whiteSpace: 'nowrap',
                     backdropFilter: 'blur(10px)',
                     transition: 'all 0.2s ease',
                     '&:hover': {
@@ -800,17 +844,17 @@ export default function EmergencyAlertSentinel() {
                     bgcolor: '#ffffff',
                     color: '#1a0505',
                     fontWeight: 700,
-                    fontSize: '0.9rem',
+                    fontSize: '0.82rem',
                     textTransform: 'none',
-                    borderRadius: '24px',
-                    px: 4,
-                    py: 1.1,
-                    boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+                    borderRadius: '20px',
+                    px: 2.75,
+                    py: 0.6,
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
                     transition: 'all 0.2s ease',
                     '&:hover': {
                       bgcolor: '#f3f4f6',
                       transform: 'translateY(-1px)',
-                      boxShadow: '0 6px 18px rgba(0, 0, 0, 0.35)',
                     },
                   }}
                 >
@@ -818,20 +862,21 @@ export default function EmergencyAlertSentinel() {
                 </Button>
               </Box>
 
-              {/* Close ✕ Button */}
+              {/* Close ✕ Button (Never wraps) */}
               <IconButton
                 onClick={() => setBannerDismissed(true)}
                 sx={{
-                  color: 'rgba(255, 255, 255, 0.45)',
-                  p: 0.75,
+                  color: 'rgba(255, 255, 255, 0.5)',
+                  p: 0.5,
+                  flexShrink: 0,
                   '&:hover': {
                     color: '#ffffff',
-                    bgcolor: 'rgba(255, 255, 255, 0.1)',
+                    bgcolor: 'rgba(255, 255, 255, 0.12)',
                   },
                 }}
                 title="Dismiss alert"
               >
-                <X size={20} />
+                <X size={18} />
               </IconButton>
             </Box>
           </Box>
